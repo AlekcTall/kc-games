@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Профиль игрока – Геймификация КЦ</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .public-profile-box {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 1rem;
+      color: var(--color-primary);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">КЦ-Игры</a>
+  <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
+      <nav class="nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link">Главная</a></li>
+          <li><a href="games.html" class="nav__link">Игры</a></li>
+          <li><a href="leaderboard.html" class="nav__link active">Рейтинг</a></li>
+          <li><a href="profile.html" class="nav__link">Профиль</a></li>
+          <li><a href="admin.html" class="nav__link">Админ</a></li>
+        </ul>
+      </nav>
+      <div id="auth-status" class="auth-status"></div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container" id="public-profile-container">
+      <!-- Заполнится скриптом -->
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>© 2025 Контактный центр. Геймификация труда.</p>
+    </div>
+  </footer>
+
+<script src="js/storage.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/easter-eggs.js"></script>
+<script src="js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('public-profile-container');
+      const params = new URLSearchParams(window.location.search);
+      const userId = params.get('id');
+
+      if (!userId) {
+        container.innerHTML = '<p>Пользователь не указан.</p>';
+        return;
+      }
+
+      const users = getUsers();
+      const user = users.find(u => u.id == userId);
+
+      if (!user) {
+        container.innerHTML = '<p>Пользователь не найден.</p>';
+        return;
+      }
+
+      const achievementsConfig = getAchievementsConfig();
+      const unlockedAch = user.achievements || [];
+
+      container.innerHTML = `
+        <div class="public-profile-box">
+          <div class="profile-header">
+            <img src="${user.avatar || 'assets/default-avatar.png'}" alt="Аватар" class="profile-avatar" onerror="this.src='assets/default-avatar.png'">
+            <div>
+              <h2>${user.username}</h2>
+              <span class="badge badge-${user.role}">${user.role}</span>
+            </div>
+          </div>
+          <div class="profile-details">
+            <p><strong>Баллы:</strong> ${user.points}</p>
+            <p><strong>О себе:</strong> ${user.description || '—'}</p>
+<p><strong>Отдел:</strong> ${user.department || '—'}</p>
+          </div>
+          <div class="profile-achievements">
+            <h3>Достижения (${unlockedAch.length}/${achievementsConfig.length})</h3>
+            <div class="achievements-grid">
+              ${achievementsConfig.map(ach => {
+                const unlocked = unlockedAch.includes(ach.id);
+                const hidden = ach.hidden && !unlocked;
+                return `
+                  <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
+                    <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
+                    <span class="ach-name">${hidden ? '???' : ach.name}</span>
+                    ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+          <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
+        </div>
+      `;
+    });
+  </script>
+</body>
+</html>

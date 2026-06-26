@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Игры – Геймификация КЦ</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">КЦ-Игры</a>
+  <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
+      <nav class="nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link">Главная</a></li>
+          <li><a href="games.html" class="nav__link active">Игры</a></li>
+          <li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li>
+          <li><a href="profile.html" class="nav__link">Профиль</a></li>
+          <li><a href="admin.html" class="nav__link">Админ</a></li>
+        </ul>
+      </nav>
+      <div id="auth-status" class="auth-status"></div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <h2>Доступные игры</h2>
+      <div id="games-grid" class="games-grid">
+        <!-- Карточки будут сгенерированы скриптом -->
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>© 2025 Контактный центр. Геймификация труда.</p>
+    </div>
+  </footer>
+
+<script src="js/storage.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/easter-eggs.js"></script>
+<script src="js/main.js"></script>
+  <script>
+    function renderGames() {
+      const grid = document.getElementById('games-grid');
+      if (!grid) return;
+
+      const gamesData = getGames(); // из localStorage
+
+      if (gamesData.length === 0) {
+        grid.innerHTML = '<p>Пока нет игр. Загляните позже!</p>';
+        return;
+      }
+
+      let html = '';
+      gamesData.forEach(game => {
+        html += `
+          <div class="game-card">
+            <div class="game-card__icon">${game.icon}</div>
+            <h3 class="game-card__title">${game.title}</h3>
+            <p class="game-card__desc">${game.description}</p>
+            <button class="btn game-card__btn" data-game-id="${game.id}">Играть</button>
+          </div>
+        `;
+      });
+      grid.innerHTML = html;
+
+      // Назначаем обработчики один раз
+      document.querySelectorAll('.game-card__btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const gameId = e.target.dataset.gameId;
+          const gamesData = getGames();
+          const game = gamesData.find(g => g.id === gameId);
+          if (game) {
+            if (game.url) {
+              window.location.href = game.url;
+            } else {
+              alert(`Игра "${game.title}" ещё не добавлена.`);
+            }
+          }
+        });
+      });
+    }
+
+    // Запускаем рендер после загрузки DOM
+    document.addEventListener('DOMContentLoaded', renderGames);
+  </script>
+
+</body>
+</html>

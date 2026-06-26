@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Геймификация КЦ</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Шапка с навигацией -->
+  <header class="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">КЦ-Игры</a>
+  <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
+      <nav class="nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link active">Главная</a></li>
+          <li><a href="games.html" class="nav__link">Игры</a></li>
+          <li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li>
+          <li><a href="profile.html" class="nav__link">Профиль</a></li>
+          <li><a href="admin.html" class="nav__link">Админ</a></li>
+        </ul>
+      </nav>
+<div id="auth-status" class="auth-status"></div>
+    </div>
+  </header>
+
+  <!-- Основной контент -->
+  <main class="main">
+  <div class="container">
+    
+    <!-- Приветственный блок (уже был, оставим) -->
+    <section class="welcome">
+      <h1>Добро пожаловать в Корпоративный Портал Игр</h1>
+      <p>Играй, зарабатывай баллы и соревнуйся с коллегами из контактного центра!</p>
+      <a href="games.html" class="btn">Перейти к играм</a>
+<span id="secret-symbol" class="secret-symbol">🔮</span>
+    </section>
+
+    <!-- Правила начисления баллов -->
+    <section class="rules">
+      <h2>Как заработать баллы?</h2>
+      <div class="rules__grid">
+        <div class="rule-card">
+          <span class="rule-card__icon">🎮</span>
+          <h3>Играйте в игры</h3>
+          <p>Каждая пройденная аркада приносит определённое количество баллов. Чем сложнее игра, тем больше награда.</p>
+        </div>
+        <div class="rule-card">
+          <span class="rule-card__icon">🏆</span>
+          <h3>Выполняйте достижения</h3>
+          <p>Особые задания и скрытые пасхалки дают дополнительные баллы. Ищите их на сайте!</p>
+        </div>
+        <div class="rule-card">
+          <span class="rule-card__icon">📅</span>
+          <h3>Ежедневные бонусы</h3>
+          <p>Заходите каждый день и получайте бонусные очки за активность (в разработке).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ (вопрос-ответ) -->
+    <section class="faq">
+      <h2>Часто задаваемые вопросы</h2>
+      <div class="faq__list">
+        
+        <div class="faq-item">
+          <button class="faq-item__question">
+            <span>Как зарегистрироваться?</span>
+            <span class="faq-item__arrow">▼</span>
+          </button>
+          <div class="faq-item__answer">
+            <p>Перейдите на страницу «Профиль» и заполните простую форму. Пока используется временная регистрация (локальное хранилище), позже появится полноценный вход.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-item__question">
+            <span>Можно ли играть без регистрации?</span>
+            <span class="faq-item__arrow">▼</span>
+          </button>
+          <div class="faq-item__answer">
+            <p>Да, вы можете открывать игры и пробовать их, но баллы будут начислены только после входа в профиль. Для участия в рейтинге регистрация обязательна.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-item__question">
+            <span>Как работает таблица лидеров?</span>
+            <span class="faq-item__arrow">▼</span>
+          </button>
+          <div class="faq-item__answer">
+            <p>Рейтинг обновляется автоматически после прохождения игр. Вы видите топ-участников по сумме баллов. В будущем добавим фильтры по неделям и отдельным играм.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-item__question">
+            <span>Кто может добавлять новые игры?</span>
+            <span class="faq-item__arrow">▼</span>
+          </button>
+          <div class="faq-item__answer">
+            <p>Только администратор через специальную панель. Если у вас есть идея для игры, обратитесь к администратору.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+</main>
+
+  <!-- Подвал -->
+  <footer class="footer">
+    <div class="container">
+      <p>© 2025 Контактный центр. Геймификация труда.</p>
+    </div>
+  </footer>
+<script src="js/storage.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/easter-eggs.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

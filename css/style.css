@@ -1,0 +1,836 @@
+/* Базовые переменные */
+:root {
+  --color-bg: #f5f7fa;
+  --color-header: #2c3e50;
+  --color-primary: #3498db;
+  --color-accent: #e67e22;
+  --color-text: #333;
+  --color-white: #fff;
+  --border-radius: 8px;
+  --max-width: 1200px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Шапка */
+.header {
+  background: var(--color-header);
+  color: var(--color-white);
+  padding: 1rem 0;
+}
+
+.header__inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--color-white);
+  text-decoration: none;
+}
+
+.nav__list {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.nav__link {
+  color: var(--color-white);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.nav__link:hover,
+.nav__link.active {
+  color: var(--color-accent);
+}
+
+/* Основной контент */
+.main {
+  flex: 1;
+  padding: 2rem 0;
+}
+
+.welcome {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--color-white);
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.welcome h1 {
+  margin-bottom: 1rem;
+  font-size: 2rem;
+}
+
+.welcome p {
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+/* Кнопка */
+.btn {
+  display: inline-block;
+  background: var(--color-primary);
+  color: var(--color-white);
+  padding: 0.75rem 1.5rem;
+  text-decoration: none;
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  transition: background 0.3s;
+}
+
+.btn:hover {
+  background: #2980b9;
+}
+
+/* Подвал */
+.footer {
+  background: var(--color-header);
+  color: var(--color-white);
+  text-align: center;
+  padding: 1rem 0;
+  margin-top: auto;
+}
+/* ===== Правила (карточки) ===== */
+.rules {
+  margin-top: 2rem;
+}
+
+.rules h2 {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.rules__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.rule-card {
+  background: var(--color-white);
+  padding: 1.5rem;
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.rule-card:hover {
+  transform: translateY(-5px);
+}
+
+.rule-card__icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.rule-card h3 {
+  margin-bottom: 0.5rem;
+  color: var(--color-header);
+}
+
+/* ===== FAQ (аккордеон) ===== */
+.faq {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.faq h2 {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.faq__list {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.faq-item {
+  background: var(--color-white);
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+
+.faq-item__question {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-header);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.faq-item__question:hover {
+  background: #f0f4f8;
+}
+
+.faq-item__arrow {
+  font-size: 0.8rem;
+  transition: transform 0.3s;
+}
+
+/* Открытый вопрос — стрелка поворачивается */
+.faq-item.active .faq-item__arrow {
+  transform: rotate(180deg);
+}
+
+.faq-item__answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease-out, padding 0.4s;
+  padding: 0 1.5rem;
+  background: #fafbfc;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.faq-item.active .faq-item__answer {
+  max-height: 200px; /* Достаточно для текста */
+  padding: 1rem 1.5rem;
+}
+
+.faq-item__answer p {
+  margin: 0;
+}
+/* ===== Профиль ===== */
+.auth-box,
+.profile-box {
+  max-width: 500px;
+  margin: 0 auto;
+  background: var(--color-white);
+  padding: 2rem;
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid #ddd;
+  background: #f0f0f0;
+  cursor: pointer;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.auth-tab.active {
+  background: var(--color-white);
+  border-bottom-color: var(--color-white);
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.auth-message {
+  color: #c0392b;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eee;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-admin {
+  background: #e74c3c;
+  color: white;
+}
+
+.badge-moderator {
+  background: #f39c12;
+  color: white;
+}
+
+.badge-user {
+  background: #3498db;
+  color: white;
+}
+
+.profile-details {
+  margin-bottom: 1.5rem;
+  line-height: 1.8;
+}
+
+.profile-edit {
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  margin-bottom: 1rem;
+}
+
+.profile-edit h3 {
+  margin-bottom: 0.8rem;
+}
+
+.btn-logout {
+  background: #95a5a6;
+  margin-top: 1rem;
+}
+
+.btn-logout:hover {
+  background: #7f8c8d;
+}
+/* ===== Статус авторизации в шапке ===== */
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auth-greeting {
+  color: white;
+  font-size: 0.95rem;
+}
+
+.auth-login-link {
+  color: white;
+  text-decoration: none;
+  border: 1px solid white;
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.auth-login-link:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.btn-logout-header {
+  background: transparent;
+  border: 1px solid #e67e22;
+  color: #e67e22;
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.btn-logout-header:hover {
+  background: rgba(230,126,34,0.2);
+}
+/* ===== Таблица лидеров ===== */
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-white);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  margin-top: 1rem;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 0.8rem 1rem;
+  text-align: left;
+}
+
+.leaderboard-table thead {
+  background: var(--color-header);
+  color: white;
+}
+
+.leaderboard-table tbody tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+.place-cell {
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.player-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.player-avatar-small {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eee;
+}
+/* ===== Карточки игр ===== */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.game-card {
+  background: var(--color-white);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+
+.game-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+
+.game-card__icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.game-card__title {
+  margin-bottom: 0.5rem;
+  color: var(--color-header);
+}
+
+.game-card__desc {
+  font-size: 0.9rem;
+  color: #555;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.game-card__btn {
+  width: 100%;
+}
+/* ===== Админ-панель ===== */
+.admin-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+.admin-tab {
+  padding: 0.5rem 1.5rem;
+  background: #eee;
+  border: none;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.admin-tab.active {
+  background: var(--color-white);
+  box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+}
+
+.admin-content {
+  background: var(--color-white);
+  padding: 1.5rem;
+  border-radius: 0 var(--border-radius) var(--border-radius) var(--border-radius);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.admin-game-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-game-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-game-icon {
+  font-size: 2rem;
+}
+
+.admin-game-actions button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  margin-left: 0.3rem;
+}
+
+.btn-cancel {
+  background: #aaa;
+  margin-left: 0.5rem;
+}
+
+.btn-cancel:hover {
+  background: #888;
+}
+
+.admin-users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-users-table th,
+.admin-users-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
+.btn-save-role {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-save-role:hover {
+  background: #2980b9;
+}
+/* ===== Достижения в профиле ===== */
+.profile-achievements {
+  margin-top: 1.5rem;
+}
+
+.achievements-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.achievement-item {
+  background: #f0f0f0;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  position: relative;
+  cursor: default;
+}
+
+.achievement-item.unlocked {
+  background: #e6f7e6;
+  border: 1px solid #b7d4b7;
+}
+
+.achievement-item.locked .ach-icon {
+  opacity: 0.5;
+}
+
+.ach-hint {
+  display: none;
+  position: absolute;
+  bottom: 120%;
+  left: 0;
+  background: #333;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  z-index: 10;
+}
+
+.achievement-item:hover .ach-hint {
+  display: block;
+}
+/* ===== Ссылка на публичный профиль ===== */
+.player-name-link {
+  color: var(--color-header);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.player-name-link:hover {
+  text-decoration: underline;
+  color: var(--color-primary);
+}
+/* ===== Пасхалки ===== */
+.secret-symbol {
+  font-size: 1.2rem;
+  opacity: 0.15;
+  cursor: pointer;
+  transition: opacity 0.3s;
+  margin-left: 1rem;
+}
+.secret-symbol:hover {
+  opacity: 0.8;
+}
+
+.footer-easter-egg {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.5rem;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: opacity 0.3s;
+}
+.footer:hover .footer-easter-egg {
+  opacity: 0.3;
+}
+.footer-easter-egg:hover {
+  opacity: 1 !important;
+}
+
+.footer .container {
+  position: relative; /* чтобы абсолютный элемент был внутри */
+}
+/* ===== БУРГЕР-МЕНЮ ===== */
+.burger {
+  display: none; /* скрыт на десктопе */
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* ===== МОБИЛЬНАЯ ВЕРСИЯ (до 768px) ===== */
+@media (max-width: 768px) {
+  .burger {
+    display: block; /* показываем */
+  }
+
+  .header__inner {
+    flex-wrap: wrap;
+  }
+
+  /* Скрываем обычное меню и статус */
+  .nav,
+  .auth-status {
+    display: none;
+    width: 100%;
+  }
+
+  /* Когда меню открыто — показываем */
+  .nav--open,
+  .nav--open + .auth-status {
+    display: block;
+  }
+
+  .nav__list {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 0;
+  }
+
+  .nav__link {
+    display: block;
+    padding: 0.5rem;
+  }
+
+  .auth-status {
+    padding: 0.5rem 0;
+    text-align: center;
+  }
+
+  /* Приветственный блок */
+  .welcome {
+    padding: 2rem 1rem;
+  }
+  .welcome h1 {
+    font-size: 1.5rem;
+  }
+
+  /* Карточки правил */
+  .rules__grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* FAQ */
+  .faq__list {
+    max-width: 100%;
+  }
+
+  /* Карточки игр */
+  .games-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Таблица лидеров */
+  .leaderboard-table {
+    font-size: 0.9rem;
+  }
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.5rem;
+  }
+  .player-cell {
+    flex-wrap: wrap;
+  }
+
+  /* Профиль и авторизация */
+  .auth-box,
+  .profile-box {
+    max-width: 100%;
+    margin: 0 1rem;
+    padding: 1.5rem;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .profile-avatar {
+    width: 60px;
+    height: 60px;
+  }
+
+  /* Достижения */
+  .achievements-grid {
+    justify-content: center;
+  }
+
+  /* Админка */
+  .admin-tabs {
+    flex-wrap: wrap;
+  }
+  .admin-tab {
+    flex: 1 1 auto;
+  }
+  .admin-users-table {
+    font-size: 0.85rem;
+  }
+  .admin-game-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  /* Публичный профиль */
+  .public-profile-box {
+    margin: 0 1rem;
+  }
+}
+/* ===== Контейнер для тостов ===== */
+#toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none; /* чтобы тосты не перехватывали клики */
+}
+
+/* ===== Стили тоста ===== */
+.toast {
+  padding: 0.75rem 1.2rem;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: auto; /* разрешаем клики по тосту */
+  max-width: 350px;
+  word-wrap: break-word;
+}
+
+.toast--visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Типы тостов */
+.toast--success {
+  background: #27ae60;
+}
+
+.toast--info {
+  background: #3498db;
+}
+
+.toast--error {
+  background: #e74c3c;
+}

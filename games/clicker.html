@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кликер – КЦ Игры</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .clicker-game {
+      max-width: 500px;
+      margin: 2rem auto;
+      text-align: center;
+      background: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .clicker-score {
+      font-size: 3rem;
+      font-weight: bold;
+      margin: 1rem 0;
+    }
+    .clicker-btn {
+      background: var(--color-accent);
+      color: white;
+      border: none;
+      font-size: 2rem;
+      padding: 1rem 2rem;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.1s;
+      user-select: none;
+    }
+    .clicker-btn:active {
+      transform: scale(0.95);
+    }
+    .clicker-goal {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: var(--color-header);
+    }
+    .clicker-back {
+      display: inline-block;
+      margin-top: 1rem;
+      color: var(--color-primary);
+      text-decoration: none;
+    }
+    #toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 0.75rem 1.2rem;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 500;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      opacity: 0;
+      transform: translateX(100%);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: auto;
+      max-width: 350px;
+      word-wrap: break-word;
+    }
+    .toast--visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .toast--success { background: #27ae60; }
+    .toast--info { background: #3498db; }
+    .toast--error { background: #e74c3c; }
+  </style>
+</head>
+<body>
+  <div class="clicker-game">
+    <h2>🖱️ Кликер</h2>
+    <p class="clicker-goal">Набери <strong>20</strong> очков, чтобы получить баллы!</p>
+    <div class="clicker-score" id="score">0</div>
+    <button class="clicker-btn" id="click-btn">КЛИК</button>
+    <p id="message" style="margin-top: 1rem; font-weight: bold;"></p>
+    <a href="../games.html" class="clicker-back">← Вернуться к играм</a>
+  </div>
+
+  <script src="../js/storage.js"></script>
+  <script src="../js/achievements.js"></script>
+  <script>
+    // Локальная функция тостов (чтобы не подключать весь main.js)
+    function showToast(message, type = 'info') {
+      let container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.className = `toast toast--${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      toast.offsetHeight;
+      toast.classList.add('toast--visible');
+      setTimeout(() => {
+        toast.classList.remove('toast--visible');
+        toast.addEventListener('transitionend', () => {
+          if (toast.parentNode) toast.remove();
+          if (container.children.length === 0) container.remove();
+        });
+      }, 3500);
+    }
+
+    const GOAL = 20;
+    const POINTS_REWARD = 10;
+
+    let score = 0;
+    let finished = false;
+
+    const scoreEl = document.getElementById('score');
+    const clickBtn = document.getElementById('click-btn');
+    const messageEl = document.getElementById('message');
+
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      messageEl.textContent = 'Вы не вошли. Баллы не будут начислены.';
+    }
+
+    clickBtn.addEventListener('click', () => {
+      if (finished) return;
+      score++;
+      scoreEl.textContent = score;
+
+      if (score >= GOAL) {
+        finished = true;
+        clickBtn.disabled = true;
+        if (currentUser) {
+          const success = addPointsToCurrentUser(POINTS_REWARD, 'clicker');
+          if (success) {
+            messageEl.textContent = `Поздравляем! Вы заработали ${POINTS_REWARD} баллов!`;
+            showToast(`+${POINTS_REWARD} баллов за прохождение!`, 'success');
+          } else {
+            messageEl.textContent = 'Ошибка при начислении баллов.';
+            showToast('Ошибка начисления баллов', 'error');
+          }
+        } else {
+          messageEl.textContent = 'Игра пройдена! Но баллы не начислены (войдите в профиль).';
+          showToast('Войдите, чтобы получить баллы', 'info');
+        }
+      }
+    });
+  </script>
+</body>
+</html>

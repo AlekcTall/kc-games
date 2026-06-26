@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Рейтинг – Геймификация КЦ</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">КЦ-Игры</a>
+      <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
+      <nav class="nav" id="main-nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link">Главная</a></li>
+          <li><a href="games.html" class="nav__link">Игры</a></li>
+          <li><a href="leaderboard.html" class="nav__link active">Рейтинг</a></li>
+          <li><a href="profile.html" class="nav__link">Профиль</a></li>
+          <li><a href="admin.html" class="nav__link">Админ</a></li>
+        </ul>
+      </nav>
+      <div id="auth-status" class="auth-status"></div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <h2>Таблица лидеров</h2>
+      <div class="leaderboard-filters">
+        <div class="filter-group">
+          <label for="filter-department">Отдел:</label>
+          <select id="filter-department">
+            <option value="">Все отделы</option>
+            <!-- Опции заполнятся скриптом -->
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-achievements">Достижения:</label>
+          <select id="filter-achievements">
+            <option value="all">Все</option>
+            <option value="some">Есть достижения</option>
+            <option value="none">Нет достижений</option>
+          </select>
+        </div>
+      </div>
+      <div id="leaderboard-container">
+        <!-- Таблица будет сгенерирована JS -->
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>© 2025 Контактный центр. Геймификация труда.</p>
+    </div>
+  </footer>
+
+  <script src="js/storage.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/easter-eggs.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    // Тот же список отделов, что везде
+    const DEPARTMENTS = [
+      'РБ (Физические лица)',
+      'МСБ (Юридические лица)',
+      'ТМ (Телемаркетинг)',
+      'Депозиты (группа привлечения некредитных продуктов)',
+      'ОКК (отдел контроля качества)',
+      'ООБП (отдел оптимизации бизнес процессов)',
+      'Боссы (начальники и руководители начальников)',
+      'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
+    ];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('leaderboard-container');
+      const filterDept = document.getElementById('filter-department');
+      const filterAch = document.getElementById('filter-achievements');
+
+      // Заполняем список отделов в фильтре
+      DEPARTMENTS.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        filterDept.appendChild(option);
+      });
+
+      // Функция рендера таблицы с учётом фильтров
+      function renderLeaderboard() {
+        const users = getUsers();
+        const deptFilter = filterDept.value;
+        const achFilter = filterAch.value;
+
+        // Сначала убираем админов
+        let filtered = users.filter(u => u.role !== 'admin');
+
+        // Фильтр по отделу
+        if (deptFilter !== '') {
+          filtered = filtered.filter(u => u.department === deptFilter);
+        }
+
+        // Фильтр по достижениям
+        if (achFilter === 'some') {
+          filtered = filtered.filter(u => u.achievements && u.achievements.length > 0);
+        } else if (achFilter === 'none') {
+          filtered = filtered.filter(u => !u.achievements || u.achievements.length === 0);
+        }
+
+        // Сортировка по баллам
+        filtered.sort((a, b) => b.points - a.points);
+
+        if (filtered.length === 0) {
+          container.innerHTML = '<p>Никто не найден по заданным фильтрам.</p>';
+          return;
+        }
+
+        let html = `
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Место</th>
+                <th>Игрок</th>
+                <th>Баллы</th>
+                <th>Отдел</th>
+                <th>🏆</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        filtered.forEach((user, index) => {
+          const place = index + 1;
+          const avatar = user.avatar || 'assets/default-avatar.png';
+          const achCount = user.achievements ? user.achievements.length : 0;
+          html += `
+            <tr>
+              <td class="place-cell">#${place}</td>
+              <td class="player-cell">
+                <img src="${avatar}" alt="Аватар" class="player-avatar-small" onerror="this.src='assets/default-avatar.png'">
+                <a href="public-profile.html?id=${user.id}" class="player-name-link">${user.username}</a>
+              </td>
+              <td>${user.points}</td>
+              <td>${user.department || '—'}</td>
+              <td>${achCount}</td>
+            </tr>
+          `;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      }
+
+      // Подписываемся на изменения фильтров
+      filterDept.addEventListener('change', renderLeaderboard);
+      filterAch.addEventListener('change', renderLeaderboard);
+
+      // Первоначальный рендер
+      renderLeaderboard();
+    });
+  </script>
+</body>
+</html>
