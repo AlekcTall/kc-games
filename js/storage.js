@@ -1,11 +1,11 @@
-// storage.js – работа с localStorage
+// storage.js – работа с localStorage (и Firebase-интеграция)
 
 const STORAGE_KEYS = {
   USERS: 'krugames_users',
   CURRENT_USER: 'krugames_currentUser'
 };
 
-// ===== ПОЛЬЗОВАТЕЛИ =====
+// ===== ПОЛЬЗОВАТЕЛИ (старые функции для совместимости) =====
 
 function getUsers() {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -33,7 +33,7 @@ function isLoggedIn() {
   return getCurrentUser() !== null;
 }
 
-// Регистрация (обновлённая)
+// Регистрация (старая, не используется при Firebase)
 function registerUser(username, password, department) {
   const users = getUsers();
   if (users.find(u => u.username === username)) {
@@ -49,22 +49,22 @@ function registerUser(username, password, department) {
     role: 'user',
     achievements: [],
     completedGames: [],
-    department: department || ''   // 👈 поле отдела
+    department: department || ''
   };
   users.push(newUser);
   saveUsers(users);
   return true;
 }
 
-// Вход (обновлённая)
+// Вход (старый)
 function loginUser(username, password) {
   const users = getUsers();
   const user = users.find(u => u.username === username && u.password === password);
   if (user) {
-    // Достраиваем поля, если их нет (для старых пользователей)
     if (!user.achievements) user.achievements = [];
     if (!user.completedGames) user.completedGames = [];
-    if (!user.department) user.department = '';  // 👈 добавляем отдел
+    if (!user.department) user.department = '';
+    if (!user.easterEggsFound) user.easterEggsFound = [];
     saveUsers(users);
     setCurrentUser(user);
     return user;
@@ -72,8 +72,7 @@ function loginUser(username, password) {
   return null;
 }
 
-
-// Инициализация пользователя по умолчанию
+// Инициализация пользователя по умолчанию (админ)
 function initDefaultUsers() {
   const users = getUsers();
   if (users.length === 0) {
@@ -86,7 +85,8 @@ function initDefaultUsers() {
       points: 0,
       role: 'admin',
       achievements: [],
-      completedGames: []
+      completedGames: [],
+      department: ''
     };
     users.push(admin);
     saveUsers(users);
@@ -141,28 +141,45 @@ function initDefaultGames() {
 initDefaultGames();
 
 // ===== НАЧИСЛЕНИЕ БАЛЛОВ (ОБНОВЛЁННАЯ) =====
-function addPointsToCurrentUser(points, gameId = null) {
+async function addPointsToCurrentUser(points, gameId = null) {
   const currentUser = getCurrentUser();
   if (!currentUser) return false;
-  const users = getUsers();
-  const user = users.find(u => u.id === currentUser.id);
-  if (user) {
-    // Гарантируем наличие массивов
-    if (!user.achievements) user.achievements = [];
-    if (!user.completedGames) user.completedGames = [];
 
-    user.points = (user.points || 0) + points;
-
-    if (gameId && !user.completedGames.includes(gameId)) {
-      user.completedGames.push(gameId);
+  // Если пользователь из Firebase (есть uid и авторизован), обновляем облако
+  if (currentUser.uid && typeof auth !== 'undefined' && auth.currentUser) {
+    try {
+      if (gameId) {
+        await syncCompletedGame(gameId, points);
+      } else {
+        await syncPointsToFirestore(points);
+      }
+      // Проверяем достижения (после обновления баллов)
+      if (typeof checkAndAwardAchievements === 'function') {
+        checkAndAwardAchievements(currentUser.uid);
+      }
+      return true;
+    } catch (error) {
+      console.error('Ошибка начисления баллов через Firebase:', error);
+      return false;
     }
-    saveUsers(users);
-    setCurrentUser(user);
-
-    if (typeof checkAndAwardAchievements === 'function') {
-      checkAndAwardAchievements(user.id);
+  } else {
+    // Старый код для localStorage (если пользователь не из Firebase)
+    const users = getUsers();
+    const user = users.find(u => u.id === currentUser.id);
+    if (user) {
+      if (!user.achievements) user.achievements = [];
+      if (!user.completedGames) user.completedGames = [];
+      user.points = (user.points || 0) + points;
+      if (gameId && !user.completedGames.includes(gameId)) {
+        user.completedGames.push(gameId);
+      }
+      saveUsers(users);
+      setCurrentUser(user);
+      if (typeof checkAndAwardAchievements === 'function') {
+        checkAndAwardAchievements(user.id);
+      }
+      return true;
     }
-    return true;
+    return false;
   }
-  return false;
 }
