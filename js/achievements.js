@@ -63,7 +63,7 @@ const ACHIEVEMENTS = [
       return rank !== null && rank <= 3;
     }
   },
-  // ===== Пасхальные достижения =====
+  // Пасхальные достижения
   {
     id: 'easter_first',
     name: 'Пасхалка найдена, есть ещё?',
@@ -71,7 +71,6 @@ const ACHIEVEMENTS = [
     icon: '🥚',
     hidden: false,
     condition(user) {
-      // Проверяем массив easterEggsFound в профиле пользователя
       return user.easterEggsFound && user.easterEggsFound.length > 0;
     }
   },
@@ -127,12 +126,10 @@ const ACHIEVEMENTS = [
   }
 ];
 
-// Получить конфиг достижений
 function getAchievementsConfig() {
   return ACHIEVEMENTS;
 }
 
-// Вычислить место пользователя в рейтинге (без админов)
 function getUserRank(userId, users = null) {
   const allUsers = users || getUsers();
   const sorted = allUsers
@@ -142,16 +139,41 @@ function getUserRank(userId, users = null) {
   return index === -1 ? null : index + 1;
 }
 
-// Проверить и выдать все доступные достижения для пользователя
-function checkAndAwardAchievements(userId) {
-  const users = getUsers();
-  const user = users.find(u => u.id == userId);
-  if (!user) return;
+// Проверить и выдать все доступные достижения (обновлённая для Firebase)
+async function checkAndAwardAchievements(userId) {
+  const current = getCurrentUser();
+  const uid = userId || (current ? current.uid || current.id : null);
+  if (!uid) return;
 
-  // Гарантируем наличие массивов
-  if (!user.achievements) user.achievements = [];
-  if (!user.completedGames) user.completedGames = [];
-  if (!user.easterEggsFound) user.easterEggsFound = [];
+  let user;
+  let users;
+
+  // Если пользователь авторизован через Firebase, загружаем данные из Firestore
+  if (typeof auth !== 'undefined' && auth.currentUser) {
+    try {
+      const doc = await db.collection('users').doc(uid).get();
+      if (doc.exists) {
+        user = doc.data();
+        user.uid = uid;
+        if (!user.achievements) user.achievements = [];
+        if (!user.completedGames) user.completedGames = [];
+        if (!user.easterEggsFound) user.easterEggsFound = [];
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки пользователя для достижений:', e);
+      return;
+    }
+  }
+
+  // Если не получилось загрузить из Firestore, ищем в localStorage
+  if (!user) {
+    users = getUsers();
+    user = users.find(u => u.id == userId);
+    if (!user) return;
+    if (!user.achievements) user.achievements = [];
+    if (!user.completedGames) user.completedGames = [];
+    if (!user.easterEggsFound) user.easterEggsFound = [];
+  }
 
   const allGames = getGames();
   const config = getAchievementsConfig();
@@ -159,25 +181,33 @@ function checkAndAwardAchievements(userId) {
 
   config.forEach(ach => {
     if (user.achievements.includes(ach.id)) return;
-    if (ach.condition(user, allGames, users)) {
+    if (ach.condition(user, allGames, users || getUsers())) {
       user.achievements.push(ach.id);
       awardedSomething = true;
       if (!ach.hidden) {
-       setTimeout(() => showToast(`🏆 Получено достижение: ${ach.name}!`, 'success'), 200);
+        setTimeout(() => showToast(`🏆 Получено достижение: ${ach.name}!`, 'success'), 200);
       }
     }
   });
 
   if (awardedSomething) {
-    saveUsers(users);
-    const current = getCurrentUser();
-    if (current && current.id == userId) {
+    // Сохраняем в Firestore или localStorage
+    if (typeof auth !== 'undefined' && auth.currentUser) {
+      await syncAchievementsToFirestore(user.achievements);
+    } else {
+      // Обновляем в старом массиве пользователей
+      saveUsers(users);
       setCurrentUser(user);
+    }
+    // Обновляем локального пользователя
+    const localUser = getCurrentUser();
+    if (localUser) {
+      localUser.achievements = user.achievements;
+      localStorage.setItem('krugames_currentUser', JSON.stringify(localUser));
     }
   }
 }
 
-// Проверяет, найдена ли конкретная пасхалка ТЕКУЩИМ пользователем
 function isEasterEggFound(eggId) {
   const user = getCurrentUser();
   if (!user) return false;
