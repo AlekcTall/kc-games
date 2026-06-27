@@ -5,6 +5,24 @@ document.addEventListener('DOMContentLoaded', () => {
   initEasterEggs();
   initBurger();
 
+console.log('Firebase:', firebase.apps.length ? 'OK' : 'ERROR');
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Инициализируем слушатель Firebase Auth
+  initFirebaseAuthListener();
+
+  initFAQ();
+  updateAuthUI();
+  initEasterEggs();
+  initBurger();
+
+  // Проверка достижений (оставим, но позже переведём)
+  const currentUser = getCurrentUser();
+  if (currentUser && typeof checkAndAwardAchievements === 'function') {
+    checkAndAwardAchievements(currentUser.id);
+  }
+});
+
   // Проверяем достижения при загрузке страницы
   const currentUser = getCurrentUser();
   if (currentUser && typeof checkAndAwardAchievements === 'function') {

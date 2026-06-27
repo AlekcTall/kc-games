@@ -37,325 +37,320 @@
     </div>
   </footer>
 
-<script src="js/storage.js"></script>
-<script src="js/achievements.js"></script>
-<script src="js/easter-eggs.js"></script>
-<script src="js/main.js"></script>
-<script>
-  // Список отделов
-  const DEPARTMENTS = [
-    'РБ (Физические лица)',
-    'МСБ (Юридические лица)',
-    'ТМ (Телемаркетинг)',
-    'Депозиты (группа привлечения некредитных продуктов)',
-    'ОКК (отдел контроля качества)',
-    'ООБП (отдел оптимизации бизнес процессов)',
-    'Боссы (начальники и руководители начальников)',
-    'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
-  ];
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
 
-  // Настройки аватара
-  const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024; // 5 МБ (исходный файл)
-  const AVATAR_MAX_WIDTH = 400;
-  const AVATAR_MAX_HEIGHT = 400;
-  const AVATAR_QUALITY = 0.8;
-  const AVATAR_TARGET_FORMAT = 'image/jpeg';
+  <!-- Наш новый модуль Firebase -->
+  <script src="js/firebase-auth.js"></script>
+  <!-- Старые скрипты (для игр и достижений) -->
+  <script src="js/storage.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/easter-eggs.js"></script>
+  <script src="js/main.js"></script>
 
-  async function compressImage(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          let { width, height } = img;
-          if (width > AVATAR_MAX_WIDTH || height > AVATAR_MAX_HEIGHT) {
-            const ratio = Math.min(AVATAR_MAX_WIDTH / width, AVATAR_MAX_HEIGHT / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          const mimeType = AVATAR_TARGET_FORMAT;
-          const dataUrl = canvas.toDataURL(mimeType, AVATAR_QUALITY);
-          resolve(dataUrl);
+  <script>
+    // Локальный список отделов (можно вынести в глобальный конфиг)
+    const DEPARTMENTS = [
+      'РБ (Физические лица)',
+      'МСБ (Юридические лица)',
+      'ТМ (Телемаркетинг)',
+      'Депозиты (группа привлечения некредитных продуктов)',
+      'ОКК (отдел контроля качества)',
+      'ООБП (отдел оптимизации бизнес процессов)',
+      'Боссы (начальники и руководители начальников)',
+      'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
+    ];
+
+    // Сжатие аватара (функция та же, что и раньше)
+    const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
+    const AVATAR_MAX_WIDTH = 400;
+    const AVATAR_MAX_HEIGHT = 400;
+    const AVATAR_QUALITY = 0.8;
+    const AVATAR_TARGET_FORMAT = 'image/jpeg';
+
+    async function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            let { width, height } = img;
+            if (width > AVATAR_MAX_WIDTH || height > AVATAR_MAX_HEIGHT) {
+              const ratio = Math.min(AVATAR_MAX_WIDTH / width, AVATAR_MAX_HEIGHT / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL(AVATAR_TARGET_FORMAT, AVATAR_QUALITY);
+            resolve(dataUrl);
+          };
+          img.onerror = () => reject(new Error('Не удалось загрузить изображение'));
+          img.src = e.target.result;
         };
-        img.onerror = () => reject(new Error('Не удалось загрузить изображение'));
-        img.src = e.target.result;
-      };
-      reader.onerror = () => reject(new Error('Ошибка чтения файла'));
-      reader.readAsDataURL(file);
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const container = document.getElementById('profile-container');
-    const currentUser = getCurrentUser();
-
-    function renderLoginForm() {
-      const optionsHTML = DEPARTMENTS.map(dept => `<option value="${dept}">${dept}</option>`).join('');
-      container.innerHTML = `
-        <div class="auth-box">
-          <h2>Вход или регистрация</h2>
-          <div class="auth-tabs">
-            <button class="auth-tab active" data-tab="login">Войти</button>
-            <button class="auth-tab" data-tab="register">Регистрация</button>
-          </div>
-          <form id="auth-form" class="auth-form">
-            <div class="form-group">
-              <label for="username">Логин</label>
-              <input type="text" id="username" required placeholder="Фамилия Имя">
-            </div>
-            <div class="form-group">
-              <label for="password">Пароль</label>
-              <input type="password" id="password" required placeholder="Введите пароль">
-            </div>
-            <div class="form-group" id="department-group" style="display:none;">
-              <label for="department">Отдел</label>
-              <select id="department">
-                <option value="">-- Выберите отдел --</option>
-                ${optionsHTML}
-              </select>
-            </div>
-            <button type="submit" class="btn" id="auth-submit-btn">Войти</button>
-          </form>
-          <p id="auth-message" class="auth-message"></p>
-        </div>
-      `;
-
-      const authForm = document.getElementById('auth-form');
-      const authMessage = document.getElementById('auth-message');
-      const tabButtons = document.querySelectorAll('.auth-tab');
-      const submitBtn = document.getElementById('auth-submit-btn');
-      const departmentGroup = document.getElementById('department-group');
-      const departmentSelect = document.getElementById('department');
-      let currentTab = 'login';
-      departmentSelect.disabled = true;
-
-      function setLoginState() {
-        departmentGroup.style.display = 'none';
-        departmentSelect.disabled = true;
-      }
-      function setRegisterState() {
-        departmentGroup.style.display = 'block';
-        departmentSelect.disabled = false;
-      }
-
-      tabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          tabButtons.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentTab = btn.dataset.tab;
-          submitBtn.textContent = currentTab === 'login' ? 'Войти' : 'Зарегистрироваться';
-          if (currentTab === 'login') setLoginState();
-          else setRegisterState();
-          authMessage.textContent = '';
-        });
+        reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+        reader.readAsDataURL(file);
       });
+    }
 
-      authForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value.trim();
-        if (!username || !password) {
-          authMessage.textContent = 'Заполните все поля.';
-          showToast('Заполните все поля', 'error');
-          return;
-        }
-        if (currentTab === 'login') {
-          const user = loginUser(username, password);
-          if (user) {
-            showToast('Добро пожаловать, ' + user.username + '!', 'success');
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('profile-container');
+
+      // Проверяем, вошёл ли пользователь через Firebase
+      auth.onAuthStateChanged(async (firebaseUser) => {
+        if (firebaseUser) {
+          // Пользователь аутентифицирован, загружаем его данные
+          const doc = await db.collection('users').doc(firebaseUser.uid).get();
+          if (doc.exists) {
+            const userData = doc.data();
+            const user = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              ...userData
+            };
             renderProfile(user);
-            if (window.updateAuthUI) window.updateAuthUI();
-          } else {
-            authMessage.textContent = 'Неверный логин или пароль.';
-            showToast('Неверный логин или пароль', 'error');
           }
         } else {
-          const department = departmentSelect.value;
-          if (!department) {
-            authMessage.textContent = 'Выберите отдел.';
-            showToast('Выберите отдел', 'error');
+          renderLoginForm();
+        }
+      });
+
+      function renderLoginForm() {
+        const optionsHTML = DEPARTMENTS.map(dept => `<option value="${dept}">${dept}</option>`).join('');
+        container.innerHTML = `
+          <div class="auth-box">
+            <h2>Вход или регистрация</h2>
+            <div class="auth-tabs">
+              <button class="auth-tab active" data-tab="login">Войти</button>
+              <button class="auth-tab" data-tab="register">Регистрация</button>
+            </div>
+            <form id="auth-form" class="auth-form">
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required placeholder="example@mail.com">
+              </div>
+              <div class="form-group">
+                <label for="password">Пароль</label>
+                <input type="password" id="password" required placeholder="Введите пароль">
+              </div>
+              <!-- Поля для регистрации -->
+              <div class="form-group" id="reg-extra" style="display:none;">
+                <label for="username">Фамилия Имя</label>
+                <input type="text" id="username" placeholder="Иванов Иван">
+              </div>
+              <div class="form-group" id="department-group" style="display:none;">
+                <label for="department">Отдел</label>
+                <select id="department">
+                  <option value="">-- Выберите отдел --</option>
+                  ${optionsHTML}
+                </select>
+              </div>
+              <button type="submit" class="btn" id="auth-submit-btn">Войти</button>
+            </form>
+            <p id="auth-message" class="auth-message"></p>
+          </div>
+        `;
+
+        const authForm = document.getElementById('auth-form');
+        const authMessage = document.getElementById('auth-message');
+        const tabButtons = document.querySelectorAll('.auth-tab');
+        const submitBtn = document.getElementById('auth-submit-btn');
+        const regExtra = document.getElementById('reg-extra');
+        const departmentGroup = document.getElementById('department-group');
+        let currentTab = 'login';
+
+        tabButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            tabButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentTab = btn.dataset.tab;
+            if (currentTab === 'login') {
+              submitBtn.textContent = 'Войти';
+              regExtra.style.display = 'none';
+              departmentGroup.style.display = 'none';
+            } else {
+              submitBtn.textContent = 'Зарегистрироваться';
+              regExtra.style.display = 'block';
+              departmentGroup.style.display = 'block';
+            }
+            authMessage.textContent = '';
+          });
+        });
+
+        authForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const email = document.getElementById('email').value.trim();
+          const password = document.getElementById('password').value.trim();
+          if (!email || !password) {
+            authMessage.textContent = 'Заполните все поля.';
+            showToast('Заполните все поля', 'error');
             return;
           }
-          const success = registerUser(username, password, department);
-          if (success) {
-            const newUser = loginUser(username, password);
-            showToast('Регистрация успешна!', 'success');
-            renderProfile(newUser);
-            if (window.updateAuthUI) window.updateAuthUI();
-          } else {
-            authMessage.textContent = 'Пользователь с таким логином уже существует.';
-            showToast('Логин занят', 'error');
+
+          try {
+            if (currentTab === 'login') {
+              await firebaseLogin(email, password);
+              // onAuthStateChanged сработает и перерисует профиль
+            } else {
+              const username = document.getElementById('username').value.trim();
+              const department = document.getElementById('department').value;
+              if (!username || !department) {
+                authMessage.textContent = 'Введите Фамилию Имя и выберите отдел.';
+                showToast('Заполните все поля', 'error');
+                return;
+              }
+              await firebaseRegister(email, password, username, department);
+              // после регистрации пользователь автоматически войдёт
+            }
+          } catch (error) {
+            authMessage.textContent = error.message;
+            showToast(error.message, 'error');
           }
-        }
-      });
-    }
+        });
+      }
 
-    function renderProfile(user) {
-      const achievementsConfig = getAchievementsConfig();
-      container.innerHTML = `
-        <div class="profile-box">
-          <div class="profile-header">
-            <img src="${user.avatar || 'assets/default-avatar.png'}" alt="Аватар" class="profile-avatar" id="profile-avatar-img">
-            <div>
-              <h2>${user.username}</h2>
-              <span class="badge badge-${user.role}">${user.role}</span>
-              ${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}
+      function renderProfile(user) {
+        const achievementsConfig = getAchievementsConfig();
+        container.innerHTML = `
+          <div class="profile-box">
+            <div class="profile-header">
+              <img src="${user.avatar || 'assets/default-avatar.png'}" alt="Аватар" class="profile-avatar" id="profile-avatar-img">
+              <div>
+                <h2>${user.username}</h2>
+                <span class="badge badge-${user.role}">${user.role}</span>
+                ${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}
+                <p><small>${user.email}</small></p>
+              </div>
             </div>
+            <div class="profile-details">
+              <p><strong>Баллы:</strong> <span id="profile-points">${user.points || 0}</span></p>
+              <p><strong>О себе:</strong> <span id="profile-desc-text">${user.description || '—'}</span></p>
+            </div>
+
+            <div class="profile-achievements">
+              <h3>Достижения (<span id="ach-count">${(user.achievements || []).length}</span>/${achievementsConfig.length})</h3>
+              <div class="achievements-grid">
+                ${achievementsConfig.map(ach => {
+                  const unlocked = (user.achievements || []).includes(ach.id);
+                  const hidden = ach.hidden && !unlocked;
+                  return `
+                    <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
+                      <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
+                      <span class="ach-name">${hidden ? '???' : ach.name}</span>
+                      ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <div class="profile-edit">
+              <h3>Редактировать профиль</h3>
+              <div class="form-group">
+                <label for="avatar-file">Загрузить аватар</label>
+                <input type="file" id="avatar-file" accept="image/*">
+                <small>Максимум 5 МБ, будет сжат</small>
+              </div>
+              <div class="form-group">
+                <label for="desc">О себе</label>
+                <textarea id="desc" rows="3">${user.description || ''}</textarea>
+              </div>
+              <button class="btn" id="save-profile-btn">Сохранить</button>
+              <p id="profile-save-message" class="auth-message"></p>
+            </div>
+
+            <div class="profile-password-change">
+              <h3>Сменить пароль</h3>
+              <div class="form-group">
+                <label for="old-password">Старый пароль</label>
+                <input type="password" id="old-password" placeholder="Введите старый пароль">
+              </div>
+              <div class="form-group">
+                <label for="new-password">Новый пароль</label>
+                <input type="password" id="new-password" placeholder="Введите новый пароль">
+              </div>
+              <button class="btn" id="change-password-btn">Сменить пароль</button>
+              <p id="password-change-message" class="auth-message"></p>
+            </div>
+
+            <button class="btn btn-logout" id="logout-btn">Выйти</button>
           </div>
-          <div class="profile-details">
-            <p><strong>Баллы:</strong> <span id="profile-points">${user.points}</span></p>
-            <p><strong>О себе:</strong> <span id="profile-desc-text">${user.description || '—'}</span></p>
-          </div>
+        `;
 
-          <div class="profile-achievements">
-            <h3>Достижения (<span id="ach-count">${user.achievements.length}</span>/${achievementsConfig.length})</h3>
-            <div class="achievements-grid">
-              ${achievementsConfig.map(ach => {
-                const unlocked = user.achievements.includes(ach.id);
-                const hidden = ach.hidden && !unlocked;
-                return `
-                  <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
-                    <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
-                    <span class="ach-name">${hidden ? '???' : ach.name}</span>
-                    ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
+        // --- Логика аватара ---
+        let selectedAvatarBase64 = null;
+        const avatarImg = document.getElementById('profile-avatar-img');
+        const avatarFileInput = document.getElementById('avatar-file');
+        avatarFileInput.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          if (file.size > MAX_AVATAR_FILE_SIZE) {
+            showToast('Файл слишком большой', 'error');
+            avatarFileInput.value = '';
+            return;
+          }
+          try {
+            selectedAvatarBase64 = await compressImage(file);
+            avatarImg.src = selectedAvatarBase64;
+            showToast('Аватар подготовлен', 'info');
+          } catch (err) {
+            showToast('Ошибка обработки', 'error');
+          }
+        });
 
-          <div class="profile-edit">
-            <h3>Редактировать профиль</h3>
-            <div class="form-group">
-              <label for="avatar-file">Загрузить аватар</label>
-              <input type="file" id="avatar-file" accept="image/*">
-              <small style="color:#666;">Максимальный размер файла: 5 МБ. Изображение будет сжато.</small>
-            </div>
-            <div class="form-group">
-              <label for="desc">О себе</label>
-              <textarea id="desc" rows="3">${user.description || ''}</textarea>
-            </div>
-            <button class="btn" id="save-profile-btn">Сохранить</button>
-            <p id="profile-save-message" class="auth-message"></p>
-          </div>
-
-          <!-- Смена пароля -->
-          <div class="profile-password-change">
-            <h3>Сменить пароль</h3>
-            <div class="form-group">
-              <label for="old-password">Старый пароль</label>
-              <input type="password" id="old-password" placeholder="Введите старый пароль">
-            </div>
-            <div class="form-group">
-              <label for="new-password">Новый пароль</label>
-              <input type="password" id="new-password" placeholder="Введите новый пароль">
-            </div>
-            <button class="btn" id="change-password-btn">Сменить пароль</button>
-            <p id="password-change-message" class="auth-message"></p>
-          </div>
-
-          <button class="btn btn-logout" id="logout-btn">Выйти</button>
-        </div>
-      `;
-
-      // --- Логика аватара ---
-      let selectedAvatarBase64 = null;
-      const avatarImg = document.getElementById('profile-avatar-img');
-      const avatarFileInput = document.getElementById('avatar-file');
-
-      avatarFileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        if (file.size > MAX_AVATAR_FILE_SIZE) {
-          showToast('Файл слишком большой. Максимум 5 МБ.', 'error');
-          avatarFileInput.value = '';
-          return;
-        }
-        try {
-          const compressed = await compressImage(file);
-          selectedAvatarBase64 = compressed;
-          avatarImg.src = compressed;
-          showToast('Аватар подготовлен. Нажмите «Сохранить».', 'info');
-        } catch (err) {
-          showToast('Ошибка обработки изображения: ' + err.message, 'error');
-          avatarFileInput.value = '';
-        }
-      });
-
-      document.getElementById('save-profile-btn').addEventListener('click', () => {
-        const desc = document.getElementById('desc').value.trim();
-        const users = getUsers();
-        const currentUserData = users.find(u => u.id === user.id);
-        if (currentUserData) {
+        // Сохранение профиля
+        document.getElementById('save-profile-btn').addEventListener('click', async () => {
+          const desc = document.getElementById('desc').value.trim();
+          const updates = { description: desc };
           if (selectedAvatarBase64) {
-            currentUserData.avatar = selectedAvatarBase64;
+            updates.avatar = selectedAvatarBase64;
           }
-          currentUserData.description = desc;
-          saveUsers(users);
-          setCurrentUser(currentUserData);
-          checkAndAwardAchievements(currentUserData.id);
-          showToast('Профиль обновлён', 'success');
-          renderProfile(currentUserData);
-          if (window.updateAuthUI) window.updateAuthUI();
-        }
-      });
+          try {
+            await firebaseUpdateProfile(user.uid, updates);
+            showToast('Профиль обновлён', 'success');
+            // Обновляем локального пользователя для совместимости
+            const updatedUser = { ...user, ...updates };
+            syncUserToLocal(updatedUser);
+            renderProfile(updatedUser);
+            if (window.updateAuthUI) updateAuthUI();
+          } catch (err) {
+            showToast('Ошибка сохранения', 'error');
+          }
+        });
 
-      // --- Смена пароля ---
-      document.getElementById('change-password-btn').addEventListener('click', () => {
-        const oldPassword = document.getElementById('old-password').value;
-        const newPassword = document.getElementById('new-password').value.trim();
-        const messageEl = document.getElementById('password-change-message');
+        // Смена пароля
+        document.getElementById('change-password-btn').addEventListener('click', async () => {
+          const oldPassword = document.getElementById('old-password').value;
+          const newPassword = document.getElementById('new-password').value.trim();
+          if (!oldPassword || !newPassword) {
+            showToast('Заполните оба поля', 'error');
+            return;
+          }
+          // Проверяем старый пароль через повторный вход
+          try {
+            const credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPassword);
+            await auth.currentUser.reauthenticateWithCredential(credential);
+            await auth.currentUser.updatePassword(newPassword);
+            showToast('Пароль изменён', 'success');
+            document.getElementById('old-password').value = '';
+            document.getElementById('new-password').value = '';
+          } catch (error) {
+            showToast('Ошибка: ' + error.message, 'error');
+          }
+        });
 
-        if (!oldPassword || !newPassword) {
-          messageEl.textContent = 'Заполните оба поля.';
-          showToast('Заполните оба поля', 'error');
-          return;
-        }
-
-        if (oldPassword !== user.password) {
-          messageEl.textContent = 'Старый пароль неверен.';
-          showToast('Старый пароль неверен', 'error');
-          return;
-        }
-
-        if (newPassword.length < 1) {
-          messageEl.textContent = 'Новый пароль не может быть пустым.';
-          showToast('Пароль не может быть пустым', 'error');
-          return;
-        }
-
-        const users = getUsers();
-        const currentUserData = users.find(u => u.id === user.id);
-        if (currentUserData) {
-          currentUserData.password = newPassword;
-          saveUsers(users);
-          setCurrentUser(currentUserData);
-          showToast('Пароль изменён', 'success');
-          messageEl.textContent = 'Пароль успешно изменён.';
-          // Очищаем поля
-          document.getElementById('old-password').value = '';
-          document.getElementById('new-password').value = '';
-        }
-      });
-
-      document.getElementById('logout-btn').addEventListener('click', () => {
-        logoutCurrentUser();
-        renderLoginForm();
-        if (window.updateAuthUI) window.updateAuthUI();
-      });
-    }
-
-    if (currentUser) {
-      renderProfile(currentUser);
-    } else {
-      renderLoginForm();
-    }
-  });
-</script>
+        // Выход
+        document.getElementById('logout-btn').addEventListener('click', () => {
+          firebaseLogout();
+        });
+      }
+    });
+  </script>
 </body>
 </html>
