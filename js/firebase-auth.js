@@ -1,12 +1,3 @@
-// firebase-config.js
-const firebaseConfig = {
-  apiKey: "...",  // твои данные
-  authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-};
-
-// Инициализация Firebase
-firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+// ... все функции: firebaseRegister, firebaseLogin, firebaseLogout, firebaseUpdateProfile, syncUserToLocal, initFirebaseAuthListener
