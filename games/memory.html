@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Найди пару – КЦ Игры</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .memory-game {
+      max-width: 550px;
+      margin: 2rem auto;
+      text-align: center;
+      background: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .memory-stats {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 1.5rem;
+      font-weight: 600;
+    }
+    .memory-board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.8rem;
+      justify-content: center;
+    }
+    .memory-card {
+      aspect-ratio: 1 / 1;
+      background: var(--color-primary);
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: transparent;
+      user-select: none;
+      transition: transform 0.2s, background 0.2s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .memory-card.flipped,
+    .memory-card.matched {
+      background: #fff;
+      color: #333;
+      border: 2px solid var(--color-primary);
+      cursor: default;
+      transform: scale(0.95);
+    }
+    .memory-card.matched {
+      border-color: #27ae60;
+      background: #eafaf1;
+    }
+    .memory-message {
+      margin-top: 1.5rem;
+      font-weight: bold;
+      min-height: 1.5rem;
+    }
+    .memory-back {
+      display: inline-block;
+      margin-top: 1rem;
+      color: var(--color-primary);
+      text-decoration: none;
+    }
+    /* Адаптация */
+    @media (max-width: 480px) {
+      .memory-board {
+        gap: 0.4rem;
+      }
+      .memory-card {
+        font-size: 1.5rem;
+      }
+    }
+    /* Общие тосты (скопированы из clicker для независимости) */
+    #toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 0.75rem 1.2rem;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 500;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      opacity: 0;
+      transform: translateX(100%);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: auto;
+      max-width: 350px;
+      word-wrap: break-word;
+    }
+    .toast--visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .toast--success { background: #27ae60; }
+    .toast--info { background: #3498db; }
+    .toast--error { background: #e74c3c; }
+  </style>
+</head>
+<body>
+  <div class="memory-game">
+    <h2>🧠 Найди пару</h2>
+    <div class="memory-stats">
+      <span>🔄 Ходы: <span id="moves">0</span></span>
+      <span>⏱️ <span id="timer">00:00</span></span>
+      <span>🏆 Награда: <strong>15 баллов</strong></span>
+    </div>
+    <div class="memory-board" id="board"></div>
+    <p class="memory-message" id="message"></p>
+    <a href="../games.html" class="memory-back">← Вернуться к играм</a>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/firebase-auth.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/achievements.js"></script>
+  <script>
+    // Простейший тост (как в кликере)
+    function showToast(message, type = 'info') {
+      let container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.className = `toast toast--${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      toast.offsetHeight;
+      toast.classList.add('toast--visible');
+      setTimeout(() => {
+        toast.classList.remove('toast--visible');
+        toast.addEventListener('transitionend', () => {
+          if (toast.parentNode) toast.remove();
+          if (container.children.length === 0) container.remove();
+        });
+      }, 3500);
+    }
+
+    const EMOJIS = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'];
+    // Удвоим для пар
+    const CARDS = [...EMOJIS, ...EMOJIS];
+    let shuffled = [];
+    let flippedCards = [];
+    let moves = 0;
+    let matched = 0;
+    let gameFinished = false;
+
+    // Таймер
+    let seconds = 0;
+    let timerInterval = null;
+    const timerEl = document.getElementById('timer');
+
+    function updateTimer() {
+      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const s = (seconds % 60).toString().padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      seconds = 0;
+      updateTimer();
+      timerInterval = setInterval(() => {
+        seconds++;
+        updateTimer();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+
+    // Перемешивание
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    const board = document.getElementById('board');
+    const movesEl = document.getElementById('moves');
+    const messageEl = document.getElementById('message');
+
+    function createBoard() {
+      shuffled = [...CARDS];
+      shuffleArray(shuffled);
+      board.innerHTML = '';
+      flippedCards = [];
+      moves = 0;
+      matched = 0;
+      gameFinished = false;
+      movesEl.textContent = '0';
+      messageEl.textContent = '';
+
+      shuffled.forEach((emoji, index) => {
+        const card = document.createElement('div');
+        card.className = 'memory-card';
+        card.dataset.index = index;
+        card.dataset.emoji = emoji;
+        card.addEventListener('click', handleCardClick);
+        board.appendChild(card);
+      });
+    }
+
+    function handleCardClick(e) {
+      if (gameFinished) return;
+      const card = e.currentTarget;
+      // Уже открыта или совпала – игнорируем
+      if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+      // Блокируем, если уже две карты открыты и ждут проверки
+      if (flippedCards.length === 2) return;
+
+      card.classList.add('flipped');
+      card.textContent = card.dataset.emoji;
+      flippedCards.push(card);
+
+      if (flippedCards.length === 2) {
+        moves++;
+        movesEl.textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      if (card1.dataset.emoji === card2.dataset.emoji) {
+        // Пара найдена
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+        matched += 2;
+        flippedCards = [];
+
+        if (matched === CARDS.length) {
+          finishGame();
+        }
+      } else {
+        // Не совпали – перевернуть обратно
+        setTimeout(() => {
+          card1.classList.remove('flipped');
+          card2.classList.remove('flipped');
+          card1.textContent = '';
+          card2.textContent = '';
+          flippedCards = [];
+        }, 800);
+      }
+    }
+
+    async function finishGame() {
+      gameFinished = true;
+      stopTimer();
+      messageEl.textContent = '🎉 Все пары найдены!';
+
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.uid && auth.currentUser) {
+        try {
+          const success = await addPointsToCurrentUser(15, 'memory');
+          if (success) {
+            showToast('+15 баллов за игру «Найди пару»!', 'success');
+          } else {
+            showToast('Ошибка при начислении баллов', 'error');
+          }
+        } catch (err) {
+          console.error(err);
+          showToast('Ошибка начисления', 'error');
+        }
+      } else {
+        showToast('Игра пройдена! Войдите в профиль, чтобы получить баллы.', 'info');
+      }
+    }
+
+    // Старт
+    createBoard();
+    startTimer();
+  </script>
+</body>
+</html>
