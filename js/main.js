@@ -1,6 +1,5 @@
 // main.js – общая логика сайта
 document.addEventListener('DOMContentLoaded', () => {
-  initFirebaseAuthListener();
 
   initFAQ();
   updateAuthUI();
