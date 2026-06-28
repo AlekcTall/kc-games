@@ -209,14 +209,15 @@
           allUsers = [];
           snapshot.forEach(doc => {
             const data = doc.data();
-            allUsers.push({
-              id: doc.id,
-              username: data.username || 'Без имени',
-              department: data.department || '',
-              points: data.points || 0,
-              role: data.role || 'user',
-              achievements: data.achievements || []
-            });
+           allUsers.push({
+  uid: doc.id,  // ← обязательно для renderAvatarDiv
+  id: doc.id,   // оставляем для совместимости
+  username: data.username || 'Без имени',
+  department: data.department || '',
+  points: data.points || 0,
+  role: data.role || 'user',
+  achievements: data.achievements || []
+});
           });
           renderLeaderboard();
         } catch (error) {
