@@ -1316,3 +1316,24 @@ body {
     right: -50px;
   }
 }
+
+.notification-item {
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;              /* ← ВАЖНО: перебиваем наследование белого */
+}
+.notif-message {
+  white-space: normal;
+  word-wrap: break-word;
+  display: block;
+  margin-bottom: 0.2rem;
+  color: inherit;           /* теперь наследует #333 от родителя */
+}
+.notif-date {
+  display: block;
+  font-size: 0.75rem;
+  color: #999;
+}
+/* остальное без изменений: .notification-item.unread, .read, .btn-clear и т.д. */
