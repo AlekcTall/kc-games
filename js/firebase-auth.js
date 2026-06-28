@@ -1,83 +1,73 @@
-// firebase-auth.js — работа с Firebase Auth и Firestore
+// js/firebase-auth.js
 
-const auth = firebase.auth();
-const db = firebase.firestore();
+// ================== АВТОРИЗАЦИЯ ==================
 
-// ====== Регистрация пользователя ======
+// Регистрация нового пользователя
 async function firebaseRegister(email, password, username, department) {
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
-
+    // Создаём документ в Firestore
     await db.collection('users').doc(user.uid).set({
-      email: email,
       username: username,
+      email: email,
       department: department,
-      avatar: '',
-      description: '',
       points: 0,
       role: 'user',
+      description: '',
       achievements: [],
+      easterEggsFound: [],
       completedGames: [],
-      easterEggsFound: []
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-
-    return {
+    // Синхронизируем с localStorage
+    const userData = {
       uid: user.uid,
       email: email,
       username: username,
       department: department,
-      avatar: '',
-      description: '',
       points: 0,
       role: 'user',
+      description: '',
       achievements: [],
-      completedGames: [],
-      easterEggsFound: []
+      easterEggsFound: [],
+      completedGames: []
     };
+    setCurrentUser(userData);
+    updateAuthUI(user);
+    return userData;
   } catch (error) {
     console.error('Ошибка регистрации:', error);
     throw error;
   }
 }
 
-// ====== Вход ======
+// Вход по email/паролю
 async function firebaseLogin(email, password) {
   try {
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
-
+    // Получаем данные из Firestore
     const doc = await db.collection('users').doc(user.uid).get();
     if (doc.exists) {
       const data = doc.data();
-      return {
+      const userData = {
         uid: user.uid,
-        email: data.email,
+        email: user.email,
         username: data.username,
         department: data.department,
-        avatar: data.avatar || '',
-        description: data.description || '',
         points: data.points || 0,
         role: data.role || 'user',
+        description: data.description || '',
         achievements: data.achievements || [],
-        completedGames: data.completedGames || [],
-        easterEggsFound: data.easterEggsFound || []
+        easterEggsFound: data.easterEggsFound || [],
+        completedGames: data.completedGames || []
       };
+      setCurrentUser(userData);
+      updateAuthUI(user);
+      return userData;
     } else {
-      const defaultData = {
-        email: email,
-        username: email.split('@')[0],
-        department: '',
-        avatar: '',
-        description: '',
-        points: 0,
-        role: 'user',
-        achievements: [],
-        completedGames: [],
-        easterEggsFound: []
-      };
-      await db.collection('users').doc(user.uid).set(defaultData);
-      return { uid: user.uid, ...defaultData };
+      throw new Error('Документ пользователя не найден');
     }
   } catch (error) {
     console.error('Ошибка входа:', error);
@@ -85,151 +75,170 @@ async function firebaseLogin(email, password) {
   }
 }
 
-// ====== Выход ======
-async function firebaseLogout() {
-  await auth.signOut();
-  logoutCurrentUser();
-  localStorage.removeItem('krugames_currentUser');
+// Выход
+function firebaseLogout() {
+  auth.signOut().then(() => {
+    localStorage.removeItem('krugames_currentUser');
+    updateAuthUI(null);
+    window.location.href = 'index.html';
+  }).catch(error => {
+    console.error('Ошибка выхода:', error);
+  });
 }
 
-// ====== Обновление профиля в Firestore ======
+// ================== ОБНОВЛЕНИЕ ПРОФИЛЯ ==================
+
 async function firebaseUpdateProfile(uid, data) {
   try {
     await db.collection('users').doc(uid).update(data);
+    // Обновляем локального пользователя
+    const current = getCurrentUser();
+    if (current && (current.uid === uid || current.id === uid)) {
+      Object.assign(current, data);
+      setCurrentUser(current);
+    }
+    return true;
   } catch (error) {
     console.error('Ошибка обновления профиля:', error);
     throw error;
   }
 }
 
-// ====== Синхронизация: загрузить данные из Firestore в localStorage ======
-async function syncUserToLocal(userData) {
-  const localUser = {
-    id: userData.uid,
-    uid: userData.uid,
-    username: userData.username,
-    email: userData.email,
-    department: userData.department,
-    avatar: userData.avatar,
-    description: userData.description,
-    points: userData.points,
-    role: userData.role,
-    achievements: userData.achievements,
-    completedGames: userData.completedGames,
-    easterEggsFound: userData.easterEggsFound,
-    password: ''
-  };
-  localStorage.setItem('krugames_currentUser', JSON.stringify(localUser));
-}
+// ================== НАЧИСЛЕНИЕ БАЛЛОВ ==================
 
-// ====== Обновить баллы в Firestore и в localStorage ======
-async function syncPointsToFirestore(points) {
+/**
+ * Начисляет баллы текущему пользователю
+ * @param {number} points - сколько баллов добавить
+ * @param {string|null} gameId - идентификатор игры (если есть)
+ * @returns {Promise<boolean>}
+ */
+async function addPointsToCurrentUser(points, gameId = null) {
   const user = auth.currentUser;
   if (!user) return false;
   try {
     const userRef = db.collection('users').doc(user.uid);
-    await userRef.update({ points: firebase.firestore.FieldValue.increment(points) });
     const doc = await userRef.get();
-    const newPoints = doc.data().points;
-    let currentUser = getCurrentUser();
-    if (currentUser) {
-      currentUser.points = newPoints;
-      localStorage.setItem('krugames_currentUser', JSON.stringify(currentUser));
-    }
-    return true;
-  } catch (error) {
-    console.error('Ошибка обновления баллов:', error);
-    return false;
-  }
-}
+    if (!doc.exists) return false;
 
-// ====== Сохранить завершённую игру ======
-async function syncCompletedGame(gameId, points) {
-  const user = auth.currentUser;
-  if (!user) return false;
-  try {
-    const userRef = db.collection('users').doc(user.uid);
-    await userRef.update({
-      completedGames: firebase.firestore.FieldValue.arrayUnion(gameId),
-      points: firebase.firestore.FieldValue.increment(points)
-    });
-    let currentUser = getCurrentUser();
-    if (currentUser) {
-      if (!currentUser.completedGames) currentUser.completedGames = [];
-      if (!currentUser.completedGames.includes(gameId)) {
-        currentUser.completedGames.push(gameId);
+    const data = doc.data();
+    const newPoints = (data.points || 0) + points;
+    const updateData = { points: newPoints };
+
+    // Если указана игра, добавляем в completedGames
+    if (gameId) {
+      const completedGames = data.completedGames || [];
+      if (!completedGames.includes(gameId)) {
+        completedGames.push(gameId);
+        updateData.completedGames = completedGames;
       }
-      currentUser.points = (currentUser.points || 0) + points;
-      localStorage.setItem('krugames_currentUser', JSON.stringify(currentUser));
+    }
+
+    await userRef.update(updateData);
+
+    // Обновляем локального пользователя
+    const current = getCurrentUser();
+    if (current) {
+      current.points = newPoints;
+      if (updateData.completedGames) {
+        current.completedGames = updateData.completedGames;
+      }
+      setCurrentUser(current);
     }
     return true;
   } catch (error) {
-    console.error('Ошибка сохранения игры:', error);
+    console.error('Ошибка начисления баллов:', error);
     return false;
   }
 }
 
-// ====== Сохранить достижения ======
+// ================== СИНХРОНИЗАЦИЯ ПАСХАЛОК ==================
+
+async function syncEasterEggsToFirestore(easterEggs) {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    await db.collection('users').doc(user.uid).update({
+      easterEggsFound: easterEggs
+    });
+    const current = getCurrentUser();
+    if (current) {
+      current.easterEggsFound = easterEggs;
+      setCurrentUser(current);
+    }
+  } catch (error) {
+    console.error('Ошибка синхронизации пасхалок:', error);
+  }
+}
+
+// ================== СИНХРОНИЗАЦИЯ ДОСТИЖЕНИЙ ==================
+
 async function syncAchievementsToFirestore(achievements) {
   const user = auth.currentUser;
-  if (!user) return false;
+  if (!user) return;
   try {
-    const userRef = db.collection('users').doc(user.uid);
-    await userRef.update({ achievements: achievements });
-    let currentUser = getCurrentUser();
-    if (currentUser) {
-      currentUser.achievements = achievements;
-      localStorage.setItem('krugames_currentUser', JSON.stringify(currentUser));
+    await db.collection('users').doc(user.uid).update({
+      achievements: achievements
+    });
+    const current = getCurrentUser();
+    if (current) {
+      current.achievements = achievements;
+      setCurrentUser(current);
     }
-    return true;
   } catch (error) {
-    console.error('Ошибка сохранения достижений:', error);
-    return false;
+    console.error('Ошибка синхронизации достижений:', error);
   }
 }
 
-// ====== Сохранить пасхалки ======
-async function syncEasterEggsToFirestore(eggs) {
-  const user = auth.currentUser;
-  if (!user) return false;
-  try {
-    const userRef = db.collection('users').doc(user.uid);
-    await userRef.update({ easterEggsFound: eggs });
-    let currentUser = getCurrentUser();
-    if (currentUser) {
-      currentUser.easterEggsFound = eggs;
-      localStorage.setItem('krugames_currentUser', JSON.stringify(currentUser));
-    }
-    return true;
-  } catch (error) {
-    console.error('Ошибка сохранения пасхалок:', error);
-    return false;
+// ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
+
+function updateAuthUI(firebaseUser) {
+  const statusEl = document.getElementById('auth-status');
+  if (!statusEl) return;
+  if (firebaseUser) {
+    const user = getCurrentUser();
+    const name = user ? user.username : firebaseUser.email;
+    statusEl.innerHTML = `👤 ${name} | <a href="#" id="logout-link">Выйти</a>`;
+    document.getElementById('logout-link')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      firebaseLogout();
+    });
+  } else {
+    statusEl.innerHTML = '<a href="profile.html">Войти</a>';
   }
 }
 
-// ====== Слушатель состояния авторизации ======
-function initFirebaseAuthListener() {
-  auth.onAuthStateChanged(async (firebaseUser) => {
-    if (firebaseUser) {
-      try {
-        const doc = await db.collection('users').doc(firebaseUser.uid).get();
-        if (doc.exists) {
-          const userData = doc.data();
-          const fullUser = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            ...userData
-          };
-          await syncUserToLocal(fullUser);
-          if (window.updateAuthUI) updateAuthUI();
-        }
-      } catch (e) {
-        console.error('Ошибка синхронизации:', e);
+// Функция синхронизации данных в localStorage (вызывается после входа)
+function syncUserToLocal(userData) {
+  setCurrentUser(userData);
+}
+
+// Обработчик изменений auth (вызывается из main.js или глобально)
+auth.onAuthStateChanged(async (firebaseUser) => {
+  if (firebaseUser) {
+    // Уже залогинен – актуализируем данные
+    try {
+      const doc = await db.collection('users').doc(firebaseUser.uid).get();
+      if (doc.exists) {
+        const data = doc.data();
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          username: data.username,
+          department: data.department,
+          points: data.points || 0,
+          role: data.role || 'user',
+          description: data.description || '',
+          achievements: data.achievements || [],
+          easterEggsFound: data.easterEggsFound || [],
+          completedGames: data.completedGames || []
+        };
+        setCurrentUser(userData);
       }
-    } else {
-      logoutCurrentUser();
-      localStorage.removeItem('krugames_currentUser');
-      if (window.updateAuthUI) updateAuthUI();
+    } catch (e) {
+      console.error('Ошибка синхронизации при старте:', e);
     }
-  });
-}
+  } else {
+    setCurrentUser(null);
+  }
+  updateAuthUI(firebaseUser);
+});
