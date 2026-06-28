@@ -109,7 +109,7 @@
               id: doc.id,       // uid
               username: data.username,
               department: data.department || '',
-              avatar: data.avatar || '',
+              avatar: data.avatar || '', // оставлено для совместимости, не используется
               points: data.points || 0,
               role: data.role || 'user',
               achievements: data.achievements || []
@@ -164,13 +164,17 @@
 
         filtered.forEach((user, index) => {
           const place = index + 1;
-          const avatar = user.avatar || 'assets/default-avatar.png';
           const achCount = user.achievements.length;
+          // Используем глобальную функцию renderAvatarDiv из main.js
+          const avatarHtml = (typeof renderAvatarDiv === 'function') 
+            ? renderAvatarDiv({ uid: user.id, username: user.username }) 
+            : `<div class="avatar-circle avatar-small" style="background-color: ${getColorFromUid(user.id)}">${getInitials(user.username)}</div>`;
+
           html += `
             <tr>
               <td class="place-cell">#${place}</td>
               <td class="player-cell">
-                <img src="${avatar}" alt="Аватар" class="player-avatar-small" onerror="this.src='assets/default-avatar.png'">
+                ${avatarHtml}
                 <a href="public-profile.html?id=${user.id}" class="player-name-link">${user.username}</a>
               </td>
               <td>${user.points}</td>
