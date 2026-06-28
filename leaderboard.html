@@ -5,6 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Рейтинг – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Дополнительные стили для расширенных фильтров */
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 160px;
+    }
+    .filter-group label {
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+      color: #555;
+    }
+    .filter-group input,
+    .filter-group select {
+      padding: 0.4rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .filter-group input[type="number"] {
+      width: 100px;
+    }
+    .filter-range {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .filter-range span {
+      color: #888;
+    }
+    .leaderboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .leaderboard-table th,
+    .leaderboard-table td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    .leaderboard-table th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+    .place-cell {
+      font-weight: bold;
+      color: var(--color-primary);
+    }
+    .player-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .player-name-link {
+      color: var(--color-primary);
+      text-decoration: none;
+    }
+    .player-name-link:hover {
+      text-decoration: underline;
+    }
+    .no-results {
+      text-align: center;
+      padding: 2rem;
+      color: #888;
+    }
+    /* Адаптация под мобильные */
+    @media (max-width: 768px) {
+      .filter-row {
+        flex-direction: column;
+      }
+      .filter-group {
+        width: 100%;
+      }
+      .filter-range {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
 </head>
 <body>
 
@@ -28,23 +114,40 @@
   <main class="main">
     <div class="container">
       <h2>Таблица лидеров</h2>
+
+      <!-- Расширенные фильтры -->
       <div class="leaderboard-filters">
-        <div class="filter-group">
-          <label for="filter-department">Отдел:</label>
-          <select id="filter-department">
-            <option value="">Все отделы</option>
-            <!-- Опции заполнятся скриптом -->
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="filter-achievements">Достижения:</label>
-          <select id="filter-achievements">
-            <option value="all">Все</option>
-            <option value="some">Есть достижения</option>
-            <option value="none">Нет достижений</option>
-          </select>
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="filter-name">Поиск по имени</label>
+            <input type="text" id="filter-name" placeholder="Введите имя...">
+          </div>
+          <div class="filter-group">
+            <label>Баллы</label>
+            <div class="filter-range">
+              <input type="number" id="filter-points-min" placeholder="От" min="0">
+              <span>–</span>
+              <input type="number" id="filter-points-max" placeholder="До" min="0">
+            </div>
+          </div>
+          <div class="filter-group">
+            <label for="filter-department">Отдел</label>
+            <select id="filter-department">
+              <option value="">Все отделы</option>
+              <!-- Опции заполнятся скриптом -->
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-achievements">Достижения</label>
+            <select id="filter-achievements">
+              <option value="all">Все</option>
+              <option value="some">Есть достижения</option>
+              <option value="none">Нет достижений</option>
+            </select>
+          </div>
         </div>
       </div>
+
       <div id="leaderboard-container">
         <!-- Таблица будет сгенерирована JS -->
       </div>
@@ -62,16 +165,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-  <!-- Наш модуль Firebase -->
   <script src="js/firebase-auth.js"></script>
-  <!-- Старые модули (для toast и прочего) -->
   <script src="js/storage.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/main.js"></script>
 
   <script>
-    // Тот же список отделов, что и везде
+    // Список отделов (как везде)
     const DEPARTMENTS = [
       'РБ (Физические лица)',
       'МСБ (Юридические лица)',
@@ -87,8 +188,11 @@
       const container = document.getElementById('leaderboard-container');
       const filterDept = document.getElementById('filter-department');
       const filterAch = document.getElementById('filter-achievements');
+      const filterName = document.getElementById('filter-name');
+      const filterPointsMin = document.getElementById('filter-points-min');
+      const filterPointsMax = document.getElementById('filter-points-max');
 
-      // Заполняем список отделов в фильтре
+      // Заполняем выпадающий список отделов
       DEPARTMENTS.forEach(dept => {
         const option = document.createElement('option');
         option.value = dept;
@@ -96,9 +200,9 @@
         filterDept.appendChild(option);
       });
 
-      let allUsers = []; // будет хранить загруженных пользователей
+      let allUsers = [];
 
-      // Загружаем пользователей из Firestore
+      // Загрузка пользователей из Firestore
       async function loadUsersFromFirestore() {
         try {
           const snapshot = await db.collection('users').get();
@@ -106,10 +210,9 @@
           snapshot.forEach(doc => {
             const data = doc.data();
             allUsers.push({
-              id: doc.id,       // uid
-              username: data.username,
+              id: doc.id,
+              username: data.username || 'Без имени',
               department: data.department || '',
-              avatar: data.avatar || '', // оставлено для совместимости, не используется
               points: data.points || 0,
               role: data.role || 'user',
               achievements: data.achievements || []
@@ -118,33 +221,52 @@
           renderLeaderboard();
         } catch (error) {
           console.error('Ошибка загрузки пользователей:', error);
-          container.innerHTML = '<p>Не удалось загрузить рейтинг. Попробуйте позже.</p>';
+          container.innerHTML = '<p class="no-results">Не удалось загрузить рейтинг. Попробуйте позже.</p>';
         }
       }
 
-      // Рендер таблицы с учётом фильтров
+      // Отрисовка таблицы с учётом всех фильтров
       function renderLeaderboard() {
         const deptFilter = filterDept.value;
         const achFilter = filterAch.value;
+        const nameFilter = filterName.value.trim().toLowerCase();
+        const pointsMin = parseInt(filterPointsMin.value, 10);
+        const pointsMax = parseInt(filterPointsMax.value, 10);
 
-        // Фильтруем: убираем админов, применяем фильтры
+        // Начинаем с исключения админов
         let filtered = allUsers.filter(u => u.role !== 'admin');
 
+        // Фильтр по отделу
         if (deptFilter !== '') {
           filtered = filtered.filter(u => u.department === deptFilter);
         }
 
+        // Фильтр по достижениям
         if (achFilter === 'some') {
-          filtered = filtered.filter(u => u.achievements && u.achievements.length > 0);
+          filtered = filtered.filter(u => u.achievements.length > 0);
         } else if (achFilter === 'none') {
-          filtered = filtered.filter(u => !u.achievements || u.achievements.length === 0);
+          filtered = filtered.filter(u => u.achievements.length === 0);
         }
 
-        // Сортируем по баллам
+        // Фильтр по имени (поиск в любом регистре)
+        if (nameFilter !== '') {
+          filtered = filtered.filter(u => u.username.toLowerCase().includes(nameFilter));
+        }
+
+        // Фильтр по диапазону баллов
+        if (!isNaN(pointsMin)) {
+          filtered = filtered.filter(u => u.points >= pointsMin);
+        }
+        if (!isNaN(pointsMax)) {
+          filtered = filtered.filter(u => u.points <= pointsMax);
+        }
+
+        // Сортировка по баллам (по убыванию)
         filtered.sort((a, b) => b.points - a.points);
 
+        // Отрисовка
         if (filtered.length === 0) {
-          container.innerHTML = '<p>Никто не найден по заданным фильтрам.</p>';
+          container.innerHTML = '<p class="no-results">Никто не найден по заданным фильтрам.</p>';
           return;
         }
 
@@ -165,9 +287,10 @@
         filtered.forEach((user, index) => {
           const place = index + 1;
           const achCount = user.achievements.length;
-          // Используем глобальную функцию renderAvatarDiv из main.js
-          const avatarHtml = (typeof renderAvatarDiv === 'function') 
-            ? renderAvatarDiv({ uid: user.id, username: user.username }) 
+
+          // Аватар-инициалы (используем глобальную функцию, если доступна)
+          const avatarHtml = (typeof renderAvatarDiv === 'function')
+            ? renderAvatarDiv(user)
             : `<div class="avatar-circle avatar-small" style="background-color: ${getColorFromUid(user.id)}">${getInitials(user.username)}</div>`;
 
           html += `
@@ -188,11 +311,13 @@
         container.innerHTML = html;
       }
 
-      // Обработчики фильтров
-      filterDept.addEventListener('change', renderLeaderboard);
-      filterAch.addEventListener('change', renderLeaderboard);
+      // Обработчики изменений в любом фильтре
+      [filterDept, filterAch, filterName, filterPointsMin, filterPointsMax].forEach(el => {
+        el.addEventListener('input', renderLeaderboard);
+        el.addEventListener('change', renderLeaderboard);
+      });
 
-      // Инициализация: загружаем данные
+      // Первоначальная загрузка
       loadUsersFromFirestore();
     });
   </script>
