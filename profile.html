@@ -41,7 +41,6 @@
     .btn-more:hover {
       background: #e0e0e0;
     }
-    /* Статистика */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -73,7 +72,6 @@
       font-size: 0.8rem;
       color: #666;
     }
-    /* Аккордеон */
     .accordion {
       margin-top: 1.5rem;
       border: 1px solid #e0e0e0;
@@ -155,7 +153,6 @@
     </div>
   </footer>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -165,6 +162,7 @@
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/feedback.js"></script>
 
   <script>
     const DEPARTMENTS = [
@@ -528,8 +526,7 @@
         // Аккордеон
         document.querySelectorAll('.accordion-header').forEach(header => {
           header.addEventListener('click', () => {
-            const accordion = header.parentElement;
-            accordion.classList.toggle('open');
+            header.parentElement.classList.toggle('open');
           });
         });
 
