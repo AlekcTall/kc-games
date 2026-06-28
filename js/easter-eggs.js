@@ -1,4 +1,4 @@
-// easter-eggs.js – пасхалки (индивидуальные для каждого пользователя)
+// easter-eggs.js – пасхалки (индивидуальные, с синхронизацией через Firebase)
 
 const EASTER_EGGS = {
   // Проверяет, найдена ли пасхалка текущим пользователем
@@ -9,41 +9,48 @@ const EASTER_EGGS = {
     return user.easterEggsFound.includes(eggId);
   },
 
-  // Отмечает пасхалку как найденную и сохраняет пользователя
-  markFound(eggId) {
+  // Отмечает пасхалку как найденную и сохраняет в облако + localStorage
+  async markFound(eggId) {
     const user = getCurrentUser();
     if (!user) return false;
-    const users = getUsers();
-    const currentUserData = users.find(u => u.id === user.id);
-    if (!currentUserData) return false;
+    if (!user.easterEggsFound) user.easterEggsFound = [];
 
-    if (!currentUserData.easterEggsFound) currentUserData.easterEggsFound = [];
+    // Уже есть – выходим
+    if (user.easterEggsFound.includes(eggId)) return false;
 
-    if (!currentUserData.easterEggsFound.includes(eggId)) {
-      currentUserData.easterEggsFound.push(eggId);
-      saveUsers(users);
-      setCurrentUser(currentUserData); // обновляем сессию
-      return true; // новая пасхалка
+    // Добавляем в массив
+    user.easterEggsFound.push(eggId);
+
+    // Обновляем локального пользователя
+    setCurrentUser(user);
+
+    // Сохраняем в Firestore
+    if (typeof syncEasterEggsToFirestore === 'function') {
+      await syncEasterEggsToFirestore(user.easterEggsFound);
     }
-    return false; // уже была найдена
+
+    return true; // новая пасхалка
   },
 
-  // Начисление баллов + проверка достижений
-  award(eggId, points, message) {
-    if (!this.markFound(eggId)) return; // уже находили
+  // Начисление баллов + проверка достижений + уведомление
+  async award(eggId, points, message) {
+    const isNew = await this.markFound(eggId);
+    if (!isNew) return; // уже была найдена
 
     const user = getCurrentUser();
     if (!user) {
-     showToast('Войдите в профиль, чтобы получить награду за пасхалку!', 'error');
+      showToast('Войдите в профиль, чтобы получить награду за пасхалку!', 'error');
       return;
     }
 
-    // Начисляем баллы
-    addPointsToCurrentUser(points, null);
-    
+    // Начисляем баллы (облачная функция)
+    if (typeof addPointsToCurrentUser === 'function') {
+      await addPointsToCurrentUser(points, null);
+    }
+
     // Проверяем достижения
     if (typeof checkAndAwardAchievements === 'function') {
-      checkAndAwardAchievements(user.id);
+      await checkAndAwardAchievements(user.uid || user.id);
     }
 
     showToast(message || `Пасхалка найдена! +${points} баллов.`, 'info');
@@ -52,7 +59,7 @@ const EASTER_EGGS = {
 
 // ===== ИНИЦИАЛИЗАЦИЯ ВСЕХ ПАСХАЛОК =====
 function initEasterEggs() {
-  
+
   // ----- 1. Пятикратный клик по логотипу -----
   let logoClicks = 0;
   let logoClickTimer = null;
@@ -62,7 +69,7 @@ function initEasterEggs() {
       logoClicks++;
       if (logoClickTimer) clearTimeout(logoClickTimer);
       logoClickTimer = setTimeout(() => { logoClicks = 0; }, 1500);
-      
+
       if (logoClicks >= 5) {
         EASTER_EGGS.award('logo_click_5', 10, '🥚 Лого-кликер! Вы нашли пасхалку: 5 кликов по логотипу.');
         logoClicks = 0;
@@ -80,7 +87,8 @@ function initEasterEggs() {
     eggBtn.addEventListener('click', () => {
       EASTER_EGGS.award('footer_button', 15, '🥚 Тайная кнопка футера! Вы нашли пасхалку.');
     });
-    footer.querySelector('.container').appendChild(eggBtn);
+    const container = footer.querySelector('.container');
+    if (container) container.appendChild(eggBtn);
   }
 
   // ----- 3. Секретный символ на Главной -----
@@ -112,7 +120,7 @@ function initEasterEggs() {
     }
   });
 
-  // ----- 5. Секретное слово -----
+  // ----- 5. Секретное слово "бонус" -----
   const secretWord = 'бонус';
   let typedBuffer = '';
   document.addEventListener('keydown', (e) => {
