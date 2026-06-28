@@ -5,8 +5,6 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'krugames_currentUser'
 };
 
-// ===== ПОЛЬЗОВАТЕЛИ (старые функции для совместимости) =====
-
 function getUsers() {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
   return data ? JSON.parse(data) : [];
@@ -33,7 +31,6 @@ function isLoggedIn() {
   return getCurrentUser() !== null;
 }
 
-// Регистрация (старая, не используется при Firebase)
 function registerUser(username, password, department) {
   const users = getUsers();
   if (users.find(u => u.username === username)) {
@@ -56,7 +53,6 @@ function registerUser(username, password, department) {
   return true;
 }
 
-// Вход (старый)
 function loginUser(username, password) {
   const users = getUsers();
   const user = users.find(u => u.username === username && u.password === password);
@@ -72,7 +68,6 @@ function loginUser(username, password) {
   return null;
 }
 
-// Инициализация пользователя по умолчанию (админ)
 function initDefaultUsers() {
   const users = getUsers();
   if (users.length === 0) {
@@ -94,7 +89,6 @@ function initDefaultUsers() {
 }
 initDefaultUsers();
 
-// ===== ИГРЫ =====
 const STORAGE_GAMES_KEY = 'krugames_games';
 
 function getGames() {
@@ -140,12 +134,10 @@ function initDefaultGames() {
 }
 initDefaultGames();
 
-// ===== НАЧИСЛЕНИЕ БАЛЛОВ (ОБНОВЛЁННАЯ) =====
 async function addPointsToCurrentUser(points, gameId = null) {
   const currentUser = getCurrentUser();
   if (!currentUser) return false;
 
-  // Если пользователь из Firebase (есть uid и авторизован), обновляем облако
   if (currentUser.uid && typeof auth !== 'undefined' && auth.currentUser) {
     try {
       if (gameId) {
@@ -153,7 +145,6 @@ async function addPointsToCurrentUser(points, gameId = null) {
       } else {
         await syncPointsToFirestore(points);
       }
-      // Проверяем достижения (после обновления баллов)
       if (typeof checkAndAwardAchievements === 'function') {
         checkAndAwardAchievements(currentUser.uid);
       }
@@ -163,7 +154,6 @@ async function addPointsToCurrentUser(points, gameId = null) {
       return false;
     }
   } else {
-    // Старый код для localStorage (если пользователь не из Firebase)
     const users = getUsers();
     const user = users.find(u => u.id === currentUser.id);
     if (user) {
