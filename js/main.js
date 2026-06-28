@@ -112,3 +112,7 @@ window.renderAvatarDiv = function(user) {
   const bgColor = getColorFromUid(user.uid);
   return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
 };
+  if (typeof initFeedback === 'function') {
+    initFeedback();
+  }
+});
