@@ -147,6 +147,12 @@ async function checkAndAwardAchievements(userId) {
     }
   }
 
+              // Отправляем уведомление
+              const currentUid = auth.currentUser?.uid || user.uid || user.id;
+              if (currentUid) {
+                addNotification(currentUid, `🏆 Получено достижение: ${ach.name}!`, '');
+              }
+  
   if (awardedSomething) {
     if (typeof auth !== 'undefined' && auth.currentUser) {
       await syncAchievementsToFirestore(user.achievements);
