@@ -43,16 +43,16 @@
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js"></script>
 
-  <!-- Наш новый модуль Firebase -->
+  <!-- Наш модуль Firebase -->
   <script src="js/firebase-auth.js"></script>
-  <!-- Старые скрипты (для игр и достижений) -->
+  <!-- Старые модули -->
   <script src="js/storage.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/main.js"></script>
 
   <script>
-    // Локальный список отделов (можно вынести в глобальный конфиг)
+    // Локальный список отделов
     const DEPARTMENTS = [
       'РБ (Физические лица)',
       'МСБ (Юридические лица)',
@@ -64,8 +64,8 @@
       'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
     ];
 
-    // Сжатие аватара (функция та же, что и раньше)
-    const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
+    // Настройки аватара
+    const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024; // 5 МБ
     const AVATAR_MAX_WIDTH = 400;
     const AVATAR_MAX_HEIGHT = 400;
     const AVATAR_QUALITY = 0.8;
@@ -105,7 +105,6 @@
       // Проверяем, вошёл ли пользователь через Firebase
       auth.onAuthStateChanged(async (firebaseUser) => {
         if (firebaseUser) {
-          // Пользователь аутентифицирован, загружаем его данные
           const doc = await db.collection('users').doc(firebaseUser.uid).get();
           if (doc.exists) {
             const userData = doc.data();
@@ -139,7 +138,6 @@
                 <label for="password">Пароль</label>
                 <input type="password" id="password" required placeholder="Введите пароль">
               </div>
-              <!-- Поля для регистрации -->
               <div class="form-group" id="reg-extra" style="display:none;">
                 <label for="username">Фамилия Имя</label>
                 <input type="text" id="username" placeholder="Иванов Иван">
@@ -195,8 +193,10 @@
 
           try {
             if (currentTab === 'login') {
-              await firebaseLogin(email, password);
-              // onAuthStateChanged сработает и перерисует профиль
+              const user = await firebaseLogin(email, password);
+              // Синхронизируем данные в localStorage и обновляем шапку
+              syncUserToLocal(user);
+              if (window.updateAuthUI) updateAuthUI();
             } else {
               const username = document.getElementById('username').value.trim();
               const department = document.getElementById('department').value;
@@ -205,8 +205,9 @@
                 showToast('Заполните все поля', 'error');
                 return;
               }
-              await firebaseRegister(email, password, username, department);
-              // после регистрации пользователь автоматически войдёт
+              const newUser = await firebaseRegister(email, password, username, department);
+              syncUserToLocal(newUser);
+              if (window.updateAuthUI) updateAuthUI();
             }
           } catch (error) {
             authMessage.textContent = error.message;
@@ -314,7 +315,6 @@
           try {
             await firebaseUpdateProfile(user.uid, updates);
             showToast('Профиль обновлён', 'success');
-            // Обновляем локального пользователя для совместимости
             const updatedUser = { ...user, ...updates };
             syncUserToLocal(updatedUser);
             renderProfile(updatedUser);
@@ -332,7 +332,6 @@
             showToast('Заполните оба поля', 'error');
             return;
           }
-          // Проверяем старый пароль через повторный вход
           try {
             const credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPassword);
             await auth.currentUser.reauthenticateWithCredential(credential);
