@@ -207,38 +207,7 @@ function updateAuthUI(firebaseUser) {
   }
 }
 
-// Функция синхронизации данных в localStorage (вызывается после входа)
+// Функция синхронизации данных в localStorage (вызывается после входа/регистрации)
 function syncUserToLocal(userData) {
   setCurrentUser(userData);
 }
-
-// Обработчик изменений auth (вызывается из main.js или глобально)
-auth.onAuthStateChanged(async (firebaseUser) => {
-  if (firebaseUser) {
-    // Уже залогинен – актуализируем данные
-    try {
-      const doc = await db.collection('users').doc(firebaseUser.uid).get();
-      if (doc.exists) {
-        const data = doc.data();
-        const userData = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          username: data.username,
-          department: data.department,
-          points: data.points || 0,
-          role: data.role || 'user',
-          description: data.description || '',
-          achievements: data.achievements || [],
-          easterEggsFound: data.easterEggsFound || [],
-          completedGames: data.completedGames || []
-        };
-        setCurrentUser(userData);
-      }
-    } catch (e) {
-      console.error('Ошибка синхронизации при старте:', e);
-    }
-  } else {
-    setCurrentUser(null);
-  }
-  updateAuthUI(firebaseUser);
-});
