@@ -554,28 +554,44 @@
              <h3 class="section-title">Статистика</h3>
             <div class="stats-container" id="stats-container"></div>
 
-            <div class="profile-edit">
-              <h3>Редактировать профиль</h3>
-              <div class="form-group">
-                <label for="desc">О себе</label>
-                <textarea id="desc" rows="3">${user.description || ''}</textarea>
+           <!-- Аккордеон: Редактировать профиль -->
+            <div class="accordion">
+              <button class="accordion-header" data-target="edit-section">
+                <span>✏️ Редактировать профиль</span>
+                <span class="accordion-arrow">▼</span>
+              </button>
+              <div class="accordion-content" id="edit-section">
+                <div class="profile-edit">
+                  <div class="form-group">
+                    <label for="desc">О себе</label>
+                    <textarea id="desc" rows="3">${user.description || ''}</textarea>
+                  </div>
+                  <button class="btn" id="save-profile-btn">Сохранить описание</button>
+                  <p id="profile-save-message" class="auth-message"></p>
+                </div>
               </div>
-              <button class="btn" id="save-profile-btn">Сохранить описание</button>
-              <p id="profile-save-message" class="auth-message"></p>
             </div>
 
-            <div class="profile-password-change">
-              <h3>Сменить пароль</h3>
-              <div class="form-group">
-                <label for="old-password">Старый пароль</label>
-                <input type="password" id="old-password" placeholder="Введите старый пароль">
+            <!-- Аккордеон: Сменить пароль -->
+            <div class="accordion">
+              <button class="accordion-header" data-target="password-section">
+                <span>🔒 Сменить пароль</span>
+                <span class="accordion-arrow">▼</span>
+              </button>
+              <div class="accordion-content" id="password-section">
+                <div class="profile-password-change">
+                  <div class="form-group">
+                    <label for="old-password">Старый пароль</label>
+                    <input type="password" id="old-password" placeholder="Введите старый пароль">
+                  </div>
+                  <div class="form-group">
+                    <label for="new-password">Новый пароль</label>
+                    <input type="password" id="new-password" placeholder="Введите новый пароль">
+                  </div>
+                  <button class="btn" id="change-password-btn">Сменить пароль</button>
+                  <p id="password-change-message" class="auth-message"></p>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="new-password">Новый пароль</label>
-                <input type="password" id="new-password" placeholder="Введите новый пароль">
-              </div>
-              <button class="btn" id="change-password-btn">Сменить пароль</button>
-              <p id="password-change-message" class="auth-message"></p>
             </div>
 
             <button class="btn btn-logout" id="logout-btn">Выйти</button>
