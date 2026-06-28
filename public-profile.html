@@ -87,9 +87,16 @@
         const achievementsConfig = getAchievementsConfig();
         const unlockedAch = user.achievements || [];
 
+        // Используем глобальную renderAvatarDiv из main.js (или прямой вызов)
+        const avatarHtml = (typeof renderAvatarDiv === 'function') 
+          ? renderAvatarDiv(user) 
+          : `<div class="avatar-circle" style="background-color: ${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
+
         container.innerHTML = `
           <div class="public-profile-box">
-            <div class="avatar-circle avatar-small" style="background-color: ${getColorFromUid(user.id)};" title="${user.username}">${getInitials(user.username)}</div>
+            <div class="profile-header">
+              ${avatarHtml}
+              <div>
                 <h2>${user.username}</h2>
                 <span class="badge badge-${user.role}">${user.role}</span>
                 ${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}
