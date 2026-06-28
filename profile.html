@@ -5,6 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Профиль – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .section-title {
+      margin-top: 2rem;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 0.5rem;
+    }
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .history-table th,
+    .history-table td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    .history-table th {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .graph-container {
+      margin-top: 1.5rem;
+      background: #fafafa;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    canvas {
+      width: 100%;
+      height: 200px;
+    }
+    .no-data {
+      color: #999;
+      font-style: italic;
+    }
+    @media (max-width: 480px) {
+      .profile-box {
+        padding: 1rem;
+      }
+    }
+  </style>
 </head>
 <body>
 
@@ -60,11 +101,11 @@
       'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
     ];
 
-    // Функции инициалов
+    // Локальные функции на случай, если main.js не загрузился
     function getInitials(fullName) {
       if (!fullName) return '?';
       const parts = fullName.trim().split(/\s+/);
-      return parts.length > 1 
+      return parts.length > 1
         ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
         : fullName[0].toUpperCase();
     }
@@ -84,6 +125,107 @@
       return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
     }
 
+    // Функция рисования графика (такая же, как в public-profile.html)
+    function drawScoreChart(history, finalPoints) {
+      const canvas = document.getElementById('scoreChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
+
+      const points = [];
+      let sum = 0;
+      sorted.forEach(entry => {
+        sum += entry.points;
+        points.push({ x: entry.timestamp, y: sum });
+      });
+
+      if (points.length === 0) return;
+
+      requestAnimationFrame(() => {
+        const width = canvas.offsetWidth || 400;
+        const height = 200;
+        canvas.width = width;
+        canvas.height = height;
+
+        const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+
+        const minX = points[0].x;
+        const maxX = points[points.length-1].x;
+        const maxY = Math.max(finalPoints || 0, ...points.map(p => p.y), 1);
+
+        const xRange = maxX - minX || 1;
+
+        const scaleX = (val) => padding.left + ((val - minX) / xRange) * chartWidth;
+        const scaleY = (val) => padding.top + chartHeight - (val / maxY) * chartHeight;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = '#999';
+
+        // Горизонтальные линии
+        ctx.strokeStyle = '#eee';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const yVal = (maxY / 4) * i;
+          const y = scaleY(yVal);
+          ctx.beginPath();
+          ctx.moveTo(padding.left, y);
+          ctx.lineTo(width - padding.right, y);
+          ctx.stroke();
+          ctx.fillText(Math.round(yVal), 5, y + 3);
+        }
+
+        // Ось Y
+        ctx.strokeStyle = '#ccc';
+        ctx.beginPath();
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, height - padding.bottom);
+        ctx.stroke();
+
+        // Ось X
+        ctx.beginPath();
+        ctx.moveTo(padding.left, height - padding.bottom);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.stroke();
+
+        // Подписи дат
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'center';
+        const dateFormatter = new Intl.DateTimeFormat('ru', { day: '2-digit', month: '2-digit' });
+        const numLabels = Math.min(points.length, 5);
+        for (let i = 0; i < numLabels; i++) {
+          const idx = Math.round((i / (numLabels-1)) * (points.length-1));
+          const p = points[idx];
+          const x = scaleX(p.x);
+          const dateStr = dateFormatter.format(new Date(p.x));
+          ctx.fillText(dateStr, x, height - padding.bottom + 15);
+        }
+
+        // Линия
+        ctx.strokeStyle = '#4f46e5';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, i) => {
+          const x = scaleX(p.x);
+          const y = scaleY(p.y);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Точки
+        ctx.fillStyle = '#4f46e5';
+        points.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(scaleX(p.x), scaleY(p.y), 3, 0, Math.PI*2);
+          ctx.fill();
+        });
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('profile-container');
 
@@ -94,6 +236,8 @@
             const userData = doc.data();
             const user = { uid: firebaseUser.uid, email: firebaseUser.email, ...userData };
             renderProfile(user);
+          } else {
+            renderLoginForm();
           }
         } else {
           renderLoginForm();
@@ -135,7 +279,6 @@
             <div id="forgot-password-container" style="margin-top: 0.5rem; text-align: right;">
               <a href="#" id="forgot-password-link" style="font-size: 0.9rem; color: var(--color-primary);">Забыли пароль?</a>
             </div>
-            <!-- Блок для восстановления (скрыт) -->
             <div id="reset-password-section" style="display: none; margin-top: 1rem;">
               <div class="form-group">
                 <label for="reset-email">Email для восстановления</label>
@@ -163,7 +306,6 @@
         const forgotContainer = document.getElementById('forgot-password-container');
         let currentTab = 'login';
 
-        // Логика вкладок
         tabButtons.forEach(btn => {
           btn.addEventListener('click', () => {
             tabButtons.forEach(b => b.classList.remove('active'));
@@ -173,7 +315,6 @@
               submitBtn.textContent = 'Войти';
               regExtra.style.display = 'none';
               departmentGroup.style.display = 'none';
-              // Показываем ссылку "Забыли пароль?" только в режиме входа
               forgotContainer.style.display = 'block';
               resetSection.style.display = 'none';
             } else {
@@ -188,7 +329,6 @@
           });
         });
 
-        // Обработчик "Забыли пароль?"
         forgotLink.addEventListener('click', (e) => {
           e.preventDefault();
           authForm.style.display = 'none';
@@ -196,7 +336,6 @@
           resetSection.style.display = 'block';
         });
 
-        // Отмена восстановления
         cancelResetBtn.addEventListener('click', () => {
           resetSection.style.display = 'none';
           authForm.style.display = 'block';
@@ -204,7 +343,6 @@
           resetMessage.textContent = '';
         });
 
-        // Отправка письма для сброса
         sendResetBtn.addEventListener('click', async () => {
           const email = resetEmail.value.trim();
           if (!email) {
@@ -216,7 +354,6 @@
             await auth.sendPasswordResetEmail(email);
             resetMessage.textContent = 'Письмо отправлено! Проверьте почту.';
             showToast('Письмо отправлено на ' + email, 'success');
-            // Через 3 секунды возвращаемся к форме входа
             setTimeout(() => {
               resetSection.style.display = 'none';
               authForm.style.display = 'block';
@@ -229,7 +366,6 @@
           }
         });
 
-        // Сабмит формы входа/регистрации
         authForm.addEventListener('submit', async (e) => {
           e.preventDefault();
           const email = document.getElementById('email').value.trim();
@@ -266,6 +402,8 @@
 
       function renderProfile(user) {
         const achievementsConfig = getAchievementsConfig();
+        const gameHistory = user.gameHistory || [];
+
         container.innerHTML = `
           <div class="profile-box">
             <div class="profile-header">
@@ -282,21 +420,42 @@
               <p><strong>О себе:</strong> <span id="profile-desc-text">${user.description || '—'}</span></p>
             </div>
 
-            <div class="profile-achievements">
-              <h3>Достижения (<span id="ach-count">${(user.achievements || []).length}</span>/${achievementsConfig.length})</h3>
-              <div class="achievements-grid">
-                ${achievementsConfig.map(ach => {
-                  const unlocked = (user.achievements || []).includes(ach.id);
-                  const hidden = ach.hidden && !unlocked;
-                  return `
-                    <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
-                      <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
-                      <span class="ach-name">${hidden ? '???' : ach.name}</span>
-                      ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
-                    </div>
-                  `;
-                }).join('')}
-              </div>
+            <h3 class="section-title">Достижения (<span id="ach-count">${(user.achievements || []).length}</span>/${achievementsConfig.length})</h3>
+            <div class="achievements-grid">
+              ${achievementsConfig.map(ach => {
+                const unlocked = (user.achievements || []).includes(ach.id);
+                const hidden = ach.hidden && !unlocked;
+                return `
+                  <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
+                    <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
+                    <span class="ach-name">${hidden ? '???' : ach.name}</span>
+                    ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- ИСТОРИЯ ИГР -->
+            <h3 class="section-title">История игр</h3>
+            ${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `
+              <table class="history-table">
+                <thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead>
+                <tbody>
+                  ${gameHistory.slice().reverse().map(entry => {
+                    const date = new Date(entry.timestamp).toLocaleString('ru-RU', {
+                      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+                    const gameName = entry.game === 'clicker' ? '🖱️ Кликер' : entry.game === 'memory' ? '🧠 Найди пару' : entry.game;
+                    return `<tr><td>${gameName}</td><td>+${entry.points}</td><td>${date}</td></tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            `}
+
+            <!-- ГРАФИК -->
+            <h3 class="section-title">Прогресс баллов</h3>
+            <div class="graph-container">
+              <canvas id="scoreChart" width="400" height="200"></canvas>
             </div>
 
             <div class="profile-edit">
@@ -326,6 +485,11 @@
             <button class="btn btn-logout" id="logout-btn">Выйти</button>
           </div>
         `;
+
+        // Отрисовка графика, если есть история
+        if (gameHistory.length > 0) {
+          drawScoreChart(gameHistory, user.points || 0);
+        }
 
         document.getElementById('save-profile-btn').addEventListener('click', async () => {
           const desc = document.getElementById('desc').value.trim();
