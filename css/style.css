@@ -235,7 +235,7 @@ body {
 /* ===== Профиль ===== */
 .auth-box,
 .profile-box {
-  max-width: 500px;
+  max-width: 800px;
   margin: 0 auto;
   background: var(--color-white);
   padding: 2rem;
