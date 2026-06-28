@@ -26,16 +26,6 @@
       font-size: 0.85rem;
       color: #666;
     }
-    .graph-container {
-      margin-top: 1.5rem;
-      background: #fafafa;
-      border-radius: 8px;
-      padding: 1rem;
-    }
-    canvas {
-      width: 100%;
-      height: 200px;
-    }
     .no-data {
       color: #999;
       font-style: italic;
@@ -51,17 +41,8 @@
     .btn-more:hover {
       background: #e0e0e0;
     }
-    @media (max-width: 480px) {
-      .profile-box {
-  max-width: 800px;
-  margin: 0 auto;
-  background: white;
-  padding: 2rem;
-  border-radius: var(--border-radius);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-    }
-        .stats-grid {
+    /* Статистика */
+    .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 1rem;
@@ -93,14 +74,60 @@
       color: #666;
     }
     @media (max-width: 480px) {
+      .profile-box {
+        padding: 1rem;
+      }
       .stats-grid {
         grid-template-columns: 1fr;
       }
     }
+    /* Аккордеон */
+    .accordion {
+      margin-top: 1.5rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .accordion-header {
+      width: 100%;
+      padding: 0.9rem 1.2rem;
+      background: #f5f6f8;
+      border: none;
+      text-align: left;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-header);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s;
+    }
+    .accordion-header:hover {
+      background: #ebedf0;
+    }
+    .accordion-arrow {
+      font-size: 0.8rem;
+      transition: transform 0.3s;
+    }
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease;
+      background: white;
+    }
+    .accordion-content > div {
+      padding: 1.2rem;
+    }
+    .accordion.open .accordion-content {
+      max-height: 400px;
+    }
+    .accordion.open .accordion-arrow {
+      transform: rotate(180deg);
+    }
   </style>
 </head>
 <body>
-
   <header class="header">
     <div class="container header__inner">
       <a href="index.html" class="logo">КЦ-Игры</a>
@@ -119,9 +146,7 @@
   </header>
 
   <main class="main">
-    <div class="container" id="profile-container">
-      <!-- Контент будет подставлен через JS -->
-    </div>
+    <div class="container" id="profile-container"></div>
   </main>
 
   <footer class="footer">
@@ -130,7 +155,7 @@
     </div>
   </footer>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase SDK и скрипты -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -153,7 +178,6 @@
       'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
     ];
 
-    // Локальные функции на случай, если main.js не загрузился
     function getInitials(fullName) {
       if (!fullName) return '?';
       const parts = fullName.trim().split(/\s+/);
@@ -177,104 +201,9 @@
       return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
     }
 
-    // Функция рисования графика
-    function drawScoreChart(history, finalPoints) {
-      const canvas = document.getElementById('scoreChart');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-
-      const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
-
-      const points = [];
-      let sum = 0;
-      sorted.forEach(entry => {
-        sum += entry.points;
-        points.push({ x: entry.timestamp, y: sum });
-      });
-
-      if (points.length === 0) return;
-
-      requestAnimationFrame(() => {
-        const width = canvas.offsetWidth || 400;
-        const height = 200;
-        canvas.width = width;
-        canvas.height = height;
-
-        const padding = { top: 20, right: 20, bottom: 30, left: 40 };
-        const chartWidth = width - padding.left - padding.right;
-        const chartHeight = height - padding.top - padding.bottom;
-
-        const minX = points[0].x;
-        const maxX = points[points.length-1].x;
-        const maxY = Math.max(finalPoints || 0, ...points.map(p => p.y), 1);
-
-        const xRange = maxX - minX || 1;
-
-        const scaleX = (val) => padding.left + ((val - minX) / xRange) * chartWidth;
-        const scaleY = (val) => padding.top + chartHeight - (val / maxY) * chartHeight;
-
-        ctx.clearRect(0, 0, width, height);
-        ctx.font = '10px sans-serif';
-        ctx.fillStyle = '#999';
-
-        ctx.strokeStyle = '#eee';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 4; i++) {
-          const yVal = (maxY / 4) * i;
-          const y = scaleY(yVal);
-          ctx.beginPath();
-          ctx.moveTo(padding.left, y);
-          ctx.lineTo(width - padding.right, y);
-          ctx.stroke();
-          ctx.fillText(Math.round(yVal), 5, y + 3);
-        }
-
-        ctx.strokeStyle = '#ccc';
-        ctx.beginPath();
-        ctx.moveTo(padding.left, padding.top);
-        ctx.lineTo(padding.left, height - padding.bottom);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(padding.left, height - padding.bottom);
-        ctx.lineTo(width - padding.right, height - padding.bottom);
-        ctx.stroke();
-
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        const dateFormatter = new Intl.DateTimeFormat('ru', { day: '2-digit', month: '2-digit' });
-        const numLabels = Math.min(points.length, 5);
-        for (let i = 0; i < numLabels; i++) {
-          const idx = Math.round((i / (numLabels-1)) * (points.length-1));
-          const p = points[idx];
-          const x = scaleX(p.x);
-          const dateStr = dateFormatter.format(new Date(p.x));
-          ctx.fillText(dateStr, x, height - padding.bottom + 15);
-        }
-
-        ctx.strokeStyle = '#4f46e5';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        points.forEach((p, i) => {
-          const x = scaleX(p.x);
-          const y = scaleY(p.y);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-
-        ctx.fillStyle = '#4f46e5';
-        points.forEach(p => {
-          ctx.beginPath();
-          ctx.arc(scaleX(p.x), scaleY(p.y), 3, 0, Math.PI*2);
-          ctx.fill();
-        });
-      });
-    }
     function buildStatsHTML(history) {
-      // Суммируем баллы по дням
-      const dailyPoints = {}; // ключ — дата YYYY-MM-DD, значение — сумма баллов за день
-      const gamePoints = {};  // ключ — название игры, значение — сумма баллов
+      const dailyPoints = {};
+      const gamePoints = {};
       history.forEach(entry => {
         const date = new Date(entry.timestamp);
         const dayKey = date.toISOString().slice(0, 10);
@@ -330,6 +259,7 @@
         </div>
       `;
     }
+
     document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('profile-container');
 
@@ -508,7 +438,6 @@
         const achievementsConfig = getAchievementsConfig();
         const gameHistory = user.gameHistory || [];
 
-        // Рендерим основу профиля (без истории — её обновим отдельно)
         container.innerHTML = `
           <div class="profile-box">
             <div class="profile-header">
@@ -551,10 +480,9 @@
               `}
             </div>
 
-             <h3 class="section-title">Статистика</h3>
+            <h3 class="section-title">Статистика</h3>
             <div class="stats-container" id="stats-container"></div>
 
-           <!-- Аккордеон: Редактировать профиль -->
             <div class="accordion">
               <button class="accordion-header" data-target="edit-section">
                 <span>✏️ Редактировать профиль</span>
@@ -572,7 +500,6 @@
               </div>
             </div>
 
-            <!-- Аккордеон: Сменить пароль -->
             <div class="accordion">
               <button class="accordion-header" data-target="password-section">
                 <span>🔒 Сменить пароль</span>
@@ -598,12 +525,28 @@
           </div>
         `;
 
+        // Аккордеон
+        document.querySelectorAll('.accordion-header').forEach(header => {
+          header.addEventListener('click', () => {
+            const accordion = header.parentElement;
+            accordion.classList.toggle('open');
+          });
+        });
+
+        // Статистика
+        const statsContainer = document.getElementById('stats-container');
+        if (statsContainer && gameHistory.length > 0) {
+          statsContainer.innerHTML = buildStatsHTML(gameHistory);
+        } else if (statsContainer) {
+          statsContainer.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
+        }
+
         // Пагинация истории
         if (gameHistory.length > 0) {
-          const sortedHistory = [...gameHistory].reverse(); // новые сверху
+          const sortedHistory = [...gameHistory].reverse();
           const historyBody = document.getElementById('history-body');
           const moreContainer = document.getElementById('more-container');
-          let displayCount = 5; // начальное количество
+          let displayCount = 5;
           const step = 10;
 
           function renderHistoryRows() {
@@ -622,7 +565,6 @@
             });
             historyBody.innerHTML = rows;
 
-            // Кнопка "Загрузить ещё"
             if (displayCount < sortedHistory.length) {
               moreContainer.innerHTML = `<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`;
               document.getElementById('load-more-btn').addEventListener('click', () => {
@@ -637,15 +579,6 @@
           renderHistoryRows();
         }
 
-        // Статистика
-        const statsContainer = document.getElementById('stats-container');
-        if (statsContainer && gameHistory.length > 0) {
-          statsContainer.innerHTML = buildStatsHTML(gameHistory);
-        } else if (statsContainer) {
-          statsContainer.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
-        }
-
-        // Обработчики редактирования
         document.getElementById('save-profile-btn').addEventListener('click', async () => {
           const desc = document.getElementById('desc').value.trim();
           try {
