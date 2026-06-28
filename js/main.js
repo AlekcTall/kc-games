@@ -12,7 +12,6 @@ function showToast(message, type = 'info') {
   toast.className = `toast toast--${type}`;
   toast.textContent = message;
   container.appendChild(toast);
-  // Принудительный reflow для анимации
   toast.offsetHeight;
   toast.classList.add('toast--visible');
   setTimeout(() => {
@@ -48,7 +47,7 @@ function renderAvatarDiv(user) {
   return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
 }
 
-// Обновление статуса в шапке (будет вызываться при изменении состояния auth)
+// Обновление статуса в шапке
 function updateAuthUI(firebaseUser) {
   const statusEl = document.getElementById('auth-status');
   if (!statusEl) return;
@@ -60,7 +59,6 @@ function updateAuthUI(firebaseUser) {
     if (logoutLink) {
       logoutLink.addEventListener('click', (e) => {
         e.preventDefault();
-        // Используем глобальную функцию выхода
         if (typeof firebaseLogout === 'function') {
           firebaseLogout();
         } else {
@@ -73,9 +71,8 @@ function updateAuthUI(firebaseUser) {
   }
 }
 
-// Бургер-меню и инициализация дополнительных модулей
 document.addEventListener('DOMContentLoaded', () => {
-  // Бургер
+  // Бургер-меню
   const burgerBtn = document.getElementById('burger-btn');
   const mainNav = document.getElementById('main-nav');
   if (burgerBtn && mainNav) {
@@ -83,6 +80,14 @@ document.addEventListener('DOMContentLoaded', () => {
       mainNav.classList.toggle('nav--open');
     });
   }
+
+  // FAQ аккордеон
+  document.querySelectorAll('.faq-item__question').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const faqItem = btn.parentElement;
+      faqItem.classList.toggle('active');
+    });
+  });
 
   // Пасхалки
   if (typeof initEasterEggs === 'function') {
@@ -93,16 +98,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof initFeedback === 'function') {
     initFeedback();
   }
+
+  // Уведомления
   if (typeof initNotifications === 'function') {
     initNotifications();
   }
+
   // Автоматическое обновление статуса авторизации
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
       updateAuthUI(user);
     });
   } else {
-    // Если Firebase ещё не готов, просто нарисуем «Войти»
     updateAuthUI(null);
   }
 });
