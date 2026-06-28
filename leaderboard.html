@@ -57,17 +57,21 @@
     </div>
   </footer>
 
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <!-- Наш модуль Firebase -->
+  <script src="js/firebase-auth.js"></script>
+  <!-- Старые модули (для toast и прочего) -->
   <script src="js/storage.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/main.js"></script>
+
   <script>
-    // Тот же список отделов, что везде
+    // Тот же список отделов, что и везде
     const DEPARTMENTS = [
       'РБ (Физические лица)',
       'МСБ (Юридические лица)',
@@ -92,28 +96,51 @@
         filterDept.appendChild(option);
       });
 
-      // Функция рендера таблицы с учётом фильтров
+      let allUsers = []; // будет хранить загруженных пользователей
+
+      // Загружаем пользователей из Firestore
+      async function loadUsersFromFirestore() {
+        try {
+          const snapshot = await db.collection('users').get();
+          allUsers = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            allUsers.push({
+              id: doc.id,       // uid
+              username: data.username,
+              department: data.department || '',
+              avatar: data.avatar || '',
+              points: data.points || 0,
+              role: data.role || 'user',
+              achievements: data.achievements || []
+            });
+          });
+          renderLeaderboard();
+        } catch (error) {
+          console.error('Ошибка загрузки пользователей:', error);
+          container.innerHTML = '<p>Не удалось загрузить рейтинг. Попробуйте позже.</p>';
+        }
+      }
+
+      // Рендер таблицы с учётом фильтров
       function renderLeaderboard() {
-        const users = getUsers();
         const deptFilter = filterDept.value;
         const achFilter = filterAch.value;
 
-        // Сначала убираем админов
-        let filtered = users.filter(u => u.role !== 'admin');
+        // Фильтруем: убираем админов, применяем фильтры
+        let filtered = allUsers.filter(u => u.role !== 'admin');
 
-        // Фильтр по отделу
         if (deptFilter !== '') {
           filtered = filtered.filter(u => u.department === deptFilter);
         }
 
-        // Фильтр по достижениям
         if (achFilter === 'some') {
           filtered = filtered.filter(u => u.achievements && u.achievements.length > 0);
         } else if (achFilter === 'none') {
           filtered = filtered.filter(u => !u.achievements || u.achievements.length === 0);
         }
 
-        // Сортировка по баллам
+        // Сортируем по баллам
         filtered.sort((a, b) => b.points - a.points);
 
         if (filtered.length === 0) {
@@ -138,7 +165,7 @@
         filtered.forEach((user, index) => {
           const place = index + 1;
           const avatar = user.avatar || 'assets/default-avatar.png';
-          const achCount = user.achievements ? user.achievements.length : 0;
+          const achCount = user.achievements.length;
           html += `
             <tr>
               <td class="place-cell">#${place}</td>
@@ -157,12 +184,12 @@
         container.innerHTML = html;
       }
 
-      // Подписываемся на изменения фильтров
+      // Обработчики фильтров
       filterDept.addEventListener('change', renderLeaderboard);
       filterAch.addEventListener('change', renderLeaderboard);
 
-      // Первоначальный рендер
-      renderLeaderboard();
+      // Инициализация: загружаем данные
+      loadUsersFromFirestore();
     });
   </script>
 </body>
