@@ -52,22 +52,29 @@
   <script src="js/main.js"></script>
   <script>
     // Предустановленные игры, если ничего нет
-    const DEFAULT_GAMES = [
-      {
-        id: 'clicker',
-        icon: '🖱️',
-        title: 'Кликер',
-        description: 'Набери 20 кликов и получи 10 баллов.',
-        url: 'games/clicker.html'
-      },
-      {
-        id: 'memory',
-        icon: '🧠',
-        title: 'Найди пару',
-        description: 'Открой все пары и получи 15 баллов.',
-        url: 'games/memory.html'
-      }
-    ];
+  const DEFAULT_GAMES = [
+  {
+    id: 'clicker',
+    icon: '🖱️',
+    title: 'Кликер',
+    description: 'Набери 20 кликов и получи 10 баллов.',
+    url: 'games/clicker.html'
+  },
+  {
+    id: 'memory',
+    icon: '🧠',
+    title: 'Найди пару',
+    description: 'Открой все пары и получи 15 баллов.',
+    url: 'games/memory.html'
+  },
+  {
+    id: 'snake',
+    icon: '🐍',
+    title: 'Змейка',
+    description: 'Съешь 5 яблок и получи 10 баллов.',
+    url: 'games/snake.html'
+  }
+];
 
     function getGames() {
       const stored = JSON.parse(localStorage.getItem('krugames_games'));
