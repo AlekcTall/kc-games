@@ -141,18 +141,18 @@ async function checkAndAwardAchievements(userId) {
     if (conditionMet) {
       user.achievements.push(ach.id);
       awardedSomething = true;
+
+      // Отправляем уведомление
+      const currentUid = auth.currentUser?.uid || user.uid || user.id;
+      if (currentUid && typeof addNotification === 'function') {
+        addNotification(currentUid, `🏆 Получено достижение: ${ach.name}!`, '');
+      }
       if (!ach.hidden) {
         setTimeout(() => showToast(`🏆 Получено достижение: ${ach.name}!`, 'success'), 200);
       }
     }
   }
 
-              // Отправляем уведомление
-              const currentUid = auth.currentUser?.uid || user.uid || user.id;
-              if (currentUid) {
-                addNotification(currentUid, `🏆 Получено достижение: ${ach.name}!`, '');
-              }
-  
   if (awardedSomething) {
     if (typeof auth !== 'undefined' && auth.currentUser) {
       await syncAchievementsToFirestore(user.achievements);
