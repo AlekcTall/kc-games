@@ -186,6 +186,56 @@ async function syncAchievementsToFirestore(achievements) {
   }
 }
 
+// ================== СИНХРОНИЗАЦИЯ ИГРОВОЙ СТАТИСТИКИ ==================
+
+async function syncGameStats(gameId, stats) {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    const userRef = db.collection('users').doc(user.uid);
+    const doc = await userRef.get();
+    if (!doc.exists) return;
+    const data = doc.data();
+    const gameStats = data.gameStats || {};
+    const currentStats = gameStats[gameId] || {};
+
+    // Объединяем с новыми данными
+    const merged = { ...currentStats };
+
+    if (stats.totalClicks !== undefined) {
+      merged.totalClicks = Math.max(currentStats.totalClicks || 0, stats.totalClicks);
+    }
+    if (stats.maxScore !== undefined) {
+      merged.maxScore = Math.max(currentStats.maxScore || 0, stats.maxScore);
+    }
+    if (stats.bestMoves !== undefined) {
+      merged.bestMoves = currentStats.bestMoves ? Math.min(currentStats.bestMoves, stats.bestMoves) : stats.bestMoves;
+    }
+    if (stats.bestTime !== undefined) {
+      merged.bestTime = currentStats.bestTime ? Math.min(currentStats.bestTime, stats.bestTime) : stats.bestTime;
+    }
+    if (stats.selfEaten) merged.selfEaten = true;
+    if (stats.wallCrash) merged.wallCrash = true;
+    if (stats.openedFirst) merged.openedFirst = true;
+    if (stats.completed) merged.completed = true;
+
+    gameStats[gameId] = merged;
+    await userRef.update({ gameStats });
+
+    // Обновляем локального пользователя
+    const current = getCurrentUser();
+    if (current) {
+      if (!current.gameStats) current.gameStats = {};
+      current.gameStats[gameId] = merged;
+      setCurrentUser(current);
+    }
+    return true;
+  } catch (error) {
+    console.error('Ошибка синхронизации игровой статистики:', error);
+    return false;
+  }
+}
+
 // ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
 
 function updateAuthUI(firebaseUser) {
