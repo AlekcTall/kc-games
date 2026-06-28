@@ -89,3 +89,27 @@ window.showToast = function(message, type = 'info') {
     });
   }, 3500);
 };
+// ===== Глобальные функции для инициалов =====
+window.getInitials = function(fullName) {
+  if (!fullName) return '?';
+  const parts = fullName.trim().split(/\s+/);
+  return parts.length > 1 
+    ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
+    : fullName[0].toUpperCase();
+};
+
+window.getColorFromUid = function(uid) {
+  let hash = 0;
+  for (let i = 0; i < uid.length; i++) {
+    hash = uid.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash % 360);
+  return `hsl(${h}, 60%, 70%)`;
+};
+
+// Создаёт HTML-строку для аватара-инициалов (можно использовать в любом месте)
+window.renderAvatarDiv = function(user) {
+  const initials = getInitials(user.username);
+  const bgColor = getColorFromUid(user.uid);
+  return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
+};
