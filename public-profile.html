@@ -71,6 +71,42 @@
   ...
 }
     }
+        .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .stat-card {
+      background: #f9f9fb;
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .stat-icon {
+      font-size: 2rem;
+    }
+    .stat-detail {
+      display: flex;
+      flex-direction: column;
+    }
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-header);
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: #666;
+    }
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -184,10 +220,8 @@
               `}
             </div>
 
-            <h3 class="section-title">Прогресс баллов</h3>
-            <div class="graph-container">
-              <canvas id="scoreChart" width="400" height="200"></canvas>
-            </div>
+                        <h3 class="section-title">Статистика</h3>
+            <div class="stats-container" id="stats-container"></div>
 
             <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
           </div>
@@ -231,8 +265,11 @@
           renderHistoryRows();
         }
 
-        if (gameHistory.length > 0) {
-          drawScoreChart(gameHistory, user.points || 0);
+         const statsContainer = document.getElementById('stats-container');
+        if (statsContainer && gameHistory.length > 0) {
+          statsContainer.innerHTML = buildStatsHTML(gameHistory);
+        } else if (statsContainer) {
+          statsContainer.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
         }
 
       } catch (error) {
