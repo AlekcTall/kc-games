@@ -113,20 +113,32 @@ async function addPointsToCurrentUser(points, gameId = null) {
     const data = doc.data();
     const newPoints = (data.points || 0) + points;
     const updateData = { points: newPoints };
+
     if (gameId) {
+      // Отмечаем игру пройденной
       const completedGames = data.completedGames || [];
       if (!completedGames.includes(gameId)) {
         completedGames.push(gameId);
         updateData.completedGames = completedGames;
       }
+      // Добавляем запись в историю
+      const gameHistory = data.gameHistory || [];
+      gameHistory.push({
+        game: gameId,
+        points: points,
+        timestamp: Date.now()  // клиентское время
+      });
+      updateData.gameHistory = gameHistory;
     }
+
     await userRef.update(updateData);
+
+    // Обновляем локального пользователя
     const current = getCurrentUser();
     if (current) {
       current.points = newPoints;
-      if (updateData.completedGames) {
-        current.completedGames = updateData.completedGames;
-      }
+      if (updateData.completedGames) current.completedGames = updateData.completedGames;
+      if (updateData.gameHistory) current.gameHistory = updateData.gameHistory;
       setCurrentUser(current);
     }
     return true;
