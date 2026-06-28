@@ -1,14 +1,5 @@
 // main.js – общая логика сайта
 document.addEventListener('DOMContentLoaded', () => {
-  initFAQ();
-  updateAuthUI();
-  initEasterEggs();
-  initBurger();
-
-console.log('Firebase:', firebase.apps.length ? 'OK' : 'ERROR');
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Инициализируем слушатель Firebase Auth
   initFirebaseAuthListener();
 
   initFAQ();
@@ -16,14 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initEasterEggs();
   initBurger();
 
-  // Проверка достижений (оставим, но позже переведём)
-  const currentUser = getCurrentUser();
-  if (currentUser && typeof checkAndAwardAchievements === 'function') {
-    checkAndAwardAchievements(currentUser.id);
-  }
-});
-
-  // Проверяем достижения при загрузке страницы
   const currentUser = getCurrentUser();
   if (currentUser && typeof checkAndAwardAchievements === 'function') {
     checkAndAwardAchievements(currentUser.id);
@@ -38,7 +21,6 @@ function initBurger() {
 
   burgerBtn.addEventListener('click', () => {
     nav.classList.toggle('nav--open');
-    // Показываем/скрываем блок auth-status, который идёт сразу после nav
     const authStatus = document.getElementById('auth-status');
     if (authStatus) {
       authStatus.classList.toggle('nav--open');
@@ -78,46 +60,32 @@ function updateAuthUI() {
       <button class="btn-logout-header" id="header-logout-btn">Выйти</button>
     `;
     document.getElementById('header-logout-btn').addEventListener('click', () => {
-      logoutCurrentUser();
-      updateAuthUI();
-      if (window.location.pathname.endsWith('profile.html') || window.location.pathname === '/') {
-        if (typeof renderProfilePage === 'function') renderProfilePage();
-        else window.location.reload();
-      }
+      firebaseLogout();
     });
   } else {
     authContainer.innerHTML = `<a href="profile.html" class="auth-login-link">Войти</a>`;
   }
 }
-// ===== Тосты (всплывающие уведомления) =====
+
+// ===== Тосты =====
 window.showToast = function(message, type = 'info') {
-  // Создаём контейнер для тостов, если его ещё нет
   let toastContainer = document.getElementById('toast-container');
   if (!toastContainer) {
     toastContainer = document.createElement('div');
     toastContainer.id = 'toast-container';
     document.body.appendChild(toastContainer);
   }
-
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;
   toast.textContent = message;
-
   toastContainer.appendChild(toast);
-
-  // Принудительный reflow для анимации появления
   toast.offsetHeight;
   toast.classList.add('toast--visible');
-
-  // Удаляем через 3.5 секунды
   setTimeout(() => {
     toast.classList.remove('toast--visible');
     toast.addEventListener('transitionend', () => {
       if (toast.parentNode) toast.remove();
-      // Если контейнер пуст — удаляем его
-      if (toastContainer.children.length === 0) {
-        toastContainer.remove();
-      }
+      if (toastContainer.children.length === 0) toastContainer.remove();
     });
   }, 3500);
 };
