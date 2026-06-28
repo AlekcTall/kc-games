@@ -93,7 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof initFeedback === 'function') {
     initFeedback();
   }
-
+  if (typeof initNotifications === 'function') {
+    initNotifications();
+  }
   // Автоматическое обновление статуса авторизации
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
