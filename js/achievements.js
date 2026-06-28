@@ -1,58 +1,55 @@
-// achievements.js – конфигурация и логика достижений (Firebase-совместимая)
+// achievements.js – финальная версия (Firebase, рейтинг, пасхалки)
 
 const ACHIEVEMENTS = [
-  // ... все старые объекты достижений без изменений ...
-  {
-    id: 'top10',
-    name: 'В десятке!',
-    description: 'Попасть в Топ-10 рейтинга',
-    icon: '🔟',
-    hidden: false,
-    // Условие теперь асинхронное, проверяется в checkAndAwardAchievements
-    condition: null
-  },
-  {
-    id: 'top3',
-    name: 'Пьедестал',
-    description: 'Попасть в Топ-3 рейтинга',
-    icon: '🏆',
-    hidden: false,
-    condition: null
-  },
-  // ... остальные ...
+  { id: 'first_click', name: 'Первый клик', description: 'Сыграть в любую игру хотя бы раз', icon: '👆', hidden: false,
+    condition(user) { return user.points > 0; } },
+  { id: 'clicker_master', name: 'Кликер-мастер', description: 'Пройти игру «Кликер» (набрать 20 очков)', icon: '🖱️', hidden: false,
+    condition(user) { return user.completedGames && user.completedGames.includes('clicker'); } },
+  { id: 'avatar_set', name: 'Индивидуальность', description: 'Установить аватар профиля', icon: '🖼️', hidden: true,
+    condition(user) { return user.avatar && user.avatar.trim() !== ''; } },
+  { id: 'about_me_20', name: 'Расскажи о себе', description: 'Заполнить поле «О себе» (не менее 20 символов)', icon: '📝', hidden: true,
+    condition(user) { return user.description && user.description.length >= 20; } },
+  { id: 'top10', name: 'В десятке!', description: 'Попасть в Топ-10 рейтинга', icon: '🔟', hidden: false, condition: null },
+  { id: 'top3', name: 'Пьедестал', description: 'Попасть в Топ-3 рейтинга', icon: '🏆', hidden: false, condition: null },
+  { id: 'easter_first', name: 'Пасхалка найдена, есть ещё?', description: 'Найти любую пасхалку', icon: '🥚', hidden: false,
+    condition(user) { return user.easterEggsFound && user.easterEggsFound.length > 0; } },
+  { id: 'logo_click_5', name: 'Лого-кликер', description: 'Кликнуть 5 раз по логотипу', icon: '🖱️', hidden: true,
+    condition(user) { return isEasterEggFound('logo_click_5'); } },
+  { id: 'footer_button', name: 'Подвальный житель', description: 'Найти невидимую кнопку в футере', icon: '🔍', hidden: true,
+    condition(user) { return isEasterEggFound('footer_button'); } },
+  { id: 'secret_symbol', name: 'Секретный символ', description: 'Найти скрытый символ на главной странице', icon: '🔣', hidden: true,
+    condition(user) { return isEasterEggFound('secret_symbol'); } },
+  { id: 'konami_code', name: 'Konami Code', description: 'Ввести легендарный код', icon: '🎮', hidden: true,
+    condition(user) { return isEasterEggFound('konami_code'); } },
+  { id: 'secret_word_bonus', name: 'Секретное слово', description: 'Напечатать слово "бонус"', icon: '🔤', hidden: true,
+    condition(user) { return isEasterEggFound('secret_word_bonus'); } }
 ];
 
-// Получить конфиг
 function getAchievementsConfig() {
   return ACHIEVEMENTS;
 }
 
-// Получить место пользователя по данным из Firestore (или из массива)
+// Ранг пользователя по данным из Firestore
 async function getUserRankAsync(userId) {
   let users = [];
   try {
-    // Загружаем всех пользователей из Firestore
     const snapshot = await db.collection('users').get();
     snapshot.forEach(doc => {
       const data = doc.data();
-      if (data.role !== 'admin') { // исключаем админов
-        users.push({
-          id: doc.id,
-          points: data.points || 0
-        });
+      if (data.role !== 'admin') {
+        users.push({ id: doc.id, points: data.points || 0 });
       }
     });
   } catch (e) {
-    console.error('Ошибка загрузки рейтинга для достижений:', e);
+    console.error('Ошибка загрузки рейтинга:', e);
     return null;
   }
-  // Сортируем по убыванию баллов
   users.sort((a, b) => b.points - a.points);
   const index = users.findIndex(u => u.id === userId);
   return index === -1 ? null : index + 1;
 }
 
-// Проверить и выдать все доступные достижения (обновлённая)
+// Проверка и выдача достижений
 async function checkAndAwardAchievements(userId) {
   const current = getCurrentUser();
   const uid = userId || (current ? current.uid || current.id : null);
@@ -61,7 +58,6 @@ async function checkAndAwardAchievements(userId) {
   let user;
   let users;
 
-  // Пытаемся загрузить из Firestore
   if (typeof auth !== 'undefined' && auth.currentUser) {
     try {
       const doc = await db.collection('users').doc(uid).get();
@@ -79,7 +75,6 @@ async function checkAndAwardAchievements(userId) {
   }
 
   if (!user) {
-    // fallback на localStorage (для старых не-Firebase пользователей)
     users = getUsers();
     user = users.find(u => u.id == userId);
     if (!user) return;
@@ -88,12 +83,11 @@ async function checkAndAwardAchievements(userId) {
     if (!user.easterEggsFound) user.easterEggsFound = [];
   }
 
-  const allGames = getGames();
   const config = getAchievementsConfig();
   let awardedSomething = false;
-
-  // Для рейтинговых достижений вычисляем ранг, если ещё не получены
   let rank = null;
+
+  // Заранее вычисляем ранг, если нужно проверить рейтинговые достижения
   if (!user.achievements.includes('top10') || !user.achievements.includes('top3')) {
     rank = await getUserRankAsync(uid);
   }
@@ -106,8 +100,8 @@ async function checkAndAwardAchievements(userId) {
       conditionMet = rank !== null && rank <= 10;
     } else if (ach.id === 'top3') {
       conditionMet = rank !== null && rank <= 3;
-    } else if (ach.condition) {
-      conditionMet = ach.condition(user, allGames, users || getUsers());
+    } else if (typeof ach.condition === 'function') {
+      conditionMet = ach.condition(user, getGames(), users || getUsers());
     }
 
     if (conditionMet) {
@@ -120,14 +114,12 @@ async function checkAndAwardAchievements(userId) {
   }
 
   if (awardedSomething) {
-    // Сохраняем
     if (typeof auth !== 'undefined' && auth.currentUser) {
       await syncAchievementsToFirestore(user.achievements);
     } else {
       saveUsers(users);
       setCurrentUser(user);
     }
-    // Обновляем локального пользователя
     const localUser = getCurrentUser();
     if (localUser) {
       localUser.achievements = user.achievements;
@@ -136,17 +128,6 @@ async function checkAndAwardAchievements(userId) {
   }
 }
 
-// Старая функция getUserRank (для совместимости)
-function getUserRank(userId, users = null) {
-  const allUsers = users || getUsers();
-  const sorted = allUsers
-    .filter(u => u.role !== 'admin')
-    .sort((a, b) => b.points - a.points);
-  const index = sorted.findIndex(u => u.id == userId);
-  return index === -1 ? null : index + 1;
-}
-
-// Проверка пасхалок
 function isEasterEggFound(eggId) {
   const user = getCurrentUser();
   if (!user) return false;
