@@ -445,7 +445,11 @@
                     const date = new Date(entry.timestamp).toLocaleString('ru-RU', {
                       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                     });
-                    const gameName = entry.game === 'clicker' ? '🖱️ Кликер' : entry.game === 'memory' ? '🧠 Найди пару' : entry.game;
+                    const gameName = 
+  entry.game === 'clicker' ? '🖱️ Кликер' :
+  entry.game === 'memory'  ? '🧠 Найди пару' :
+  entry.game === 'snake'   ? '🐍 Змейка' :
+  entry.game;
                     return `<tr><td>${gameName}</td><td>+${entry.points}</td><td>${date}</td></tr>`;
                   }).join('')}
                 </tbody>
