@@ -60,7 +60,7 @@
       'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
     ];
 
-    // Функция генерации инициалов и цвета
+    // Функции инициалов
     function getInitials(fullName) {
       if (!fullName) return '?';
       const parts = fullName.trim().split(/\s+/);
@@ -132,6 +132,19 @@
               <button type="submit" class="btn" id="auth-submit-btn">Войти</button>
             </form>
             <p id="auth-message" class="auth-message"></p>
+            <div id="forgot-password-container" style="margin-top: 0.5rem; text-align: right;">
+              <a href="#" id="forgot-password-link" style="font-size: 0.9rem; color: var(--color-primary);">Забыли пароль?</a>
+            </div>
+            <!-- Блок для восстановления (скрыт) -->
+            <div id="reset-password-section" style="display: none; margin-top: 1rem;">
+              <div class="form-group">
+                <label for="reset-email">Email для восстановления</label>
+                <input type="email" id="reset-email" placeholder="Введите ваш email">
+              </div>
+              <button class="btn" id="send-reset-btn">Отправить инструкцию</button>
+              <button class="btn btn-cancel" id="cancel-reset-btn" style="margin-left: 0.5rem;">Отмена</button>
+              <p id="reset-message" class="auth-message"></p>
+            </div>
           </div>
         `;
 
@@ -141,8 +154,16 @@
         const submitBtn = document.getElementById('auth-submit-btn');
         const regExtra = document.getElementById('reg-extra');
         const departmentGroup = document.getElementById('department-group');
+        const forgotLink = document.getElementById('forgot-password-link');
+        const resetSection = document.getElementById('reset-password-section');
+        const resetEmail = document.getElementById('reset-email');
+        const sendResetBtn = document.getElementById('send-reset-btn');
+        const cancelResetBtn = document.getElementById('cancel-reset-btn');
+        const resetMessage = document.getElementById('reset-message');
+        const forgotContainer = document.getElementById('forgot-password-container');
         let currentTab = 'login';
 
+        // Логика вкладок
         tabButtons.forEach(btn => {
           btn.addEventListener('click', () => {
             tabButtons.forEach(b => b.classList.remove('active'));
@@ -152,15 +173,63 @@
               submitBtn.textContent = 'Войти';
               regExtra.style.display = 'none';
               departmentGroup.style.display = 'none';
+              // Показываем ссылку "Забыли пароль?" только в режиме входа
+              forgotContainer.style.display = 'block';
+              resetSection.style.display = 'none';
             } else {
               submitBtn.textContent = 'Зарегистрироваться';
               regExtra.style.display = 'block';
               departmentGroup.style.display = 'block';
+              forgotContainer.style.display = 'none';
+              resetSection.style.display = 'none';
             }
             authMessage.textContent = '';
+            resetMessage.textContent = '';
           });
         });
 
+        // Обработчик "Забыли пароль?"
+        forgotLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          authForm.style.display = 'none';
+          forgotContainer.style.display = 'none';
+          resetSection.style.display = 'block';
+        });
+
+        // Отмена восстановления
+        cancelResetBtn.addEventListener('click', () => {
+          resetSection.style.display = 'none';
+          authForm.style.display = 'block';
+          forgotContainer.style.display = 'block';
+          resetMessage.textContent = '';
+        });
+
+        // Отправка письма для сброса
+        sendResetBtn.addEventListener('click', async () => {
+          const email = resetEmail.value.trim();
+          if (!email) {
+            resetMessage.textContent = 'Введите email.';
+            showToast('Введите email', 'error');
+            return;
+          }
+          try {
+            await auth.sendPasswordResetEmail(email);
+            resetMessage.textContent = 'Письмо отправлено! Проверьте почту.';
+            showToast('Письмо отправлено на ' + email, 'success');
+            // Через 3 секунды возвращаемся к форме входа
+            setTimeout(() => {
+              resetSection.style.display = 'none';
+              authForm.style.display = 'block';
+              forgotContainer.style.display = 'block';
+              resetMessage.textContent = '';
+            }, 3000);
+          } catch (error) {
+            resetMessage.textContent = error.message;
+            showToast('Ошибка: ' + error.message, 'error');
+          }
+        });
+
+        // Сабмит формы входа/регистрации
         authForm.addEventListener('submit', async (e) => {
           e.preventDefault();
           const email = document.getElementById('email').value.trim();
