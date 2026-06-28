@@ -64,7 +64,6 @@
       color: var(--color-primary);
       text-decoration: none;
     }
-    /* Адаптация */
     @media (max-width: 480px) {
       .memory-board {
         gap: 0.4rem;
@@ -73,7 +72,6 @@
         font-size: 1.5rem;
       }
     }
-    /* Общие тосты (скопированы из clicker для независимости) */
     #toast-container {
       position: fixed;
       top: 1rem;
@@ -129,7 +127,6 @@
   <script src="../js/storage.js"></script>
   <script src="../js/achievements.js"></script>
   <script>
-    // Простейший тост (как в кликере)
     function showToast(message, type = 'info') {
       let container = document.getElementById('toast-container');
       if (!container) {
@@ -153,15 +150,14 @@
     }
 
     const EMOJIS = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'];
-    // Удвоим для пар
     const CARDS = [...EMOJIS, ...EMOJIS];
     let shuffled = [];
     let flippedCards = [];
     let moves = 0;
     let matched = 0;
     let gameFinished = false;
+    let firstCardOpened = false;
 
-    // Таймер
     let seconds = 0;
     let timerInterval = null;
     const timerEl = document.getElementById('timer');
@@ -182,12 +178,8 @@
       }, 1000);
     }
 
-    function stopTimer() {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
+    function stopTimer() { clearInterval(timerInterval); }
 
-    // Перемешивание
     function shuffleArray(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -207,6 +199,7 @@
       moves = 0;
       matched = 0;
       gameFinished = false;
+      firstCardOpened = false;
       movesEl.textContent = '0';
       messageEl.textContent = '';
 
@@ -223,10 +216,16 @@
     function handleCardClick(e) {
       if (gameFinished) return;
       const card = e.currentTarget;
-      // Уже открыта или совпала – игнорируем
       if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
-      // Блокируем, если уже две карты открыты и ждут проверки
       if (flippedCards.length === 2) return;
+
+      // Первое открытие карты за игру
+      if (!firstCardOpened) {
+        firstCardOpened = true;
+        if (auth.currentUser) {
+          syncGameStats('memory', { openedFirst: true });
+        }
+      }
 
       card.classList.add('flipped');
       card.textContent = card.dataset.emoji;
@@ -242,7 +241,6 @@
     function checkMatch() {
       const [card1, card2] = flippedCards;
       if (card1.dataset.emoji === card2.dataset.emoji) {
-        // Пара найдена
         card1.classList.add('matched');
         card2.classList.add('matched');
         matched += 2;
@@ -252,7 +250,6 @@
           finishGame();
         }
       } else {
-        // Не совпали – перевернуть обратно
         setTimeout(() => {
           card1.classList.remove('flipped');
           card2.classList.remove('flipped');
@@ -268,19 +265,23 @@
       stopTimer();
       messageEl.textContent = '🎉 Все пары найдены!';
 
+      // Синхронизируем статистику
+      if (auth.currentUser) {
+        await syncGameStats('memory', {
+          bestMoves: moves,
+          bestTime: seconds,
+          completed: true
+        });
+        checkAndAwardAchievements();
+      }
+
       const currentUser = getCurrentUser();
       if (currentUser && currentUser.uid && auth.currentUser) {
         try {
           const success = await addPointsToCurrentUser(15, 'memory');
-          if (success) {
-            showToast('+15 баллов за игру «Найди пару»!', 'success');
-          } else {
-            showToast('Ошибка при начислении баллов', 'error');
-          }
-        } catch (err) {
-          console.error(err);
-          showToast('Ошибка начисления', 'error');
-        }
+          if (success) showToast('+15 баллов за игру «Найди пару»!', 'success');
+          else showToast('Ошибка при начислении баллов', 'error');
+        } catch (err) { console.error(err); }
       } else {
         showToast('Игра пройдена! Войдите в профиль, чтобы получить баллы.', 'info');
       }
