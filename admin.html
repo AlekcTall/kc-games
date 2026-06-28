@@ -47,9 +47,357 @@
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/main.js"></script>
+
   <script>
-    // ... (вся твоя логика админки без изменений) ...
-    // Оставь текущий скрипт админки (игры, пользователи, корзина) без изменений
+    // Тот же список отделов, что и везде
+    const DEPARTMENTS = [
+      'РБ (Физические лица)',
+      'МСБ (Юридические лица)',
+      'ТМ (Телемаркетинг)',
+      'Депозиты (группа привлечения некредитных продуктов)',
+      'ОКК (отдел контроля качества)',
+      'ООБП (отдел оптимизации бизнес процессов)',
+      'Боссы (начальники и руководители начальников)',
+      'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
+    ];
+
+    // ========== Админ-панель ==========
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('admin-container');
+
+      // Проверяем, админ ли текущий пользователь
+      auth.onAuthStateChanged(async (firebaseUser) => {
+        if (!firebaseUser) {
+          container.innerHTML = '<p>Вы не авторизованы. <a href="profile.html">Войдите</a>.</p>';
+          return;
+        }
+
+        try {
+          const doc = await db.collection('users').doc(firebaseUser.uid).get();
+          if (!doc.exists || doc.data().role !== 'admin') {
+            container.innerHTML = '<p>Доступ запрещён. Требуются права администратора.</p>';
+            return;
+          }
+          // Пользователь – админ, отрисовываем панель
+          renderAdminPanel();
+        } catch (err) {
+          console.error('Ошибка проверки прав:', err);
+          container.innerHTML = '<p>Ошибка проверки прав. Попробуйте позже.</p>';
+        }
+      });
+
+      function renderAdminPanel() {
+        container.innerHTML = `
+          <h2>Административная панель</h2>
+          <div class="admin-tabs">
+            <button class="admin-tab active" data-tab="games">Игры</button>
+            <button class="admin-tab" data-tab="users">Пользователи</button>
+            <button class="admin-tab" data-tab="cart">Корзина</button>
+          </div>
+          <div id="admin-tab-content" class="admin-tab-content">
+            <!-- Сюда будет подгружаться содержимое вкладок -->
+          </div>
+        `;
+
+        const tabButtons = document.querySelectorAll('.admin-tab');
+        const tabContent = document.getElementById('admin-tab-content');
+
+        // Переключение вкладок
+        tabButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            tabButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadTab(btn.dataset.tab);
+          });
+        });
+
+        // По умолчанию показываем игры
+        loadTab('games');
+
+        function loadTab(tab) {
+          switch (tab) {
+            case 'games':
+              renderGamesTab();
+              break;
+            case 'users':
+              renderUsersTab();
+              break;
+            case 'cart':
+              tabContent.innerHTML = '<p>Корзина пока пуста (будет реализована позже).</p>';
+              break;
+          }
+        }
+      }
+
+      // ----- Вкладка ИГРЫ (localStorage) -----
+      function renderGamesTab() {
+        const tabContent = document.getElementById('admin-tab-content');
+        let games = getGames();
+
+        let html = `
+          <h3>Управление играми</h3>
+          <div class="admin-game-list">
+            ${games.length === 0 ? '<p>Список игр пуст.</p>' : ''}
+            <ul>
+              ${games.map(game => `
+                <li>
+                  <span>${game.icon} ${game.title} (${game.id})</span>
+                  <button class="btn btn-small btn-danger remove-game-btn" data-game-id="${game.id}">Удалить</button>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          <div class="admin-add-game">
+            <h4>Добавить игру</h4>
+            <form id="add-game-form">
+              <div class="form-group">
+                <label for="game-title">Название</label>
+                <input type="text" id="game-title" required>
+              </div>
+              <div class="form-group">
+                <label for="game-desc">Описание</label>
+                <input type="text" id="game-desc" required>
+              </div>
+              <div class="form-group">
+                <label for="game-icon">Иконка (emoji)</label>
+                <input type="text" id="game-icon" value="🎮">
+              </div>
+              <div class="form-group">
+                <label for="game-url">URL игры (например, games/clicker.html)</label>
+                <input type="text" id="game-url" placeholder="games/my-game.html">
+              </div>
+              <button type="submit" class="btn">Добавить</button>
+            </form>
+          </div>
+        `;
+
+        tabContent.innerHTML = html;
+
+        // Удаление игры
+        document.querySelectorAll('.remove-game-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const gameId = e.target.dataset.gameId;
+            const updatedGames = games.filter(g => g.id !== gameId);
+            saveGames(updatedGames);
+            showToast('Игра удалена', 'success');
+            renderGamesTab(); // обновить список
+          });
+        });
+
+        // Добавление игры
+        document.getElementById('add-game-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const title = document.getElementById('game-title').value.trim();
+          const desc = document.getElementById('game-desc').value.trim();
+          const icon = document.getElementById('game-icon').value.trim() || '🎮';
+          const url = document.getElementById('game-url').value.trim();
+
+          if (!title || !desc) {
+            showToast('Заполните название и описание', 'error');
+            return;
+          }
+
+          const newGame = {
+            id: 'game_' + Date.now(),
+            title: title,
+            description: desc,
+            icon: icon,
+            url: url || '#'
+          };
+
+          games.push(newGame);
+          saveGames(games);
+          showToast('Игра добавлена', 'success');
+          renderGamesTab(); // обновить список
+        });
+      }
+
+      // ----- Вкладка ПОЛЬЗОВАТЕЛИ (Firestore) -----
+      async function renderUsersTab() {
+        const tabContent = document.getElementById('admin-tab-content');
+        tabContent.innerHTML = '<p>Загрузка пользователей...</p>';
+
+        try {
+          const snapshot = await db.collection('users').get();
+          const users = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            users.push({
+              uid: doc.id,
+              username: data.username || 'Без имени',
+              email: data.email || '',
+              department: data.department || '',
+              points: data.points || 0,
+              role: data.role || 'user',
+              achievements: data.achievements || [],
+              description: data.description || ''
+            });
+          });
+
+          // Сортируем по баллам (опционально)
+          users.sort((a, b) => b.points - a.points);
+
+          let html = '<h3>Пользователи</h3>';
+          html += '<table class="admin-users-table">';
+          html += `
+            <thead>
+              <tr>
+                <th>Игрок</th>
+                <th>Email</th>
+                <th>Отдел</th>
+                <th>Баллы</th>
+                <th>Роль</th>
+                <th>Достижения</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+          `;
+
+          users.forEach(user => {
+            const avatarHtml = (typeof renderAvatarDiv === 'function')
+              ? renderAvatarDiv(user)
+              : `<div class="avatar-circle" style="background-color: ${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
+
+            html += `
+              <tr data-user-id="${user.uid}">
+                <td class="player-cell">
+                  ${avatarHtml}
+                  <span>${user.username}</span>
+                </td>
+                <td>${user.email}</td>
+                <td class="editable" data-field="department">${user.department || '—'}</td>
+                <td class="editable" data-field="points">${user.points}</td>
+                <td class="editable" data-field="role">${user.role}</td>
+                <td>${user.achievements.length}</td>
+                <td>
+                  <button class="btn btn-small edit-user-btn">✏️</button>
+                  <button class="btn btn-small save-user-btn" style="display:none;">💾</button>
+                  <button class="btn btn-small cancel-user-btn" style="display:none;">❌</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += '</tbody></table>';
+          tabContent.innerHTML = html;
+
+          // Вешаем обработчики на кнопки редактирования
+          attachUserEditHandlers(users);
+
+        } catch (err) {
+          console.error('Ошибка загрузки пользователей:', err);
+          tabContent.innerHTML = '<p>Не удалось загрузить список пользователей.</p>';
+        }
+      }
+
+      function attachUserEditHandlers(users) {
+        const rows = document.querySelectorAll('.admin-users-table tbody tr');
+        rows.forEach((row, index) => {
+          const user = users[index];
+          const editBtn = row.querySelector('.edit-user-btn');
+          const saveBtn = row.querySelector('.save-user-btn');
+          const cancelBtn = row.querySelector('.cancel-user-btn');
+          const cells = row.querySelectorAll('.editable');
+
+          // Сохраняем исходные значения в dataset ячеек, чтобы можно было откатить
+          cells.forEach(cell => {
+            cell.dataset.original = cell.innerText;
+          });
+
+          editBtn.addEventListener('click', () => {
+            // Переключаемся в режим редактирования
+            cells.forEach(cell => {
+              const field = cell.dataset.field;
+              const currentValue = cell.innerText;
+
+              if (field === 'role') {
+                // Выпадающий список для роли
+                cell.innerHTML = `<select class="edit-role">
+                  <option value="user" ${currentValue === 'user' ? 'selected' : ''}>user</option>
+                  <option value="admin" ${currentValue === 'admin' ? 'selected' : ''}>admin</option>
+                </select>`;
+              } else if (field === 'department') {
+                // Выпадающий список для отдела
+                let options = DEPARTMENTS.map(dept => 
+                  `<option value="${dept}" ${currentValue === dept ? 'selected' : ''}>${dept}</option>`
+                ).join('');
+                cell.innerHTML = `<select class="edit-department">${options}</select>`;
+              } else if (field === 'points') {
+                // Числовое поле
+                cell.innerHTML = `<input type="number" class="edit-points" value="${currentValue}" min="0">`;
+              }
+              // другие поля можно добавить аналогично
+            });
+
+            editBtn.style.display = 'none';
+            saveBtn.style.display = 'inline-block';
+            cancelBtn.style.display = 'inline-block';
+          });
+
+          saveBtn.addEventListener('click', async () => {
+            // Собрать новые значения
+            const newData = {};
+            cells.forEach(cell => {
+              const field = cell.dataset.field;
+              if (field === 'role') {
+                newData.role = cell.querySelector('select').value;
+              } else if (field === 'department') {
+                newData.department = cell.querySelector('select').value;
+              } else if (field === 'points') {
+                newData.points = parseInt(cell.querySelector('input').value, 10) || 0;
+              }
+            });
+
+            try {
+              // Обновляем в Firestore
+              await db.collection('users').doc(user.uid).update(newData);
+              showToast('Данные пользователя обновлены', 'success');
+
+              // Обновляем локальные данные и возвращаем отображение
+              if (newData.points !== undefined) user.points = newData.points;
+              if (newData.role !== undefined) user.role = newData.role;
+              if (newData.department !== undefined) user.department = newData.department;
+
+              // Выходим из режима редактирования
+              cells.forEach(cell => {
+                const field = cell.dataset.field;
+                cell.innerText = newData[field] !== undefined ? newData[field] : user[field];
+                cell.dataset.original = cell.innerText;
+              });
+
+              editBtn.style.display = 'inline-block';
+              saveBtn.style.display = 'none';
+              cancelBtn.style.display = 'none';
+
+            } catch (err) {
+              console.error('Ошибка обновления пользователя:', err);
+              showToast('Ошибка сохранения: ' + err.message, 'error');
+            }
+          });
+
+          cancelBtn.addEventListener('click', () => {
+            // Откатываем изменения к исходным значениям (как было до редактирования)
+            cells.forEach(cell => {
+              cell.innerText = cell.dataset.original;
+              // Очищаем внутренние элементы (select/input) – они уже перезаписаны через innerText
+            });
+
+            editBtn.style.display = 'inline-block';
+            saveBtn.style.display = 'none';
+            cancelBtn.style.display = 'none';
+          });
+        });
+      }
+
+      // Вспомогательные функции для игр (localStorage)
+      function getGames() {
+        return JSON.parse(localStorage.getItem('krugames_games')) || [];
+      }
+      function saveGames(games) {
+        localStorage.setItem('krugames_games', JSON.stringify(games));
+      }
+    });
   </script>
 </body>
 </html>
