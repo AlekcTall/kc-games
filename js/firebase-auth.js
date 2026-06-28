@@ -127,13 +127,10 @@ async function syncPointsToFirestore(points) {
   const user = auth.currentUser;
   if (!user) return false;
   try {
-    // Обновляем баллы в Firestore
     const userRef = db.collection('users').doc(user.uid);
     await userRef.update({ points: firebase.firestore.FieldValue.increment(points) });
-    // Получаем актуальные баллы
     const doc = await userRef.get();
     const newPoints = doc.data().points;
-    // Обновляем в localStorage
     let currentUser = getCurrentUser();
     if (currentUser) {
       currentUser.points = newPoints;
@@ -152,12 +149,10 @@ async function syncCompletedGame(gameId, points) {
   if (!user) return false;
   try {
     const userRef = db.collection('users').doc(user.uid);
-    // Добавляем игру в список завершённых
     await userRef.update({
       completedGames: firebase.firestore.FieldValue.arrayUnion(gameId),
       points: firebase.firestore.FieldValue.increment(points)
     });
-    // Обновляем локальные данные
     let currentUser = getCurrentUser();
     if (currentUser) {
       if (!currentUser.completedGames) currentUser.completedGames = [];
@@ -181,7 +176,6 @@ async function syncAchievementsToFirestore(achievements) {
   try {
     const userRef = db.collection('users').doc(user.uid);
     await userRef.update({ achievements: achievements });
-    // Обновляем локально
     let currentUser = getCurrentUser();
     if (currentUser) {
       currentUser.achievements = achievements;
@@ -227,6 +221,7 @@ function initFirebaseAuthListener() {
             ...userData
           };
           await syncUserToLocal(fullUser);
+          if (window.updateAuthUI) updateAuthUI();
         }
       } catch (e) {
         console.error('Ошибка синхронизации:', e);
@@ -234,9 +229,7 @@ function initFirebaseAuthListener() {
     } else {
       logoutCurrentUser();
       localStorage.removeItem('krugames_currentUser');
-    }
-    if (window.updateAuthUI) {
-      updateAuthUI();
+      if (window.updateAuthUI) updateAuthUI();
     }
   });
 }
