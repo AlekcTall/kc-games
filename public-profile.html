@@ -54,7 +54,13 @@
       color: #999;
       font-style: italic;
     }
-    /* Адаптивность */
+    .error-details {
+      color: #e74c3c;
+      background: #ffeaea;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
     @media (max-width: 480px) {
       .public-profile-box {
         padding: 1rem;
@@ -133,7 +139,7 @@
           ? renderAvatarDiv(user)
           : `<div class="avatar-circle" style="background-color: ${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
 
-        // Базовый блок профиля
+        // Собираем HTML
         let html = `
           <div class="public-profile-box">
             <div class="profile-header">
@@ -149,7 +155,6 @@
               <p><strong>О себе:</strong> ${user.description || '—'}</p>
             </div>
 
-            <!-- Достижения -->
             <h3 class="section-title">Достижения (${unlockedAch.length}/${achievementsConfig.length})</h3>
             <div class="achievements-grid">
               ${achievementsConfig.map(ach => {
@@ -165,7 +170,6 @@
               }).join('')}
             </div>
 
-            <!-- История игр -->
             <h3 class="section-title">История игр</h3>
             ${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `
               <table class="history-table">
@@ -182,7 +186,6 @@
               </table>
             `}
 
-            <!-- График баллов -->
             <h3 class="section-title">Прогресс баллов</h3>
             <div class="graph-container">
               <canvas id="scoreChart" width="400" height="200"></canvas>
@@ -201,20 +204,23 @@
 
       } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
-        container.innerHTML = '<p>Не удалось загрузить профиль.</p>';
+        container.innerHTML = `
+          <div class="error-details">
+            <strong>Ошибка:</strong> ${error.message}<br>
+            <small>Проверьте консоль (F12) для деталей.</small>
+          </div>
+        `;
       }
     });
 
-    // Функция рисования графика на Canvas
     function drawScoreChart(history, finalPoints) {
       const canvas = document.getElementById('scoreChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       
-      // Сортируем историю по времени
       const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
       
-      // Строим массив точек (время, кумулятивная сумма)
+      // Строим кумулятивную сумму
       const points = [];
       let sum = 0;
       sorted.forEach(entry => {
@@ -224,86 +230,89 @@
       
       if (points.length === 0) return;
 
-      // Размеры canvas
-      const width = canvas.width = canvas.offsetWidth;
-      const height = canvas.height = 200;
-      
-      // Отступы
-      const padding = { top: 20, right: 20, bottom: 30, left: 40 };
-      const chartWidth = width - padding.left - padding.right;
-      const chartHeight = height - padding.top - padding.bottom;
+      // Даём браузеру отрисовать canvas, чтобы получить актуальные размеры
+      requestAnimationFrame(() => {
+        const width = canvas.offsetWidth || 400;
+        const height = 200;
+        canvas.width = width;
+        canvas.height = height;
+        
+        const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
 
-      // Шкалы
-      const minX = points[0].x;
-      const maxX = points[points.length-1].x;
-      const maxY = Math.max(finalPoints, ...points.map(p => p.y), 1);
-      
-      // Функции преобразования
-      const scaleX = (val) => padding.left + ((val - minX) / (maxX - minX || 1)) * chartWidth;
-      const scaleY = (val) => padding.top + chartHeight - (val / maxY) * chartHeight;
+        const minX = points[0].x;
+        const maxX = points[points.length-1].x;
+        const maxY = Math.max(finalPoints || 0, ...points.map(p => p.y), 1);
+        
+        // Защита от деления на 0, если minX === maxX (одна секунда)
+        const xRange = maxX - minX || 1;
+        
+        const scaleX = (val) => padding.left + ((val - minX) / xRange) * chartWidth;
+        const scaleY = (val) => padding.top + chartHeight - (val / maxY) * chartHeight;
 
-      // Рисуем сетку и оси
-      ctx.clearRect(0, 0, width, height);
-      ctx.font = '10px sans-serif';
-      ctx.fillStyle = '#999';
-      
-      // Горизонтальные линии
-      ctx.strokeStyle = '#eee';
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const yVal = (maxY / 4) * i;
-        const y = scaleY(yVal);
+        ctx.clearRect(0, 0, width, height);
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = '#999';
+        
+        // Горизонтальные линии
+        ctx.strokeStyle = '#eee';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+          const yVal = (maxY / 4) * i;
+          const y = scaleY(yVal);
+          ctx.beginPath();
+          ctx.moveTo(padding.left, y);
+          ctx.lineTo(width - padding.right, y);
+          ctx.stroke();
+          ctx.fillText(Math.round(yVal), 5, y + 3);
+        }
+        
+        // Ось Y
+        ctx.strokeStyle = '#ccc';
         ctx.beginPath();
-        ctx.moveTo(padding.left, y);
-        ctx.lineTo(width - padding.right, y);
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, height - padding.bottom);
         ctx.stroke();
-        ctx.fillText(Math.round(yVal), 5, y + 3);
-      }
-      
-      // Вертикальная линия (ось Y)
-      ctx.strokeStyle = '#ccc';
-      ctx.beginPath();
-      ctx.moveTo(padding.left, padding.top);
-      ctx.lineTo(padding.left, height - padding.bottom);
-      ctx.stroke();
-      
-      // Горизонтальная ось X
-      ctx.beginPath();
-      ctx.moveTo(padding.left, height - padding.bottom);
-      ctx.lineTo(width - padding.right, height - padding.bottom);
-      ctx.stroke();
-      
-      // Подписи дат
-      ctx.fillStyle = '#666';
-      ctx.textAlign = 'center';
-      const dateFormatter = new Intl.DateTimeFormat('ru', { day: '2-digit', month: '2-digit' });
-      const numLabels = Math.min(points.length, 5);
-      for (let i = 0; i < numLabels; i++) {
-        const idx = Math.round((i / (numLabels-1)) * (points.length-1));
-        const p = points[idx];
-        const x = scaleX(p.x);
-        const dateStr = dateFormatter.format(new Date(p.x));
-        ctx.fillText(dateStr, x, height - padding.bottom + 15);
-      }
-
-      // Рисуем линию
-      ctx.strokeStyle = '#4f46e5';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      points.forEach((p, i) => {
-        const x = scaleX(p.x);
-        const y = scaleY(p.y);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-      
-      // Точки
-      ctx.fillStyle = '#4f46e5';
-      points.forEach(p => {
+        
+        // Ось X
         ctx.beginPath();
-        ctx.arc(scaleX(p.x), scaleY(p.y), 3, 0, Math.PI*2);
-        ctx.fill();
+        ctx.moveTo(padding.left, height - padding.bottom);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.stroke();
+        
+        // Подписи дат
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'center';
+        const dateFormatter = new Intl.DateTimeFormat('ru', { day: '2-digit', month: '2-digit' });
+        const numLabels = Math.min(points.length, 5);
+        for (let i = 0; i < numLabels; i++) {
+          const idx = Math.round((i / (numLabels-1)) * (points.length-1));
+          const p = points[idx];
+          const x = scaleX(p.x);
+          const dateStr = dateFormatter.format(new Date(p.x));
+          ctx.fillText(dateStr, x, height - padding.bottom + 15);
+        }
+
+        // Линия
+        ctx.strokeStyle = '#4f46e5';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((p, i) => {
+          const x = scaleX(p.x);
+          const y = scaleY(p.y);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        
+        // Точки
+        ctx.fillStyle = '#4f46e5';
+        points.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(scaleX(p.x), scaleY(p.y), 3, 0, Math.PI*2);
+          ctx.fill();
+        });
       });
     }
   </script>
