@@ -89,9 +89,7 @@
 
         container.innerHTML = `
           <div class="public-profile-box">
-            <div class="profile-header">
-              <img src="${user.avatar || 'assets/default-avatar.png'}" alt="Аватар" class="profile-avatar" onerror="this.src='assets/default-avatar.png'">
-              <div>
+            <div class="avatar-circle avatar-small" style="background-color: ${getColorFromUid(user.id)};" title="${user.username}">${getInitials(user.username)}</div>
                 <h2>${user.username}</h2>
                 <span class="badge badge-${user.role}">${user.role}</span>
                 ${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}
