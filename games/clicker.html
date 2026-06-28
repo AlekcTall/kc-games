@@ -123,13 +123,32 @@
     const CLICKS_PER_AWARD = 20;
     let score = 0;
     let awardedCount = 0;
+    let totalClicks = 0; // общее количество кликов за всё время (восстановим из Firestore)
 
     const scoreEl = document.getElementById('score');
     const clickBtn = document.getElementById('click-btn');
     const messageEl = document.getElementById('message');
 
+    // Восстанавливаем totalClicks из сохранённой статистики
+    (async function init() {
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.gameStats?.clicker?.totalClicks) {
+        totalClicks = currentUser.gameStats.clicker.totalClicks;
+      }
+      // Загружаем актуальное из Firestore, если есть
+      if (auth.currentUser) {
+        try {
+          const doc = await db.collection('users').doc(auth.currentUser.uid).get();
+          if (doc.exists && doc.data().gameStats?.clicker?.totalClicks) {
+            totalClicks = doc.data().gameStats.clicker.totalClicks;
+          }
+        } catch(e) {}
+      }
+    })();
+
     clickBtn.addEventListener('click', () => {
       score++;
+      totalClicks++;
       scoreEl.textContent = score;
 
       const expectedAwards = Math.floor(score / CLICKS_PER_AWARD);
@@ -137,19 +156,28 @@
         const newAwards = expectedAwards - awardedCount;
         awardedCount = expectedAwards;
 
+        // Начисляем баллы
         const currentUser = getCurrentUser();
         if (currentUser && currentUser.uid && auth.currentUser) {
-          addPointsToCurrentUser(POINTS_PER_AWARD * newAwards, 'clicker').then(success => {
+          addPointsToCurrentUser(POINTS_PER_AWARD * newAwards, 'clicker').then(async (success) => {
             if (success) {
               messageEl.textContent = `+${POINTS_PER_AWARD * newAwards} балл(ов)! Всего в игре: ${awardedCount * POINTS_PER_AWARD}`;
-              showToast(`+${POINTS_PER_AWARD * newAwards} баллов!`, 'success');
-            } else {
-              showToast('Ошибка начисления баллов', 'error');
+              // Синхронизируем статистику кликов
+              await syncGameStats('clicker', { totalClicks: totalClicks });
+              // Проверяем достижения
+              checkAndAwardAchievements();
             }
           });
         } else {
           messageEl.textContent = 'Войдите в профиль, чтобы получать баллы.';
         }
+      }
+    });
+
+    // При закрытии страницы сохраняем общее количество кликов, чтобы не потерять
+    window.addEventListener('beforeunload', () => {
+      if (auth.currentUser) {
+        syncGameStats('clicker', { totalClicks: totalClicks });
       }
     });
   </script>
