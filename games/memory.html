@@ -111,7 +111,7 @@
     <div class="memory-stats">
       <span>🔄 Ходы: <span id="moves">0</span></span>
       <span>⏱️ <span id="timer">00:00</span></span>
-      <span>🏆 Награда: <strong>15 баллов</strong></span>
+      <span>🏆 Награда: <strong>5 баллов</strong></span>
     </div>
     <div class="memory-board" id="board"></div>
     <p class="memory-message" id="message"></p>
@@ -278,8 +278,8 @@
       const currentUser = getCurrentUser();
       if (currentUser && currentUser.uid && auth.currentUser) {
         try {
-          const success = await addPointsToCurrentUser(15, 'memory');
-          if (success) showToast('+15 баллов за игру «Найди пару»!', 'success');
+          const success = await addPointsToCurrentUser(5, 'memory');
+          if (success) showToast('+5 баллов за игру «Найди пару»!', 'success');
           else showToast('Ошибка при начислении баллов', 'error');
         } catch (err) { console.error(err); }
       } else {
