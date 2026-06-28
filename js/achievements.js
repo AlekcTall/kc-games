@@ -63,7 +63,6 @@ const ACHIEVEMENTS = [
       return rank !== null && rank <= 3;
     }
   },
-  // Пасхальные достижения
   {
     id: 'easter_first',
     name: 'Пасхалка найдена, есть ещё?',
@@ -139,7 +138,6 @@ function getUserRank(userId, users = null) {
   return index === -1 ? null : index + 1;
 }
 
-// Проверить и выдать все доступные достижения (обновлённая для Firebase)
 async function checkAndAwardAchievements(userId) {
   const current = getCurrentUser();
   const uid = userId || (current ? current.uid || current.id : null);
@@ -148,7 +146,6 @@ async function checkAndAwardAchievements(userId) {
   let user;
   let users;
 
-  // Если пользователь авторизован через Firebase, загружаем данные из Firestore
   if (typeof auth !== 'undefined' && auth.currentUser) {
     try {
       const doc = await db.collection('users').doc(uid).get();
@@ -165,7 +162,6 @@ async function checkAndAwardAchievements(userId) {
     }
   }
 
-  // Если не получилось загрузить из Firestore, ищем в localStorage
   if (!user) {
     users = getUsers();
     user = users.find(u => u.id == userId);
@@ -191,15 +187,12 @@ async function checkAndAwardAchievements(userId) {
   });
 
   if (awardedSomething) {
-    // Сохраняем в Firestore или localStorage
     if (typeof auth !== 'undefined' && auth.currentUser) {
       await syncAchievementsToFirestore(user.achievements);
     } else {
-      // Обновляем в старом массиве пользователей
       saveUsers(users);
       setCurrentUser(user);
     }
-    // Обновляем локального пользователя
     const localUser = getCurrentUser();
     if (localUser) {
       localUser.achievements = user.achievements;
