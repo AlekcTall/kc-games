@@ -12,6 +12,7 @@ function showToast(message, type = 'info') {
   toast.className = `toast toast--${type}`;
   toast.textContent = message;
   container.appendChild(toast);
+  // Принудительный reflow для анимации
   toast.offsetHeight;
   toast.classList.add('toast--visible');
   setTimeout(() => {
@@ -23,7 +24,7 @@ function showToast(message, type = 'info') {
   }, 3500);
 }
 
-// Функции инициалов и цвета
+// Инициалы и цвет
 function getInitials(fullName) {
   if (!fullName) return '?';
   const parts = fullName.trim().split(/\s+/);
@@ -47,8 +48,34 @@ function renderAvatarDiv(user) {
   return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
 }
 
-// Бургер-меню
+// Обновление статуса в шапке (будет вызываться при изменении состояния auth)
+function updateAuthUI(firebaseUser) {
+  const statusEl = document.getElementById('auth-status');
+  if (!statusEl) return;
+  if (firebaseUser) {
+    const current = getCurrentUser();
+    const name = current ? current.username : firebaseUser.email;
+    statusEl.innerHTML = `👤 ${name} | <a href="#" id="logout-link">Выйти</a>`;
+    const logoutLink = document.getElementById('logout-link');
+    if (logoutLink) {
+      logoutLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Используем глобальную функцию выхода
+        if (typeof firebaseLogout === 'function') {
+          firebaseLogout();
+        } else {
+          auth.signOut();
+        }
+      });
+    }
+  } else {
+    statusEl.innerHTML = '<a href="profile.html">Войти</a>';
+  }
+}
+
+// Бургер-меню и инициализация дополнительных модулей
 document.addEventListener('DOMContentLoaded', () => {
+  // Бургер
   const burgerBtn = document.getElementById('burger-btn');
   const mainNav = document.getElementById('main-nav');
   if (burgerBtn && mainNav) {
@@ -57,13 +84,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Инициализация пасхалок (должна быть определена в easter-eggs.js)
+  // Пасхалки
   if (typeof initEasterEggs === 'function') {
     initEasterEggs();
   }
 
-  // Инициализация обратной связи (если добавлена)
+  // Обратная связь
   if (typeof initFeedback === 'function') {
     initFeedback();
+  }
+
+  // Автоматическое обновление статуса авторизации
+  if (typeof auth !== 'undefined') {
+    auth.onAuthStateChanged((user) => {
+      updateAuthUI(user);
+    });
+  } else {
+    // Если Firebase ещё не готов, просто нарисуем «Войти»
+    updateAuthUI(null);
   }
 });
