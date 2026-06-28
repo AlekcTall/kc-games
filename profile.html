@@ -42,17 +42,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-
-  <!-- Наш модуль Firebase -->
   <script src="js/firebase-auth.js"></script>
-  <!-- Старые модули -->
   <script src="js/storage.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/main.js"></script>
 
   <script>
-    // Локальный список отделов
     const DEPARTMENTS = [
       'РБ (Физические лица)',
       'МСБ (Юридические лица)',
@@ -64,55 +60,39 @@
       'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
     ];
 
-    // Настройки аватара
-    const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024; // 5 МБ
-    const AVATAR_MAX_WIDTH = 400;
-    const AVATAR_MAX_HEIGHT = 400;
-    const AVATAR_QUALITY = 0.8;
-    const AVATAR_TARGET_FORMAT = 'image/jpeg';
+    // Функция генерации инициалов и цвета
+    function getInitials(fullName) {
+      if (!fullName) return '?';
+      const parts = fullName.trim().split(/\s+/);
+      return parts.length > 1 
+        ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
+        : fullName[0].toUpperCase();
+    }
 
-    async function compressImage(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-            let { width, height } = img;
-            if (width > AVATAR_MAX_WIDTH || height > AVATAR_MAX_HEIGHT) {
-              const ratio = Math.min(AVATAR_MAX_WIDTH / width, AVATAR_MAX_HEIGHT / height);
-              width = Math.round(width * ratio);
-              height = Math.round(height * ratio);
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL(AVATAR_TARGET_FORMAT, AVATAR_QUALITY);
-            resolve(dataUrl);
-          };
-          img.onerror = () => reject(new Error('Не удалось загрузить изображение'));
-          img.src = e.target.result;
-        };
-        reader.onerror = () => reject(new Error('Ошибка чтения файла'));
-        reader.readAsDataURL(file);
-      });
+    function getColorFromUid(uid) {
+      let hash = 0;
+      for (let i = 0; i < uid.length; i++) {
+        hash = uid.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const h = Math.abs(hash % 360);
+      return `hsl(${h}, 60%, 70%)`;
+    }
+
+    function renderAvatarDiv(user) {
+      const initials = getInitials(user.username);
+      const bgColor = getColorFromUid(user.uid);
+      return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('profile-container');
 
-      // Проверяем, вошёл ли пользователь через Firebase
       auth.onAuthStateChanged(async (firebaseUser) => {
         if (firebaseUser) {
           const doc = await db.collection('users').doc(firebaseUser.uid).get();
           if (doc.exists) {
             const userData = doc.data();
-            const user = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              ...userData
-            };
+            const user = { uid: firebaseUser.uid, email: firebaseUser.email, ...userData };
             renderProfile(user);
           }
         } else {
@@ -194,7 +174,6 @@
           try {
             if (currentTab === 'login') {
               const user = await firebaseLogin(email, password);
-              // Синхронизируем данные в localStorage и обновляем шапку
               syncUserToLocal(user);
               if (window.updateAuthUI) updateAuthUI();
             } else {
@@ -221,7 +200,7 @@
         container.innerHTML = `
           <div class="profile-box">
             <div class="profile-header">
-              <img src="${user.avatar || 'assets/default-avatar.png'}" alt="Аватар" class="profile-avatar" id="profile-avatar-img">
+              ${renderAvatarDiv(user)}
               <div>
                 <h2>${user.username}</h2>
                 <span class="badge badge-${user.role}">${user.role}</span>
@@ -254,15 +233,10 @@
             <div class="profile-edit">
               <h3>Редактировать профиль</h3>
               <div class="form-group">
-                <label for="avatar-file">Загрузить аватар</label>
-                <input type="file" id="avatar-file" accept="image/*">
-                <small>Максимум 5 МБ, будет сжат</small>
-              </div>
-              <div class="form-group">
                 <label for="desc">О себе</label>
                 <textarea id="desc" rows="3">${user.description || ''}</textarea>
               </div>
-              <button class="btn" id="save-profile-btn">Сохранить</button>
+              <button class="btn" id="save-profile-btn">Сохранить описание</button>
               <p id="profile-save-message" class="auth-message"></p>
             </div>
 
@@ -284,47 +258,18 @@
           </div>
         `;
 
-        // --- Логика аватара ---
-        let selectedAvatarBase64 = null;
-        const avatarImg = document.getElementById('profile-avatar-img');
-        const avatarFileInput = document.getElementById('avatar-file');
-        avatarFileInput.addEventListener('change', async (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          if (file.size > MAX_AVATAR_FILE_SIZE) {
-            showToast('Файл слишком большой', 'error');
-            avatarFileInput.value = '';
-            return;
-          }
-          try {
-            selectedAvatarBase64 = await compressImage(file);
-            avatarImg.src = selectedAvatarBase64;
-            showToast('Аватар подготовлен', 'info');
-          } catch (err) {
-            showToast('Ошибка обработки', 'error');
-          }
-        });
-
-        // Сохранение профиля
         document.getElementById('save-profile-btn').addEventListener('click', async () => {
           const desc = document.getElementById('desc').value.trim();
-          const updates = { description: desc };
-          if (selectedAvatarBase64) {
-            updates.avatar = selectedAvatarBase64;
-          }
           try {
-            await firebaseUpdateProfile(user.uid, updates);
-            showToast('Профиль обновлён', 'success');
-            const updatedUser = { ...user, ...updates };
-            syncUserToLocal(updatedUser);
-            renderProfile(updatedUser);
-            if (window.updateAuthUI) updateAuthUI();
+            await firebaseUpdateProfile(user.uid, { description: desc });
+            showToast('Описание обновлено', 'success');
+            syncUserToLocal({ ...user, description: desc });
+            document.getElementById('profile-desc-text').textContent = desc || '—';
           } catch (err) {
             showToast('Ошибка сохранения', 'error');
           }
         });
 
-        // Смена пароля
         document.getElementById('change-password-btn').addEventListener('click', async () => {
           const oldPassword = document.getElementById('old-password').value;
           const newPassword = document.getElementById('new-password').value.trim();
@@ -344,7 +289,6 @@
           }
         });
 
-        // Выход
         document.getElementById('logout-btn').addEventListener('click', () => {
           firebaseLogout();
         });
