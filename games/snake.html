@@ -44,6 +44,60 @@
       color: var(--color-primary);
       text-decoration: none;
     }
+    /* Стартовое модальное окно */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 320px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .modal h3 { margin-bottom: 1rem; }
+    .modal p { margin-bottom: 1rem; font-size: 0.9rem; }
+    .modal button {
+      margin: 0.3rem;
+      padding: 0.5rem 1.2rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .btn-play { background: #27ae60; color: white; }
+    .btn-back { background: #ccc; }
+    /* Экранные кнопки управления */
+    .mobile-controls {
+      display: none;
+      margin-top: 1rem;
+    }
+    @media (max-width: 600px) {
+      .mobile-controls {
+        display: grid;
+        grid-template-areas: ". up ." "left . right" ". down .";
+        gap: 0.5rem;
+        justify-content: center;
+      }
+      .mobile-controls button {
+        width: 50px; height: 50px;
+        font-size: 1.5rem;
+        background: #eee;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+      }
+      .up { grid-area: up; }
+      .down { grid-area: down; }
+      .left { grid-area: left; }
+      .right { grid-area: right; }
+    }
     #toast-container {
       position: fixed;
       top: 1rem;
@@ -68,25 +122,27 @@
       max-width: 350px;
       word-wrap: break-word;
     }
-    .toast--visible {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    .toast--visible { opacity: 1; transform: translateX(0); }
     .toast--success { background: #27ae60; }
     .toast--info { background: #3498db; }
     .toast--error { background: #e74c3c; }
-    @media (max-width: 480px) {
-      .snake-game {
-        padding: 1rem;
-      }
-      canvas {
-        width: 100%;
-        height: auto;
-      }
-    }
   </style>
 </head>
 <body>
+  <!-- Стартовое окно -->
+  <div id="startModal" class="modal-overlay">
+    <div class="modal">
+      <h3>🐍 Змейка</h3>
+      <p>Управляйте змейкой стрелками (←↑↓→) или смахиванием на экране.<br>
+         Съедайте яблоки 🍎, чтобы расти.<br>
+         Каждые 5 яблок = +1 балл.<br>
+         Избегайте стен и своего хвоста!</p>
+      <p><small>На телефоне используйте кнопки ниже.</small></p>
+      <button class="btn-play" id="btnPlay">Играть</button>
+      <button class="btn-back" id="btnBack">Назад</button>
+    </div>
+  </div>
+
   <div class="snake-game">
     <h2>🐍 Змейка</h2>
     <div class="snake-stats">
@@ -94,6 +150,12 @@
       <span>🏆 Каждые <strong>5</strong> яблок = <strong>1</strong> балл</span>
     </div>
     <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div class="mobile-controls">
+      <button class="up">▲</button>
+      <button class="left">◀</button>
+      <button class="right">▶</button>
+      <button class="down">▼</button>
+    </div>
     <div class="snake-controls">Управление: стрелки ←↑↓→</div>
     <p class="snake-message" id="message"></p>
     <a href="../games.html" class="snake-back">← Вернуться к играм</a>
@@ -130,6 +192,18 @@
       }, 3500);
     }
 
+    // Стартовое окно
+    const startModal = document.getElementById('startModal');
+    document.getElementById('btnPlay').addEventListener('click', () => {
+      startModal.style.display = 'none';
+      initGame();
+      draw();
+      gameLoop = setInterval(update, 150);
+    });
+    document.getElementById('btnBack').addEventListener('click', () => {
+      window.location.href = '../games.html';
+    });
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
@@ -138,12 +212,22 @@
     const GRID_SIZE = 20;
     const CELL_SIZE = canvas.width / GRID_SIZE;
 
-    let snake = [{x: 10, y: 10}];
-    let direction = {x: 1, y: 0};
-    let food = {};
-    let score = 0;
-    let gameRunning = true;
-    let awardedLevel = 0;   // сколько раз уже выдали баллы (каждые 5 яблок = 1 уровень)
+    let snake, direction, food, score, awardedLevel, gameRunning, isSelfCollision, isWallCollision;
+    let maxScore = 0;
+    let gameLoop;
+
+    function initGame() {
+      snake = [{x: 10, y: 10}];
+      direction = {x: 1, y: 0};
+      food = randomFood();
+      score = 0;
+      awardedLevel = 0;
+      gameRunning = true;
+      isSelfCollision = false;
+      isWallCollision = false;
+      scoreEl.textContent = '0';
+      messageEl.textContent = '';
+    }
 
     function randomFood() {
       let newFood;
@@ -156,23 +240,10 @@
       return newFood;
     }
 
-    function initGame() {
-      snake = [{x: 10, y: 10}];
-      direction = {x: 1, y: 0};
-      score = 0;
-      awardedLevel = 0;
-      gameRunning = true;
-      scoreEl.textContent = '0';
-      messageEl.textContent = '';
-      food = randomFood();
-    }
-
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Еда
       ctx.fillStyle = '#e74c3c';
       ctx.fillRect(food.x * CELL_SIZE, food.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-      // Змейка
       snake.forEach((seg, i) => {
         ctx.fillStyle = i === 0 ? '#27ae60' : '#2ecc71';
         ctx.fillRect(seg.x * CELL_SIZE, seg.y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
@@ -185,14 +256,32 @@
         try {
           const success = await addPointsToCurrentUser(1, 'snake');
           if (success) {
-            messageEl.textContent = `+1 балл! Всего в игре: ${awardedLevel}`;
+            messageEl.textContent = `+1 балл!`;
             showToast('+1 балл за змейку!', 'success');
+            // синхронизируем статистику и проверяем достижения
+            await syncGameStats('snake', { maxScore: score });
+            checkAndAwardAchievements();
           }
-        } catch (err) {
-          console.error(err);
-        }
-      } else {
-        messageEl.textContent = 'Войдите, чтобы получать баллы.';
+        } catch (err) { console.error(err); }
+      }
+    }
+
+    function endGame() {
+      gameRunning = false;
+      clearInterval(gameLoop);
+      // Определяем тип столкновения
+      if (isSelfCollision) {
+        messageEl.textContent += ' (Съел себя)';
+      } else if (isWallCollision) {
+        messageEl.textContent += ' (Стена)';
+      }
+      // Синхронизируем статистику
+      if (auth.currentUser) {
+        syncGameStats('snake', {
+          maxScore: score,
+          selfEaten: isSelfCollision,
+          wallCrash: isWallCollision
+        }).then(() => checkAndAwardAchievements());
       }
     }
 
@@ -200,20 +289,22 @@
       if (!gameRunning) return;
       const head = {x: snake[0].x + direction.x, y: snake[0].y + direction.y};
       if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+        isWallCollision = true;
         endGame();
         return;
       }
       if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+        isSelfCollision = true;
         endGame();
         return;
       }
       snake.unshift(head);
       if (head.x === food.x && head.y === food.y) {
         score++;
+        if (score > maxScore) maxScore = score;
         scoreEl.textContent = score;
         food = randomFood();
-        // Каждые 5 яблок = 1 балл
-        if (score === (awardedLevel + 1) * 5) {
+        if (score % 5 === 0) {
           awardedLevel++;
           awardSnakePoints();
         }
@@ -223,44 +314,27 @@
       draw();
     }
 
-    function endGame() {
-      gameRunning = false;
-      messageEl.textContent = '💥 Игра окончена! Нажмите ПРОБЕЛ, чтобы начать заново.';
-    }
-
+    // Управление клавиатурой
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        if (!gameRunning) {
-          initGame();
-          draw();
-        }
-        return;
-      }
       if (!gameRunning) return;
       switch (e.key) {
-        case 'ArrowUp':
-          if (direction.y === 0) direction = {x: 0, y: -1};
-          e.preventDefault();
-          break;
-        case 'ArrowDown':
-          if (direction.y === 0) direction = {x: 0, y: 1};
-          e.preventDefault();
-          break;
-        case 'ArrowLeft':
-          if (direction.x === 0) direction = {x: -1, y: 0};
-          e.preventDefault();
-          break;
-        case 'ArrowRight':
-          if (direction.x === 0) direction = {x: 1, y: 0};
-          e.preventDefault();
-          break;
+        case 'ArrowUp': if (direction.y === 0) direction = {x: 0, y: -1}; e.preventDefault(); break;
+        case 'ArrowDown': if (direction.y === 0) direction = {x: 0, y: 1}; e.preventDefault(); break;
+        case 'ArrowLeft': if (direction.x === 0) direction = {x: -1, y: 0}; e.preventDefault(); break;
+        case 'ArrowRight': if (direction.x === 0) direction = {x: 1, y: 0}; e.preventDefault(); break;
       }
     });
 
-    initGame();
-    draw();
-    setInterval(update, 150);
+    // Экранные кнопки
+    document.querySelectorAll('.mobile-controls button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!gameRunning) return;
+        if (btn.classList.contains('up') && direction.y === 0) direction = {x: 0, y: -1};
+        if (btn.classList.contains('down') && direction.y === 0) direction = {x: 0, y: 1};
+        if (btn.classList.contains('left') && direction.x === 0) direction = {x: -1, y: 0};
+        if (btn.classList.contains('right') && direction.x === 0) direction = {x: 1, y: 0};
+      });
+    });
   </script>
 </body>
 </html>
