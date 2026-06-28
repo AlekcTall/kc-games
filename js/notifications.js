@@ -113,16 +113,17 @@ function initNotifications() {
   function renderNotifications() {
     if (!listEl) return;
     if (notificationsList.length === 0) {
-      listEl.innerHTML = '<div class="notification-item">Нет уведомлений</div>';
+       = '<div class="notification-item">Нет уведомлений</div>';
       return;
     }
-    listEl.innerHTML = notificationsList.map(n => {
-      const date = n.timestamp ? new Date(n.timestamp.seconds * 1000).toLocaleString('ru-RU') : '';
-      return `<div class="notification-item ${n.read ? 'read' : 'unread'}" data-id="${n.id}">
-        <span>${n.message}</span>
-        <small>${date}</small>
-      </div>`;
-    }).join('');
+listEl.innerHTML = notificationsList.map(n => {
+  const date = n.timestamp ? new Date(n.timestamp.seconds * 1000).toLocaleString('ru-RU') : '';
+  const msg = n.message || 'Новое достижение';
+  return `<div class="notification-item ${n.read ? 'read' : 'unread'}" data-id="${n.id}">
+    <span class="notif-message">${msg}</span>
+    <small class="notif-date">${date}</small>
+  </div>`;
+}).join('');
 
     // Клик по уведомлению отмечает как прочитанное (но не удаляет)
     listEl.querySelectorAll('.notification-item.unread').forEach(item => {
