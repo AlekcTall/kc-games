@@ -2,12 +2,10 @@
 
 let notificationsUnreadCount = 0;
 let notificationsList = [];
-let notificationsOpen = false;
-let notificationDropdown = null;
 let notificationsListener = null;
+let notificationDropdown = null;
 
 function initNotifications() {
-  // Создаём кнопку колокольчика в шапке
   const headerInner = document.querySelector('.header__inner');
   if (!headerInner) return;
 
@@ -23,7 +21,7 @@ function initNotifications() {
       <button class="btn-clear" id="clear-notifications-btn">Очистить все</button>
     </div>
   `;
-  // Вставляем перед auth-status
+
   const authStatus = document.getElementById('auth-status');
   if (authStatus) {
     headerInner.insertBefore(bellContainer, authStatus);
@@ -43,7 +41,6 @@ function initNotifications() {
       notificationDropdown.style.display = 'none';
     } else {
       notificationDropdown.style.display = 'block';
-      // Отмечаем все как прочитанные при открытии
       markAllRead();
     }
   });
@@ -66,39 +63,43 @@ function initNotifications() {
     if (notificationDropdown) notificationDropdown.style.display = 'none';
   });
 
-  // Подписываемся на изменения в уведомлениях
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      if (notificationsListener) notificationsListener();
-      notificationsListener = db.collection('users').doc(user.uid)
-        .collection('notifications')
-        .orderBy('timestamp', 'desc')
-        .limit(20)
-        .onSnapshot(snapshot => {
-          notificationsList = [];
-          notificationsUnreadCount = 0;
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            notificationsList.push({ id: doc.id, ...data });
-            if (!data.read) notificationsUnreadCount++;
+  // Слушатель авторизации
+  if (typeof auth !== 'undefined') {
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        if (notificationsListener) notificationsListener();
+        notificationsListener = db.collection('users').doc(user.uid)
+          .collection('notifications')
+          .orderBy('timestamp', 'desc')
+          .limit(20)
+          .onSnapshot(snapshot => {
+            notificationsList = [];
+            notificationsUnreadCount = 0;
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              notificationsList.push({ id: doc.id, ...data });
+              if (!data.read) notificationsUnreadCount++;
+            });
+            updateBadge();
+            renderNotifications();
+            // Показываем браузерное уведомление для последнего
+            const last = notificationsList[0];
+            if (last && !last.read && last.timestamp) {
+              showBrowserNotification(last.message || 'Новое уведомление');
+            }
           });
-          updateBadge();
-          renderNotifications();
-          // Показываем браузерное уведомление для последнего
-          const last = notificationsList[0];
-          if (last && !last.read && last.timestamp) {
-            showBrowserNotification(last.message);
-          }
-        });
-    } else {
-      if (notificationsListener) notificationsListener();
-      notificationsListener = null;
-      notificationsList = [];
-      notificationsUnreadCount = 0;
-      updateBadge();
-      renderNotifications();
-    }
-  });
+      } else {
+        if (notificationsListener) {
+          notificationsListener();
+          notificationsListener = null;
+        }
+        notificationsList = [];
+        notificationsUnreadCount = 0;
+        updateBadge();
+        renderNotifications();
+      }
+    });
+  }
 
   function updateBadge() {
     if (!badge) return;
@@ -113,19 +114,19 @@ function initNotifications() {
   function renderNotifications() {
     if (!listEl) return;
     if (notificationsList.length === 0) {
-       = '<div class="notification-item">Нет уведомлений</div>';
+      listEl.innerHTML = '<div class="notification-item">Нет уведомлений</div>';
       return;
     }
-listEl.innerHTML = notificationsList.map(n => {
-  const date = n.timestamp ? new Date(n.timestamp.seconds * 1000).toLocaleString('ru-RU') : '';
-  const msg = n.message || 'Новое достижение';
-  return `<div class="notification-item ${n.read ? 'read' : 'unread'}" data-id="${n.id}">
-    <span class="notif-message">${msg}</span>
-    <small class="notif-date">${date}</small>
-  </div>`;
-}).join('');
+    listEl.innerHTML = notificationsList.map(n => {
+      const date = n.timestamp ? new Date(n.timestamp.seconds * 1000).toLocaleString('ru-RU') : '';
+      const msg = n.message || 'Новое достижение';
+      return `<div class="notification-item ${n.read ? 'read' : 'unread'}" data-id="${n.id}">
+        <span class="notif-message">${msg}</span>
+        <small class="notif-date">${date}</small>
+      </div>`;
+    }).join('');
 
-    // Клик по уведомлению отмечает как прочитанное (но не удаляет)
+    // Отмечаем прочитанными при клике
     listEl.querySelectorAll('.notification-item.unread').forEach(item => {
       item.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -147,7 +148,6 @@ listEl.innerHTML = notificationsList.map(n => {
     const batch = db.batch();
     snapshot.forEach(doc => batch.update(doc.ref, { read: true }));
     await batch.commit();
-    // Обновление локального счётчика произойдёт через слушатель автоматически
   }
 }
 
