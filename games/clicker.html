@@ -88,15 +88,15 @@
     <a href="../games.html" class="clicker-back">← Вернуться к играм</a>
   </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/firebase-auth.js"></script>
   <script src="../js/storage.js"></script>
   <script src="../js/achievements.js"></script>
   <script>
-    // Локальная функция тостов (чтобы не подключать весь main.js)
     function showToast(message, type = 'info') {
       let container = document.getElementById('toast-container');
       if (!container) {
@@ -121,7 +121,6 @@
 
     const GOAL = 20;
     const POINTS_REWARD = 10;
-
     let score = 0;
     let finished = false;
 
@@ -129,10 +128,8 @@
     const clickBtn = document.getElementById('click-btn');
     const messageEl = document.getElementById('message');
 
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      messageEl.textContent = 'Вы не вошли. Баллы не будут начислены.';
-    }
+    // Убрана проверка загрузки: currentUser будет доступен после синхронизации Firebase
+    // При клике всё равно проверим авторизацию через getCurrentUser()
 
     clickBtn.addEventListener('click', () => {
       if (finished) return;
@@ -142,15 +139,17 @@
       if (score >= GOAL) {
         finished = true;
         clickBtn.disabled = true;
-        if (currentUser) {
-          const success = addPointsToCurrentUser(POINTS_REWARD, 'clicker');
-          if (success) {
-            messageEl.textContent = `Поздравляем! Вы заработали ${POINTS_REWARD} баллов!`;
-            showToast(`+${POINTS_REWARD} баллов за прохождение!`, 'success');
-          } else {
-            messageEl.textContent = 'Ошибка при начислении баллов.';
-            showToast('Ошибка начисления баллов', 'error');
-          }
+        const currentUser = getCurrentUser();
+        if (currentUser && currentUser.uid && auth.currentUser) {
+          addPointsToCurrentUser(POINTS_REWARD, 'clicker').then(success => {
+            if (success) {
+              messageEl.textContent = `Поздравляем! Вы заработали ${POINTS_REWARD} баллов!`;
+              showToast(`+${POINTS_REWARD} баллов!`, 'success');
+            } else {
+              messageEl.textContent = 'Ошибка при начислении баллов.';
+              showToast('Ошибка начисления баллов', 'error');
+            }
+          });
         } else {
           messageEl.textContent = 'Игра пройдена! Но баллы не начислены (войдите в профиль).';
           showToast('Войдите, чтобы получить баллы', 'info');
