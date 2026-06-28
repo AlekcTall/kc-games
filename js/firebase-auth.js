@@ -113,9 +113,7 @@ async function addPointsToCurrentUser(points, gameId = null) {
     const data = doc.data();
     const newPoints = (data.points || 0) + points;
     const updateData = { points: newPoints };
-
     if (gameId) {
-      // Отмечаем игру пройденной
       const completedGames = data.completedGames || [];
       if (!completedGames.includes(gameId)) {
         completedGames.push(gameId);
@@ -126,14 +124,11 @@ async function addPointsToCurrentUser(points, gameId = null) {
       gameHistory.push({
         game: gameId,
         points: points,
-        timestamp: Date.now()  // клиентское время
+        timestamp: Date.now()
       });
       updateData.gameHistory = gameHistory;
     }
-
     await userRef.update(updateData);
-
-    // Обновляем локального пользователя
     const current = getCurrentUser();
     if (current) {
       current.points = newPoints;
@@ -198,10 +193,7 @@ async function syncGameStats(gameId, stats) {
     const data = doc.data();
     const gameStats = data.gameStats || {};
     const currentStats = gameStats[gameId] || {};
-
-    // Объединяем с новыми данными
     const merged = { ...currentStats };
-
     if (stats.totalClicks !== undefined) {
       merged.totalClicks = Math.max(currentStats.totalClicks || 0, stats.totalClicks);
     }
@@ -218,11 +210,8 @@ async function syncGameStats(gameId, stats) {
     if (stats.wallCrash) merged.wallCrash = true;
     if (stats.openedFirst) merged.openedFirst = true;
     if (stats.completed) merged.completed = true;
-
     gameStats[gameId] = merged;
     await userRef.update({ gameStats });
-
-    // Обновляем локального пользователя
     const current = getCurrentUser();
     if (current) {
       if (!current.gameStats) current.gameStats = {};
