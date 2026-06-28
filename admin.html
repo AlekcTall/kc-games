@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Админ-панель – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Стили для новой вкладки */
+    .feedback-list {
+      margin-top: 1rem;
+    }
+    .feedback-item {
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .feedback-item-header {
+      margin-bottom: 0.5rem;
+    }
+    .feedback-item-header small {
+      color: #999;
+    }
+  </style>
 </head>
 <body>
 
@@ -41,7 +60,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-  <script src="js/feedback.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/firebase-auth.js"></script>
   <script src="js/storage.js"></script>
@@ -62,11 +80,9 @@
       'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
     ];
 
-    // ========== Админ-панель ==========
     document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('admin-container');
 
-      // Проверяем, админ ли текущий пользователь
       auth.onAuthStateChanged(async (firebaseUser) => {
         if (!firebaseUser) {
           container.innerHTML = '<p>Вы не авторизованы. <a href="profile.html">Войдите</a>.</p>';
@@ -79,7 +95,6 @@
             container.innerHTML = '<p>Доступ запрещён. Требуются права администратора.</p>';
             return;
           }
-          // Пользователь – админ, отрисовываем панель
           renderAdminPanel();
         } catch (err) {
           console.error('Ошибка проверки прав:', err);
@@ -93,17 +108,15 @@
           <div class="admin-tabs">
             <button class="admin-tab active" data-tab="games">Игры</button>
             <button class="admin-tab" data-tab="users">Пользователи</button>
+            <button class="admin-tab" data-tab="feedback">Обращения</button>
             <button class="admin-tab" data-tab="cart">Корзина</button>
           </div>
-          <div id="admin-tab-content" class="admin-tab-content">
-            <!-- Сюда будет подгружаться содержимое вкладок -->
-          </div>
+          <div id="admin-tab-content" class="admin-tab-content"></div>
         `;
 
         const tabButtons = document.querySelectorAll('.admin-tab');
         const tabContent = document.getElementById('admin-tab-content');
 
-        // Переключение вкладок
         tabButtons.forEach(btn => {
           btn.addEventListener('click', () => {
             tabButtons.forEach(b => b.classList.remove('active'));
@@ -112,25 +125,19 @@
           });
         });
 
-        // По умолчанию показываем игры
         loadTab('games');
 
         function loadTab(tab) {
           switch (tab) {
-            case 'games':
-              renderGamesTab();
-              break;
-            case 'users':
-              renderUsersTab();
-              break;
-            case 'cart':
-              tabContent.innerHTML = '<p>Корзина пока пуста (будет реализована позже).</p>';
-              break;
+            case 'games': renderGamesTab(); break;
+            case 'users': renderUsersTab(); break;
+            case 'feedback': renderFeedbackTab(); break;
+            case 'cart': tabContent.innerHTML = '<p>Корзина пока пуста (будет реализована позже).</p>'; break;
           }
         }
       }
 
-      // ----- Вкладка ИГРЫ (localStorage) -----
+      // ----- Игры (localStorage) -----
       function renderGamesTab() {
         const tabContent = document.getElementById('admin-tab-content');
         let games = getGames();
@@ -164,7 +171,7 @@
                 <input type="text" id="game-icon" value="🎮">
               </div>
               <div class="form-group">
-                <label for="game-url">URL игры (например, games/clicker.html)</label>
+                <label for="game-url">URL игры</label>
                 <input type="text" id="game-url" placeholder="games/my-game.html">
               </div>
               <button type="submit" class="btn">Добавить</button>
@@ -174,18 +181,16 @@
 
         tabContent.innerHTML = html;
 
-        // Удаление игры
         document.querySelectorAll('.remove-game-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             const gameId = e.target.dataset.gameId;
-            const updatedGames = games.filter(g => g.id !== gameId);
-            saveGames(updatedGames);
+            games = games.filter(g => g.id !== gameId);
+            saveGames(games);
             showToast('Игра удалена', 'success');
-            renderGamesTab(); // обновить список
+            renderGamesTab();
           });
         });
 
-        // Добавление игры
         document.getElementById('add-game-form').addEventListener('submit', (e) => {
           e.preventDefault();
           const title = document.getElementById('game-title').value.trim();
@@ -198,22 +203,20 @@
             return;
           }
 
-          const newGame = {
+          games.push({
             id: 'game_' + Date.now(),
             title: title,
             description: desc,
             icon: icon,
             url: url || '#'
-          };
-
-          games.push(newGame);
+          });
           saveGames(games);
           showToast('Игра добавлена', 'success');
-          renderGamesTab(); // обновить список
+          renderGamesTab();
         });
       }
 
-      // ----- Вкладка ПОЛЬЗОВАТЕЛИ (Firestore) -----
+      // ----- Пользователи (Firestore) -----
       async function renderUsersTab() {
         const tabContent = document.getElementById('admin-tab-content');
         tabContent.innerHTML = '<p>Загрузка пользователей...</p>';
@@ -230,30 +233,13 @@
               department: data.department || '',
               points: data.points || 0,
               role: data.role || 'user',
-              achievements: data.achievements || [],
-              description: data.description || ''
+              achievements: data.achievements || []
             });
           });
 
-          // Сортируем по баллам (опционально)
           users.sort((a, b) => b.points - a.points);
 
-          let html = '<h3>Пользователи</h3>';
-          html += '<table class="admin-users-table">';
-          html += `
-            <thead>
-              <tr>
-                <th>Игрок</th>
-                <th>Email</th>
-                <th>Отдел</th>
-                <th>Баллы</th>
-                <th>Роль</th>
-                <th>Достижения</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-          `;
+          let html = '<h3>Пользователи</h3><table class="admin-users-table"><thead><tr><th>Игрок</th><th>Email</th><th>Отдел</th><th>Баллы</th><th>Роль</th><th>Достижения</th><th>Действия</th></tr></thead><tbody>';
 
           users.forEach(user => {
             const avatarHtml = (typeof renderAvatarDiv === 'function')
@@ -262,10 +248,7 @@
 
             html += `
               <tr data-user-id="${user.uid}">
-                <td class="player-cell">
-                  ${avatarHtml}
-                  <span>${user.username}</span>
-                </td>
+                <td class="player-cell">${avatarHtml}<span>${user.username}</span></td>
                 <td>${user.email}</td>
                 <td class="editable" data-field="department">${user.department || '—'}</td>
                 <td class="editable" data-field="points">${user.points}</td>
@@ -282,8 +265,6 @@
 
           html += '</tbody></table>';
           tabContent.innerHTML = html;
-
-          // Вешаем обработчики на кнопки редактирования
           attachUserEditHandlers(users);
 
         } catch (err) {
@@ -301,89 +282,51 @@
           const cancelBtn = row.querySelector('.cancel-user-btn');
           const cells = row.querySelectorAll('.editable');
 
-          // Сохраняем исходные значения в dataset ячеек, чтобы можно было откатить
-          cells.forEach(cell => {
-            cell.dataset.original = cell.innerText;
-          });
+          cells.forEach(cell => cell.dataset.original = cell.innerText);
 
           editBtn.addEventListener('click', () => {
-            // Переключаемся в режим редактирования
             cells.forEach(cell => {
               const field = cell.dataset.field;
-              const currentValue = cell.innerText;
-
+              const val = cell.innerText;
               if (field === 'role') {
-                // Выпадающий список для роли
-                cell.innerHTML = `<select class="edit-role">
-                  <option value="user" ${currentValue === 'user' ? 'selected' : ''}>user</option>
-                  <option value="admin" ${currentValue === 'admin' ? 'selected' : ''}>admin</option>
-                </select>`;
+                cell.innerHTML = `<select class="edit-role"><option value="user" ${val==='user'?'selected':''}>user</option><option value="admin" ${val==='admin'?'selected':''}>admin</option></select>`;
               } else if (field === 'department') {
-                // Выпадающий список для отдела
-                let options = DEPARTMENTS.map(dept => 
-                  `<option value="${dept}" ${currentValue === dept ? 'selected' : ''}>${dept}</option>`
-                ).join('');
-                cell.innerHTML = `<select class="edit-department">${options}</select>`;
+                cell.innerHTML = `<select class="edit-department">${DEPARTMENTS.map(d => `<option value="${d}" ${val===d?'selected':''}>${d}</option>`).join('')}</select>`;
               } else if (field === 'points') {
-                // Числовое поле
-                cell.innerHTML = `<input type="number" class="edit-points" value="${currentValue}" min="0">`;
+                cell.innerHTML = `<input type="number" class="edit-points" value="${val}" min="0">`;
               }
-              // другие поля можно добавить аналогично
             });
-
             editBtn.style.display = 'none';
             saveBtn.style.display = 'inline-block';
             cancelBtn.style.display = 'inline-block';
           });
 
           saveBtn.addEventListener('click', async () => {
-            // Собрать новые значения
             const newData = {};
             cells.forEach(cell => {
               const field = cell.dataset.field;
-              if (field === 'role') {
-                newData.role = cell.querySelector('select').value;
-              } else if (field === 'department') {
-                newData.department = cell.querySelector('select').value;
-              } else if (field === 'points') {
-                newData.points = parseInt(cell.querySelector('input').value, 10) || 0;
-              }
+              if (field === 'role') newData.role = cell.querySelector('select').value;
+              else if (field === 'department') newData.department = cell.querySelector('select').value;
+              else if (field === 'points') newData.points = parseInt(cell.querySelector('input').value, 10) || 0;
             });
-
             try {
-              // Обновляем в Firestore
               await db.collection('users').doc(user.uid).update(newData);
-              showToast('Данные пользователя обновлены', 'success');
-
-              // Обновляем локальные данные и возвращаем отображение
-              if (newData.points !== undefined) user.points = newData.points;
-              if (newData.role !== undefined) user.role = newData.role;
-              if (newData.department !== undefined) user.department = newData.department;
-
-              // Выходим из режима редактирования
+              showToast('Данные обновлены', 'success');
+              Object.assign(user, newData);
               cells.forEach(cell => {
-                const field = cell.dataset.field;
-                cell.innerText = newData[field] !== undefined ? newData[field] : user[field];
+                cell.innerText = newData[cell.dataset.field];
                 cell.dataset.original = cell.innerText;
               });
-
               editBtn.style.display = 'inline-block';
               saveBtn.style.display = 'none';
               cancelBtn.style.display = 'none';
-
             } catch (err) {
-              console.error('Ошибка обновления пользователя:', err);
-              showToast('Ошибка сохранения: ' + err.message, 'error');
+              showToast('Ошибка: ' + err.message, 'error');
             }
           });
 
           cancelBtn.addEventListener('click', () => {
-            // Откатываем изменения к исходным значениям (как было до редактирования)
-            cells.forEach(cell => {
-              cell.innerText = cell.dataset.original;
-              // Очищаем внутренние элементы (select/input) – они уже перезаписаны через innerText
-            });
-
+            cells.forEach(cell => cell.innerText = cell.dataset.original);
             editBtn.style.display = 'inline-block';
             saveBtn.style.display = 'none';
             cancelBtn.style.display = 'none';
@@ -391,7 +334,61 @@
         });
       }
 
-      // Вспомогательные функции для игр (localStorage)
+      // ----- Обращения (Firestore) -----
+      async function renderFeedbackTab() {
+        const tabContent = document.getElementById('admin-tab-content');
+        tabContent.innerHTML = '<p>Загрузка обращений...</p>';
+
+        try {
+          const snapshot = await db.collection('feedback').orderBy('createdAt', 'desc').get();
+          const feedbacks = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            feedbacks.push({
+              id: doc.id,
+              ...data,
+              createdAt: data.createdAt ? data.createdAt.toDate() : null
+            });
+          });
+
+          if (feedbacks.length === 0) {
+            tabContent.innerHTML = '<p>Нет обращений.</p>';
+            return;
+          }
+
+          let html = `<h3>Обращения (${feedbacks.length})</h3><div class="feedback-list">`;
+          feedbacks.forEach(fb => {
+            const date = fb.createdAt ? fb.createdAt.toLocaleString('ru-RU') : '—';
+            html += `
+              <div class="feedback-item">
+                <div class="feedback-item-header">
+                  <strong>${fb.topic}</strong> от ${fb.name} <small>${date}</small>
+                </div>
+                <p>${fb.message}</p>
+                <button class="btn btn-small btn-danger delete-feedback-btn" data-fb-id="${fb.id}">Удалить</button>
+              </div>
+            `;
+          });
+          html += '</div>';
+          tabContent.innerHTML = html;
+
+          document.querySelectorAll('.delete-feedback-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              if (confirm('Удалить обращение?')) {
+                await db.collection('feedback').doc(e.target.dataset.fbId).delete();
+                showToast('Обращение удалено', 'success');
+                renderFeedbackTab();
+              }
+            });
+          });
+
+        } catch (err) {
+          console.error('Ошибка загрузки обращений:', err);
+          tabContent.innerHTML = '<p>Не удалось загрузить обращения.</p>';
+        }
+      }
+
+      // localStorage helpers
       function getGames() {
         return JSON.parse(localStorage.getItem('krugames_games')) || [];
       }
