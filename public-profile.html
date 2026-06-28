@@ -54,12 +54,16 @@
       color: #999;
       font-style: italic;
     }
-    .error-details {
-      color: #e74c3c;
-      background: #ffeaea;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
+    .btn-more {
+      margin-top: 1rem;
+      padding: 0.5rem 1.5rem;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-more:hover {
+      background: #e0e0e0;
     }
     @media (max-width: 480px) {
       .public-profile-box {
@@ -134,13 +138,11 @@
         const unlockedAch = user.achievements || [];
         const gameHistory = user.gameHistory || [];
 
-        // Аватар
         const avatarHtml = (typeof renderAvatarDiv === 'function')
           ? renderAvatarDiv(user)
           : `<div class="avatar-circle" style="background-color: ${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
 
-        // Собираем HTML
-        let html = `
+        container.innerHTML = `
           <div class="public-profile-box">
             <div class="profile-header">
               ${avatarHtml}
@@ -171,24 +173,15 @@
             </div>
 
             <h3 class="section-title">История игр</h3>
-            ${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `
-              <table class="history-table">
-                <thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead>
-                <tbody>
-                  ${gameHistory.slice().reverse().map(entry => {
-                    const date = new Date(entry.timestamp).toLocaleString('ru-RU', {
-                      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                    });
-                   const gameName = 
-  entry.game === 'clicker' ? '🖱️ Кликер' :
-  entry.game === 'memory'  ? '🧠 Найди пару' :
-  entry.game === 'snake'   ? '🐍 Змейка' :
-  entry.game;
-                    return `<tr><td>${gameName}</td><td>+${entry.points}</td><td>${date}</td></tr>`;
-                  }).join('')}
-                </tbody>
-              </table>
-            `}
+            <div id="history-container">
+              ${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `
+                <table class="history-table">
+                  <thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead>
+                  <tbody id="history-body"></tbody>
+                </table>
+                <div id="more-container" style="text-align:center;"></div>
+              `}
+            </div>
 
             <h3 class="section-title">Прогресс баллов</h3>
             <div class="graph-container">
@@ -199,21 +192,51 @@
           </div>
         `;
 
-        container.innerHTML = html;
+        // Пагинация истории
+        if (gameHistory.length > 0) {
+          const sortedHistory = [...gameHistory].reverse();
+          const historyBody = document.getElementById('history-body');
+          const moreContainer = document.getElementById('more-container');
+          let displayCount = 5;
+          const step = 10;
 
-        // Рисуем график, если есть история
+          function renderHistoryRows() {
+            const slice = sortedHistory.slice(0, displayCount);
+            let rows = '';
+            slice.forEach(entry => {
+              const date = new Date(entry.timestamp).toLocaleString('ru-RU', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+              });
+              const gameName = 
+                entry.game === 'clicker' ? '🖱️ Кликер' :
+                entry.game === 'memory'  ? '🧠 Найди пару' :
+                entry.game === 'snake'   ? '🐍 Змейка' :
+                entry.game;
+              rows += `<tr><td>${gameName}</td><td>+${entry.points}</td><td>${date}</td></tr>`;
+            });
+            historyBody.innerHTML = rows;
+
+            if (displayCount < sortedHistory.length) {
+              moreContainer.innerHTML = `<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`;
+              document.getElementById('load-more-btn').addEventListener('click', () => {
+                displayCount = Math.min(displayCount + step, sortedHistory.length);
+                renderHistoryRows();
+              });
+            } else {
+              moreContainer.innerHTML = '';
+            }
+          }
+
+          renderHistoryRows();
+        }
+
         if (gameHistory.length > 0) {
           drawScoreChart(gameHistory, user.points || 0);
         }
 
       } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
-        container.innerHTML = `
-          <div class="error-details">
-            <strong>Ошибка:</strong> ${error.message}<br>
-            <small>Проверьте консоль (F12) для деталей.</small>
-          </div>
-        `;
+        container.innerHTML = '<p>Не удалось загрузить профиль.</p>';
       }
     });
 
@@ -221,26 +244,22 @@
       const canvas = document.getElementById('scoreChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
-      
+
       const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
-      
-      // Строим кумулятивную сумму
       const points = [];
       let sum = 0;
       sorted.forEach(entry => {
         sum += entry.points;
         points.push({ x: entry.timestamp, y: sum });
       });
-      
       if (points.length === 0) return;
 
-      // Даём браузеру отрисовать canvas, чтобы получить актуальные размеры
       requestAnimationFrame(() => {
         const width = canvas.offsetWidth || 400;
         const height = 200;
         canvas.width = width;
         canvas.height = height;
-        
+
         const padding = { top: 20, right: 20, bottom: 30, left: 40 };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
@@ -248,18 +267,15 @@
         const minX = points[0].x;
         const maxX = points[points.length-1].x;
         const maxY = Math.max(finalPoints || 0, ...points.map(p => p.y), 1);
-        
-        // Защита от деления на 0, если minX === maxX (одна секунда)
         const xRange = maxX - minX || 1;
-        
+
         const scaleX = (val) => padding.left + ((val - minX) / xRange) * chartWidth;
         const scaleY = (val) => padding.top + chartHeight - (val / maxY) * chartHeight;
 
         ctx.clearRect(0, 0, width, height);
         ctx.font = '10px sans-serif';
         ctx.fillStyle = '#999';
-        
-        // Горизонтальные линии
+
         ctx.strokeStyle = '#eee';
         ctx.lineWidth = 1;
         for (let i = 0; i <= 4; i++) {
@@ -271,21 +287,18 @@
           ctx.stroke();
           ctx.fillText(Math.round(yVal), 5, y + 3);
         }
-        
-        // Ось Y
+
         ctx.strokeStyle = '#ccc';
         ctx.beginPath();
         ctx.moveTo(padding.left, padding.top);
         ctx.lineTo(padding.left, height - padding.bottom);
         ctx.stroke();
-        
-        // Ось X
+
         ctx.beginPath();
         ctx.moveTo(padding.left, height - padding.bottom);
         ctx.lineTo(width - padding.right, height - padding.bottom);
         ctx.stroke();
-        
-        // Подписи дат
+
         ctx.fillStyle = '#666';
         ctx.textAlign = 'center';
         const dateFormatter = new Intl.DateTimeFormat('ru', { day: '2-digit', month: '2-digit' });
@@ -298,7 +311,6 @@
           ctx.fillText(dateStr, x, height - padding.bottom + 15);
         }
 
-        // Линия
         ctx.strokeStyle = '#4f46e5';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -309,8 +321,7 @@
           else ctx.lineTo(x, y);
         });
         ctx.stroke();
-        
-        // Точки
+
         ctx.fillStyle = '#4f46e5';
         points.forEach(p => {
           ctx.beginPath();
