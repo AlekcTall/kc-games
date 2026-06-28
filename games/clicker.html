@@ -81,7 +81,7 @@
 <body>
   <div class="clicker-game">
     <h2>🖱️ Кликер</h2>
-    <p class="clicker-goal">Набери <strong>20</strong> очков, чтобы получить баллы!</p>
+    <p class="clicker-goal">Каждые <strong>20</strong> кликов = <strong>1</strong> балл</p>
     <div class="clicker-score" id="score">0</div>
     <button class="clicker-btn" id="click-btn">КЛИК</button>
     <p id="message" style="margin-top: 1rem; font-weight: bold;"></p>
@@ -119,40 +119,36 @@
       }, 3500);
     }
 
-    const GOAL = 20;
-    const POINTS_REWARD = 10;
+    const POINTS_PER_AWARD = 1;
+    const CLICKS_PER_AWARD = 20;
     let score = 0;
-    let finished = false;
+    let awardedCount = 0;
 
     const scoreEl = document.getElementById('score');
     const clickBtn = document.getElementById('click-btn');
     const messageEl = document.getElementById('message');
 
-    // Убрана проверка загрузки: currentUser будет доступен после синхронизации Firebase
-    // При клике всё равно проверим авторизацию через getCurrentUser()
-
     clickBtn.addEventListener('click', () => {
-      if (finished) return;
       score++;
       scoreEl.textContent = score;
 
-      if (score >= GOAL) {
-        finished = true;
-        clickBtn.disabled = true;
+      const expectedAwards = Math.floor(score / CLICKS_PER_AWARD);
+      if (expectedAwards > awardedCount) {
+        const newAwards = expectedAwards - awardedCount;
+        awardedCount = expectedAwards;
+
         const currentUser = getCurrentUser();
         if (currentUser && currentUser.uid && auth.currentUser) {
-          addPointsToCurrentUser(POINTS_REWARD, 'clicker').then(success => {
+          addPointsToCurrentUser(POINTS_PER_AWARD * newAwards, 'clicker').then(success => {
             if (success) {
-              messageEl.textContent = `Поздравляем! Вы заработали ${POINTS_REWARD} баллов!`;
-              showToast(`+${POINTS_REWARD} баллов!`, 'success');
+              messageEl.textContent = `+${POINTS_PER_AWARD * newAwards} балл(ов)! Всего в игре: ${awardedCount * POINTS_PER_AWARD}`;
+              showToast(`+${POINTS_PER_AWARD * newAwards} баллов!`, 'success');
             } else {
-              messageEl.textContent = 'Ошибка при начислении баллов.';
               showToast('Ошибка начисления баллов', 'error');
             }
           });
         } else {
-          messageEl.textContent = 'Игра пройдена! Но баллы не начислены (войдите в профиль).';
-          showToast('Войдите, чтобы получить баллы', 'info');
+          messageEl.textContent = 'Войдите в профиль, чтобы получать баллы.';
         }
       }
     });
