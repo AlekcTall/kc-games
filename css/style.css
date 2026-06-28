@@ -106,7 +106,17 @@ body {
   font-weight: 600;
   transition: background 0.3s;
 }
-
+.notif-message {
+  white-space: normal;
+  word-wrap: break-word;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+.notif-date {
+  display: block;
+  font-size: 0.75rem;
+  color: #999;
+}
 .btn:hover {
   background: #2980b9;
 }
