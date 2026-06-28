@@ -913,3 +913,261 @@ body {
   background: #dc3545;
   color: white;
 }
+/* ======================= */
+/* РАСШИРЕННЫЕ ФИЛЬТРЫ     */
+/* ======================= */
+.leaderboard-filters {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+}
+
+.filter-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  margin-bottom: 0.3rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  background: white;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: var(--color-primary, #4f46e5);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+
+.filter-range {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-range input {
+  width: 90px;
+}
+
+.filter-range span {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* Кнопка сброса */
+.btn-reset-filters {
+  background: none;
+  border: 1px solid #d1d5db;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #6b7280;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-reset-filters:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* ======================= */
+/* ТАБЛИЦА ЛИДЕРОВ         */
+/* ======================= */
+.leaderboard-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 0.5rem;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+}
+
+.leaderboard-table th {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.9rem 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.leaderboard-table td {
+  padding: 0.8rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.95rem;
+  transition: background 0.2s;
+}
+
+.leaderboard-table tbody tr {
+  animation: fadeInRow 0.4s ease forwards;
+}
+
+.leaderboard-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Топ-3 строки */
+.leaderboard-table tbody tr.top-1 {
+  background: linear-gradient(to right, #fff9e6, #fff3cc);
+}
+
+.leaderboard-table tbody tr.top-2 {
+  background: linear-gradient(to right, #f5f9ff, #e6f0ff);
+}
+
+.leaderboard-table tbody tr.top-3 {
+  background: linear-gradient(to right, #fff5f0, #ffe9db);
+}
+
+.leaderboard-table tbody tr.top-1:hover,
+.leaderboard-table tbody tr.top-2:hover,
+.leaderboard-table tbody tr.top-3:hover {
+  filter: brightness(0.98);
+}
+
+/* Ячейки */
+.place-cell {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #64748b;
+  text-align: center;
+  width: 60px;
+}
+
+.top-1 .place-cell,
+.top-2 .place-cell,
+.top-3 .place-cell {
+  font-size: 1.4rem;
+  color: #334155;
+}
+
+.player-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.player-name-link {
+  color: var(--color-primary, #4f46e5);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.player-name-link:hover {
+  text-decoration: underline;
+}
+
+/* Медали (будут вставлены через JS как эмодзи) */
+.top-1 .place-cell::before {
+  content: "🥇 ";
+}
+.top-2 .place-cell::before {
+  content: "🥈 ";
+}
+.top-3 .place-cell::before {
+  content: "🥉 ";
+}
+
+/* Аватарки в таблице */
+.avatar-circle.avatar-small {
+  width: 36px;
+  height: 36px;
+  font-size: 0.85rem;
+  line-height: 36px;
+}
+
+/* ======================= */
+/* АДАПТИВНОСТЬ             */
+/* ======================= */
+@media (max-width: 768px) {
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .filter-range {
+    flex-wrap: wrap;
+  }
+
+  .filter-range input {
+    flex: 1;
+    width: auto;
+  }
+
+  /* Фильтры сворачиваются по кнопке (добавим JS-логику позже) */
+  .filters-toggle {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.8rem;
+    text-align: left;
+    background: white;
+    border: 1px solid #d1d5db;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .filters-toggle::after {
+    content: " ⏷";
+    float: right;
+  }
+  .filters-collapsed .filter-row {
+    display: none;
+  }
+
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.6rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .place-cell {
+    width: 40px;
+    font-size: 0.9rem;
+  }
+
+  .avatar-circle.avatar-small {
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
+    line-height: 28px;
+  }
+}
+
+/* Анимация появления строк */
+@keyframes fadeInRow {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
