@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/style.css">
   <style>
     .public-profile-box {
-      max-width: 600px;
+      max-width: 700px;
       margin: 0 auto;
       background: white;
       padding: 2rem;
@@ -19,6 +19,46 @@
       margin-top: 1rem;
       color: var(--color-primary);
       text-decoration: none;
+    }
+    .section-title {
+      margin-top: 2rem;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 0.5rem;
+    }
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .history-table th,
+    .history-table td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+    }
+    .history-table th {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .graph-container {
+      margin-top: 1.5rem;
+      background: #fafafa;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    canvas {
+      width: 100%;
+      height: 200px;
+    }
+    .no-data {
+      color: #999;
+      font-style: italic;
+    }
+    /* Адаптивность */
+    @media (max-width: 480px) {
+      .public-profile-box {
+        padding: 1rem;
+      }
     }
   </style>
 </head>
@@ -86,13 +126,15 @@
 
         const achievementsConfig = getAchievementsConfig();
         const unlockedAch = user.achievements || [];
+        const gameHistory = user.gameHistory || [];
 
-        // Используем глобальную renderAvatarDiv из main.js (или прямой вызов)
-        const avatarHtml = (typeof renderAvatarDiv === 'function') 
-          ? renderAvatarDiv(user) 
+        // Аватар
+        const avatarHtml = (typeof renderAvatarDiv === 'function')
+          ? renderAvatarDiv(user)
           : `<div class="avatar-circle" style="background-color: ${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
 
-        container.innerHTML = `
+        // Базовый блок профиля
+        let html = `
           <div class="public-profile-box">
             <div class="profile-header">
               ${avatarHtml}
@@ -106,30 +148,164 @@
               <p><strong>Баллы:</strong> ${user.points || 0}</p>
               <p><strong>О себе:</strong> ${user.description || '—'}</p>
             </div>
-            <div class="profile-achievements">
-              <h3>Достижения (${unlockedAch.length}/${achievementsConfig.length})</h3>
-              <div class="achievements-grid">
-                ${achievementsConfig.map(ach => {
-                  const unlocked = unlockedAch.includes(ach.id);
-                  const hidden = ach.hidden && !unlocked;
-                  return `
-                    <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
-                      <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
-                      <span class="ach-name">${hidden ? '???' : ach.name}</span>
-                      ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
-                    </div>
-                  `;
-                }).join('')}
-              </div>
+
+            <!-- Достижения -->
+            <h3 class="section-title">Достижения (${unlockedAch.length}/${achievementsConfig.length})</h3>
+            <div class="achievements-grid">
+              ${achievementsConfig.map(ach => {
+                const unlocked = unlockedAch.includes(ach.id);
+                const hidden = ach.hidden && !unlocked;
+                return `
+                  <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
+                    <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
+                    <span class="ach-name">${hidden ? '???' : ach.name}</span>
+                    ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
+                  </div>
+                `;
+              }).join('')}
             </div>
+
+            <!-- История игр -->
+            <h3 class="section-title">История игр</h3>
+            ${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `
+              <table class="history-table">
+                <thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead>
+                <tbody>
+                  ${gameHistory.slice().reverse().map(entry => {
+                    const date = new Date(entry.timestamp).toLocaleString('ru-RU', {
+                      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+                    const gameName = entry.game === 'clicker' ? '🖱️ Кликер' : entry.game === 'memory' ? '🧠 Найди пару' : entry.game;
+                    return `<tr><td>${gameName}</td><td>+${entry.points}</td><td>${date}</td></tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            `}
+
+            <!-- График баллов -->
+            <h3 class="section-title">Прогресс баллов</h3>
+            <div class="graph-container">
+              <canvas id="scoreChart" width="400" height="200"></canvas>
+            </div>
+
             <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
           </div>
         `;
+
+        container.innerHTML = html;
+
+        // Рисуем график, если есть история
+        if (gameHistory.length > 0) {
+          drawScoreChart(gameHistory, user.points || 0);
+        }
+
       } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
         container.innerHTML = '<p>Не удалось загрузить профиль.</p>';
       }
     });
+
+    // Функция рисования графика на Canvas
+    function drawScoreChart(history, finalPoints) {
+      const canvas = document.getElementById('scoreChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      
+      // Сортируем историю по времени
+      const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
+      
+      // Строим массив точек (время, кумулятивная сумма)
+      const points = [];
+      let sum = 0;
+      sorted.forEach(entry => {
+        sum += entry.points;
+        points.push({ x: entry.timestamp, y: sum });
+      });
+      
+      if (points.length === 0) return;
+
+      // Размеры canvas
+      const width = canvas.width = canvas.offsetWidth;
+      const height = canvas.height = 200;
+      
+      // Отступы
+      const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+
+      // Шкалы
+      const minX = points[0].x;
+      const maxX = points[points.length-1].x;
+      const maxY = Math.max(finalPoints, ...points.map(p => p.y), 1);
+      
+      // Функции преобразования
+      const scaleX = (val) => padding.left + ((val - minX) / (maxX - minX || 1)) * chartWidth;
+      const scaleY = (val) => padding.top + chartHeight - (val / maxY) * chartHeight;
+
+      // Рисуем сетку и оси
+      ctx.clearRect(0, 0, width, height);
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = '#999';
+      
+      // Горизонтальные линии
+      ctx.strokeStyle = '#eee';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const yVal = (maxY / 4) * i;
+        const y = scaleY(yVal);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        ctx.fillText(Math.round(yVal), 5, y + 3);
+      }
+      
+      // Вертикальная линия (ось Y)
+      ctx.strokeStyle = '#ccc';
+      ctx.beginPath();
+      ctx.moveTo(padding.left, padding.top);
+      ctx.lineTo(padding.left, height - padding.bottom);
+      ctx.stroke();
+      
+      // Горизонтальная ось X
+      ctx.beginPath();
+      ctx.moveTo(padding.left, height - padding.bottom);
+      ctx.lineTo(width - padding.right, height - padding.bottom);
+      ctx.stroke();
+      
+      // Подписи дат
+      ctx.fillStyle = '#666';
+      ctx.textAlign = 'center';
+      const dateFormatter = new Intl.DateTimeFormat('ru', { day: '2-digit', month: '2-digit' });
+      const numLabels = Math.min(points.length, 5);
+      for (let i = 0; i < numLabels; i++) {
+        const idx = Math.round((i / (numLabels-1)) * (points.length-1));
+        const p = points[idx];
+        const x = scaleX(p.x);
+        const dateStr = dateFormatter.format(new Date(p.x));
+        ctx.fillText(dateStr, x, height - padding.bottom + 15);
+      }
+
+      // Рисуем линию
+      ctx.strokeStyle = '#4f46e5';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      points.forEach((p, i) => {
+        const x = scaleX(p.x);
+        const y = scaleY(p.y);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      
+      // Точки
+      ctx.fillStyle = '#4f46e5';
+      points.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(scaleX(p.x), scaleY(p.y), 3, 0, Math.PI*2);
+        ctx.fill();
+      });
+    }
   </script>
 </body>
 </html>
