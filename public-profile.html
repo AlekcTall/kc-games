@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/style.css">
   <style>
     .public-profile-box {
-      max-width: 700px;
+      max-width: 800px;
       margin: 0 auto;
       background: white;
       padding: 2rem;
@@ -40,16 +40,6 @@
       font-size: 0.85rem;
       color: #666;
     }
-    .graph-container {
-      margin-top: 1.5rem;
-      background: #fafafa;
-      border-radius: 8px;
-      padding: 1rem;
-    }
-    canvas {
-      width: 100%;
-      height: 200px;
-    }
     .no-data {
       color: #999;
       font-style: italic;
@@ -65,13 +55,8 @@
     .btn-more:hover {
       background: #e0e0e0;
     }
-    @media (max-width: 480px) {
-.public-profile-box {
-  max-width: 800px;
-  ...
-}
-    }
-        .stats-grid {
+    /* Статистика */
+    .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 1rem;
@@ -103,6 +88,9 @@
       color: #666;
     }
     @media (max-width: 480px) {
+      .public-profile-box {
+        padding: 1rem;
+      }
       .stats-grid {
         grid-template-columns: 1fr;
       }
@@ -152,6 +140,66 @@
   <script src="js/main.js"></script>
 
   <script>
+    // Функция для формирования HTML-блока статистики
+    function buildStatsHTML(history) {
+      const dailyPoints = {};
+      const gamePoints = {};
+      history.forEach(entry => {
+        const date = new Date(entry.timestamp);
+        const dayKey = date.toISOString().slice(0, 10);
+        dailyPoints[dayKey] = (dailyPoints[dayKey] || 0) + entry.points;
+
+        const gameName = 
+          entry.game === 'clicker' ? '🖱️ Кликер' :
+          entry.game === 'memory'  ? '🧠 Найди пару' :
+          entry.game === 'snake'   ? '🐍 Змейка' :
+          entry.game;
+        gamePoints[gameName] = (gamePoints[gameName] || 0) + entry.points;
+      });
+
+      const days = Object.values(dailyPoints);
+      const totalPoints = days.reduce((a, b) => a + b, 0);
+      const bestDay = Math.max(...days);
+      const bestDayDate = Object.keys(dailyPoints).find(date => dailyPoints[date] === bestDay);
+      const avgPerDay = days.length > 0 ? Math.round(totalPoints / days.length) : 0;
+      const bestGame = Object.entries(gamePoints).sort((a, b) => b[1] - a[1])[0];
+      const bestGameName = bestGame ? bestGame[0] : '—';
+      const bestGamePoints = bestGame ? bestGame[1] : 0;
+
+      return `
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-icon">⭐</span>
+            <div class="stat-detail">
+              <div class="stat-value">${totalPoints}</div>
+              <div class="stat-label">Всего баллов</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">📅</span>
+            <div class="stat-detail">
+              <div class="stat-value">${new Date(bestDayDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              <div class="stat-label">Лучший день (${bestDay} бал.)</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">📊</span>
+            <div class="stat-detail">
+              <div class="stat-value">${avgPerDay}</div>
+              <div class="stat-label">Средний заработок в день</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">🎮</span>
+            <div class="stat-detail">
+              <div class="stat-value">${bestGameName}</div>
+              <div class="stat-label">Самая результативная игра (${bestGamePoints} бал.)</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       const container = document.getElementById('public-profile-container');
       const params = new URLSearchParams(window.location.search);
@@ -220,7 +268,7 @@
               `}
             </div>
 
-                        <h3 class="section-title">Статистика</h3>
+            <h3 class="section-title">Статистика</h3>
             <div class="stats-container" id="stats-container"></div>
 
             <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
@@ -265,7 +313,7 @@
           renderHistoryRows();
         }
 
-         const statsContainer = document.getElementById('stats-container');
+        const statsContainer = document.getElementById('stats-container');
         if (statsContainer && gameHistory.length > 0) {
           statsContainer.innerHTML = buildStatsHTML(gameHistory);
         } else if (statsContainer) {
@@ -274,100 +322,9 @@
 
       } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
-        container.innerHTML = '<p>Не удалось загрузить профиль.</p>';
+        container.innerHTML = `<p>Не удалось загрузить профиль. Ошибка: ${error.message}</p>`;
       }
     });
-
-    function drawScoreChart(history, finalPoints) {
-      const canvas = document.getElementById('scoreChart');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-
-      const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
-      const points = [];
-      let sum = 0;
-      sorted.forEach(entry => {
-        sum += entry.points;
-        points.push({ x: entry.timestamp, y: sum });
-      });
-      if (points.length === 0) return;
-
-      requestAnimationFrame(() => {
-        const width = canvas.offsetWidth || 400;
-        const height = 200;
-        canvas.width = width;
-        canvas.height = height;
-
-        const padding = { top: 20, right: 20, bottom: 30, left: 40 };
-        const chartWidth = width - padding.left - padding.right;
-        const chartHeight = height - padding.top - padding.bottom;
-
-        const minX = points[0].x;
-        const maxX = points[points.length-1].x;
-        const maxY = Math.max(finalPoints || 0, ...points.map(p => p.y), 1);
-        const xRange = maxX - minX || 1;
-
-        const scaleX = (val) => padding.left + ((val - minX) / xRange) * chartWidth;
-        const scaleY = (val) => padding.top + chartHeight - (val / maxY) * chartHeight;
-
-        ctx.clearRect(0, 0, width, height);
-        ctx.font = '10px sans-serif';
-        ctx.fillStyle = '#999';
-
-        ctx.strokeStyle = '#eee';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 4; i++) {
-          const yVal = (maxY / 4) * i;
-          const y = scaleY(yVal);
-          ctx.beginPath();
-          ctx.moveTo(padding.left, y);
-          ctx.lineTo(width - padding.right, y);
-          ctx.stroke();
-          ctx.fillText(Math.round(yVal), 5, y + 3);
-        }
-
-        ctx.strokeStyle = '#ccc';
-        ctx.beginPath();
-        ctx.moveTo(padding.left, padding.top);
-        ctx.lineTo(padding.left, height - padding.bottom);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(padding.left, height - padding.bottom);
-        ctx.lineTo(width - padding.right, height - padding.bottom);
-        ctx.stroke();
-
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        const dateFormatter = new Intl.DateTimeFormat('ru', { day: '2-digit', month: '2-digit' });
-        const numLabels = Math.min(points.length, 5);
-        for (let i = 0; i < numLabels; i++) {
-          const idx = Math.round((i / (numLabels-1)) * (points.length-1));
-          const p = points[idx];
-          const x = scaleX(p.x);
-          const dateStr = dateFormatter.format(new Date(p.x));
-          ctx.fillText(dateStr, x, height - padding.bottom + 15);
-        }
-
-        ctx.strokeStyle = '#4f46e5';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        points.forEach((p, i) => {
-          const x = scaleX(p.x);
-          const y = scaleY(p.y);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-
-        ctx.fillStyle = '#4f46e5';
-        points.forEach(p => {
-          ctx.beginPath();
-          ctx.arc(scaleX(p.x), scaleY(p.y), 3, 0, Math.PI*2);
-          ctx.fill();
-        });
-      });
-    }
   </script>
 </body>
 </html>
