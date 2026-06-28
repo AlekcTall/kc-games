@@ -1,13 +1,15 @@
 // js/firebase-auth.js
 
+// Инициализация глобальных переменных
+const auth = firebase.auth();
+const db = firebase.firestore();
+
 // ================== АВТОРИЗАЦИЯ ==================
 
-// Регистрация нового пользователя
 async function firebaseRegister(email, password, username, department) {
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
-    // Создаём документ в Firestore
     await db.collection('users').doc(user.uid).set({
       username: username,
       email: email,
@@ -20,7 +22,6 @@ async function firebaseRegister(email, password, username, department) {
       completedGames: [],
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // Синхронизируем с localStorage
     const userData = {
       uid: user.uid,
       email: email,
@@ -42,12 +43,10 @@ async function firebaseRegister(email, password, username, department) {
   }
 }
 
-// Вход по email/паролю
 async function firebaseLogin(email, password) {
   try {
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
-    // Получаем данные из Firestore
     const doc = await db.collection('users').doc(user.uid).get();
     if (doc.exists) {
       const data = doc.data();
@@ -75,7 +74,6 @@ async function firebaseLogin(email, password) {
   }
 }
 
-// Выход
 function firebaseLogout() {
   auth.signOut().then(() => {
     localStorage.removeItem('krugames_currentUser');
@@ -91,7 +89,6 @@ function firebaseLogout() {
 async function firebaseUpdateProfile(uid, data) {
   try {
     await db.collection('users').doc(uid).update(data);
-    // Обновляем локального пользователя
     const current = getCurrentUser();
     if (current && (current.uid === uid || current.id === uid)) {
       Object.assign(current, data);
@@ -106,12 +103,6 @@ async function firebaseUpdateProfile(uid, data) {
 
 // ================== НАЧИСЛЕНИЕ БАЛЛОВ ==================
 
-/**
- * Начисляет баллы текущему пользователю
- * @param {number} points - сколько баллов добавить
- * @param {string|null} gameId - идентификатор игры (если есть)
- * @returns {Promise<boolean>}
- */
 async function addPointsToCurrentUser(points, gameId = null) {
   const user = auth.currentUser;
   if (!user) return false;
@@ -119,12 +110,9 @@ async function addPointsToCurrentUser(points, gameId = null) {
     const userRef = db.collection('users').doc(user.uid);
     const doc = await userRef.get();
     if (!doc.exists) return false;
-
     const data = doc.data();
     const newPoints = (data.points || 0) + points;
     const updateData = { points: newPoints };
-
-    // Если указана игра, добавляем в completedGames
     if (gameId) {
       const completedGames = data.completedGames || [];
       if (!completedGames.includes(gameId)) {
@@ -132,10 +120,7 @@ async function addPointsToCurrentUser(points, gameId = null) {
         updateData.completedGames = completedGames;
       }
     }
-
     await userRef.update(updateData);
-
-    // Обновляем локального пользователя
     const current = getCurrentUser();
     if (current) {
       current.points = newPoints;
@@ -207,7 +192,6 @@ function updateAuthUI(firebaseUser) {
   }
 }
 
-// Функция синхронизации данных в localStorage (вызывается после входа/регистрации)
 function syncUserToLocal(userData) {
   setCurrentUser(userData);
 }
