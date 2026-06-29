@@ -1565,6 +1565,7 @@ body.dark-theme .header {
 
 body.dark-theme .footer {
   background: var(--color-header);
+  color: #fff;               /* копирайт белый */
 }
 
 body.dark-theme .nav__link {
@@ -1618,6 +1619,12 @@ body.dark-theme .faq-item__question:hover {
   background: #3a3a4e;
 }
 
+/* FAQ ответ внутри */
+body.dark-theme .faq-item__answer {
+  background: #2c2c3e;
+  color: #eee;
+}
+
 body.dark-theme .leaderboard-table {
   background: var(--color-white);
 }
@@ -1630,6 +1637,7 @@ body.dark-theme .leaderboard-table th {
 
 body.dark-theme .leaderboard-table td {
   border-bottom-color: #444;
+  color: #fff;                /* весь текст в таблице белый */
 }
 
 body.dark-theme .leaderboard-table tbody tr:nth-child(even) {
@@ -1732,6 +1740,10 @@ body.dark-theme .player-name-link:hover {
 }
 
 /* Статус в шапке */
+body.dark-theme .auth-status {
+  color: #fff;
+}
+
 body.dark-theme .auth-greeting,
 body.dark-theme #logout-link {
   color: #fff;
@@ -1740,4 +1752,15 @@ body.dark-theme #logout-link {
 body.dark-theme .btn-logout-header {
   color: #fff;
   border-color: #fff;
+}
+
+/* Логотип всегда белый */
+body.dark-theme .logo {
+  color: #fff;
+}
+
+/* Публичный профиль */
+body.dark-theme .public-profile-box {
+  background: var(--color-white);
+  color: var(--color-text);
 }
