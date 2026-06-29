@@ -65,6 +65,7 @@
     <div class="modal">
       <span class="modal-close" id="shop-item-modal-close">&times;</span>
       <h3>Редактировать товар</h3>
+      <div id="shop-item-id-display" style="margin-bottom:1rem;"></div>
       <div class="form-group">
         <label for="shop-item-title">Название</label>
         <input type="text" id="shop-item-title" required>
@@ -401,7 +402,6 @@
           currentLokoinDisplay.textContent = newBalance;
           document.getElementById('lokoin-modal').style.display = 'none';
           showToast('Баланс локоинов обновлён', 'success');
-          // Отправка уведомления
           if (typeof addLokoinNotification === 'function') {
             addLokoinNotification(currentLokoinUser.uid, amount, comment);
           }
@@ -444,7 +444,7 @@
         }
       }
 
-       // ----- Магазин (Firestore) -----
+      // ----- Магазин (Firestore) -----
       async function renderShopTab() {
         const tabContent = document.getElementById('admin-tab-content');
         tabContent.innerHTML = '<p>Загрузка товаров...</p>';
@@ -564,13 +564,9 @@
         document.getElementById('shop-item-message').textContent = '';
         // Покажем ID (нередактируемый)
         let idField = document.getElementById('shop-item-id-display');
-        if (!idField) {
-          idField = document.createElement('div');
-          idField.id = 'shop-item-id-display';
-          idField.style.marginBottom = '1rem';
-          document.querySelector('#shop-item-modal .modal').insertBefore(idField, document.querySelector('#shop-item-title').parentElement);
+        if (idField) {
+          idField.innerHTML = `<strong>ID товара:</strong> <code>${item.id}</code>`;
         }
-        idField.innerHTML = `<strong>ID товара:</strong> <code>${item.id}</code>`;
         document.getElementById('shop-item-modal').style.display = 'flex';
       }
 
@@ -600,6 +596,10 @@
           document.getElementById('shop-item-message').textContent = 'Ошибка: ' + err.message;
         }
       });
+
+      function getGames() { return JSON.parse(localStorage.getItem('krugames_games')) || []; }
+      function saveGames(games) { localStorage.setItem('krugames_games', JSON.stringify(games)); }
+    });
   </script>
 </body>
 </html>
