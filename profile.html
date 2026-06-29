@@ -6,123 +6,31 @@
   <title>Профиль – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .section-title {
-      margin-top: 2rem;
-      border-bottom: 2px solid #f0f0f0;
-      padding-bottom: 0.5rem;
-    }
-    .history-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-    .history-table th,
-    .history-table td {
-      padding: 0.5rem;
-      border-bottom: 1px solid #eee;
-      text-align: left;
-    }
-    .history-table th {
-      font-size: 0.85rem;
-      color: #666;
-    }
-    .no-data {
-      color: #999;
-      font-style: italic;
-    }
-    .btn-more {
-      margin-top: 1rem;
-      padding: 0.5rem 1.5rem;
-      background: #f0f0f0;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .btn-more:hover {
-      background: #e0e0e0;
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    .stat-card {
-      background: #f9f9fb;
-      border-radius: 12px;
-      padding: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-    }
-    .stat-icon {
-      font-size: 2rem;
-    }
-    .stat-detail {
-      display: flex;
-      flex-direction: column;
-    }
-    .stat-value {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--color-header);
-    }
-    .stat-label {
-      font-size: 0.8rem;
-      color: #666;
-    }
-    .accordion {
-      margin-top: 1.5rem;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .accordion-header {
-      width: 100%;
-      padding: 0.9rem 1.2rem;
-      background: #f5f6f8;
-      border: none;
-      text-align: left;
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--color-header);
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      transition: background 0.2s;
-    }
-    .accordion-header:hover {
-      background: #ebedf0;
-    }
-    .accordion-arrow {
-      font-size: 0.8rem;
-      transition: transform 0.3s;
-    }
-    .accordion-content {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.4s ease;
-      background: white;
-    }
-    .accordion-content > div {
-      padding: 1.2rem;
-    }
-    .accordion.open .accordion-content {
-      max-height: 400px;
-    }
-    .accordion.open .accordion-arrow {
-      transform: rotate(180deg);
-    }
-    @media (max-width: 480px) {
-      .profile-box {
-        padding: 1rem;
-      }
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    .section-title { margin-top:2rem; border-bottom:2px solid #f0f0f0; padding-bottom:0.5rem; }
+    .history-table { width:100%; border-collapse:collapse; margin-top:1rem; }
+    .history-table th,.history-table td { padding:0.5rem; border-bottom:1px solid #eee; text-align:left; }
+    .history-table th { font-size:0.85rem; color:#666; }
+    .no-data { color:#999; font-style:italic; }
+    .btn-more { margin-top:1rem; padding:0.5rem 1.5rem; background:#f0f0f0; border:1px solid #ddd; border-radius:6px; cursor:pointer; }
+    .btn-more:hover { background:#e0e0e0; }
+    .stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:1rem; margin-top:1rem; }
+    .stat-card { background:#f9f9fb; border-radius:12px; padding:1rem; display:flex; align-items:center; gap:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.03); }
+    .stat-icon { font-size:2rem; }
+    .stat-detail { display:flex; flex-direction:column; }
+    .stat-value { font-size:1.1rem; font-weight:700; color:var(--color-header); }
+    .stat-label { font-size:0.8rem; color:#666; }
+    .accordion { margin-top:1.5rem; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; }
+    .accordion-header { width:100%; padding:0.9rem 1.2rem; background:#f5f6f8; border:none; text-align:left; font-size:1rem; font-weight:600; color:var(--color-header); cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:background 0.2s; }
+    .accordion-header:hover { background:#ebedf0; }
+    .accordion-arrow { font-size:0.8rem; transition:transform 0.3s; }
+    .accordion-content { max-height:0; overflow:hidden; transition:max-height 0.4s ease; background:white; }
+    .accordion-content > div { padding:1.2rem; }
+    .accordion.open .accordion-content { max-height:400px; }
+    .accordion.open .accordion-arrow { transform:rotate(180deg); }
+    .theme-btns { display:flex; gap:0.5rem; }
+    .theme-btn { padding:0.5rem 1.2rem; border:1px solid #ccc; border-radius:6px; background:white; cursor:pointer; }
+    .theme-btn.active { background:var(--color-primary); color:white; border-color:var(--color-primary); }
+    @media (max-width:480px) { .profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -135,6 +43,7 @@
           <li><a href="index.html" class="nav__link">Главная</a></li>
           <li><a href="games.html" class="nav__link">Игры</a></li>
           <li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li>
+          <li><a href="shop.html" class="nav__link">Магазин</a></li>
           <li><a href="profile.html" class="nav__link active">Профиль</a></li>
           <li><a href="admin.html" class="nav__link">Админ</a></li>
         </ul>
@@ -142,17 +51,11 @@
       <div id="auth-status" class="auth-status"></div>
     </div>
   </header>
-
   <main class="main">
     <div class="container" id="profile-container"></div>
   </main>
-
-  <footer class="footer">
-    <div class="container">
-     <p>© 2026 ваши амбассадоры</p>
-    </div>
-  </footer>
-
+  <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -162,455 +65,173 @@
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/notifications.js"></script>
-  <script src="js/main.js"></script>
   <script src="js/feedback.js"></script>
-
+  <script src="js/main.js"></script>
   <script>
-    const DEPARTMENTS = [
-      'РБ (Физические лица)',
-      'МСБ (Юридические лица)',
-      'ТМ (Телемаркетинг)',
-      'Депозиты (группа привлечения некредитных продуктов)',
-      'ОКК (отдел контроля качества)',
-      'ООБП (отдел оптимизации бизнес процессов)',
-      'Боссы (начальники и руководители начальников)',
-      'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
-    ];
+    const DEPARTMENTS = ['РБ (Физические лица)','МСБ (Юридические лица)','ТМ (Телемаркетинг)','Депозиты (группа привлечения некредитных продуктов)','ОКК (отдел контроля качества)','ООБП (отдел оптимизации бизнес процессов)','Боссы (начальники и руководители начальников)','Заблудшие души КЦ (в каком отделе КЦ я работаю?)'];
+    function getInitials(fullName){if(!fullName)return'?';const p=fullName.trim().split(/\s+/);return p.length>1?(p[0][0]+p[p.length-1][0]).toUpperCase():fullName[0].toUpperCase();}
+    function getColorFromUid(uid){let hash=0;for(let i=0;i<uid.length;i++)hash=uid.charCodeAt(i)+((hash<<5)-hash);const h=Math.abs(hash%360);return`hsl(${h},60%,70%)`;}
+    function renderAvatarDiv(user){const initials=getInitials(user.username);const bgColor=getColorFromUid(user.uid);return`<div class="avatar-circle" style="background-color:${bgColor};" title="${user.username}">${initials}</div>`;}
 
-    function getInitials(fullName) {
-      if (!fullName) return '?';
-      const parts = fullName.trim().split(/\s+/);
-      return parts.length > 1
-        ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
-        : fullName[0].toUpperCase();
-    }
-
-    function getColorFromUid(uid) {
-      let hash = 0;
-      for (let i = 0; i < uid.length; i++) {
-        hash = uid.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      const h = Math.abs(hash % 360);
-      return `hsl(${h}, 60%, 70%)`;
-    }
-
-    function renderAvatarDiv(user) {
-      const initials = getInitials(user.username);
-      const bgColor = getColorFromUid(user.uid);
-      return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
-    }
-
-    function buildStatsHTML(history) {
-      const dailyPoints = {};
-      const gamePoints = {};
-      history.forEach(entry => {
-        const date = new Date(entry.timestamp);
-        const dayKey = date.toISOString().slice(0, 10);
-        dailyPoints[dayKey] = (dailyPoints[dayKey] || 0) + entry.points;
-
-        const gameName = 
-          entry.game === 'clicker' ? '🖱️ Кликер' :
-          entry.game === 'memory'  ? '🧠 Найди пару' :
-          entry.game === 'snake'   ? '🐍 Змейка' :
-          entry.game;
-        gamePoints[gameName] = (gamePoints[gameName] || 0) + entry.points;
+    function buildStatsHTML(user){
+      const history = user.gameHistory || [];
+      const daily={}; const games={};
+      history.forEach(e=>{
+        const d=new Date(e.timestamp).toISOString().slice(0,10);
+        daily[d]=(daily[d]||0)+e.points;
+        const gn=e.game==='clicker'?'🖱️ Кликер':e.game==='memory'?'🧠 Найди пару':e.game==='snake'?'🐍 Змейка':e.game;
+        games[gn]=(games[gn]||0)+e.points;
       });
-
-      const days = Object.values(dailyPoints);
-      const totalPoints = days.reduce((a, b) => a + b, 0);
-      const bestDay = Math.max(...days);
-      const bestDayDate = Object.keys(dailyPoints).find(date => dailyPoints[date] === bestDay);
-      const avgPerDay = days.length > 0 ? Math.round(totalPoints / days.length) : 0;
-      const bestGame = Object.entries(gamePoints).sort((a, b) => b[1] - a[1])[0];
-      const bestGameName = bestGame ? bestGame[0] : '—';
-      const bestGamePoints = bestGame ? bestGame[1] : 0;
-
-      return `
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-icon">⭐</span>
-            <div class="stat-detail">
-              <div class="stat-value">${totalPoints}</div>
-              <div class="stat-label">Всего баллов</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">📅</span>
-            <div class="stat-detail">
-              <div class="stat-value">${new Date(bestDayDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-              <div class="stat-label">Лучший день (${bestDay} балл.)</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">📊</span>
-            <div class="stat-detail">
-              <div class="stat-value">${avgPerDay}</div>
-              <div class="stat-label">Средний заработок в день</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">🎮</span>
-            <div class="stat-detail">
-              <div class="stat-value">${bestGameName}</div>
-              <div class="stat-label">Самая результативная игра (${bestGamePoints} балл.)</div>
-            </div>
-          </div>
-        </div>
-      `;
+      const days=Object.values(daily); const total=days.reduce((a,b)=>a+b,0);
+      const bestDay=Math.max(...days); const bestDayDate=Object.keys(daily).find(d=>daily[d]===bestDay);
+      const avg=days.length?Math.round(total/days.length):0;
+      const bestGame=Object.entries(games).sort((a,b)=>b[1]-a[1])[0];
+      const lokoinBalance = user.lokoin_balance || 0;
+      return `<div class="stats-grid">
+        <div class="stat-card"><span class="stat-icon">⭐</span><div class="stat-detail"><div class="stat-value">${total}</div><div class="stat-label">Всего баллов</div></div></div>
+        <div class="stat-card"><span class="stat-icon">💰</span><div class="stat-detail"><div class="stat-value">${lokoinBalance}</div><div class="stat-label">Локоинов</div></div></div>
+        <div class="stat-card"><span class="stat-icon">📅</span><div class="stat-detail"><div class="stat-value">${bestDayDate ? new Date(bestDayDate).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div><div class="stat-label">Лучший день (${bestDay||0} балл.)</div></div></div>
+        <div class="stat-card"><span class="stat-icon">📊</span><div class="stat-detail"><div class="stat-value">${avg}</div><div class="stat-label">Средний заработок в день</div></div></div>
+        <div class="stat-card"><span class="stat-icon">🎮</span><div class="stat-detail"><div class="stat-value">${bestGame?bestGame[0]:'—'}</div><div class="stat-label">Самая результативная игра (${bestGame?bestGame[1]:0} балл.)</div></div></div>
+      </div>`;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const container = document.getElementById('profile-container');
-
-      auth.onAuthStateChanged(async (firebaseUser) => {
-        if (firebaseUser) {
-          const doc = await db.collection('users').doc(firebaseUser.uid).get();
-          if (doc.exists) {
-            const userData = doc.data();
-            const user = { uid: firebaseUser.uid, email: firebaseUser.email, ...userData };
+    document.addEventListener('DOMContentLoaded',()=>{
+      const container=document.getElementById('profile-container');
+      auth.onAuthStateChanged(async(firebaseUser)=>{
+        if(firebaseUser){
+          const doc=await db.collection('users').doc(firebaseUser.uid).get();
+          if(doc.exists){
+            const u=doc.data(); const user={uid:firebaseUser.uid,email:firebaseUser.email,...u};
+            // Обновляем кэш, если изменились данные
+            syncUserToLocal(user);
+            // Применяем тему
+            if (user.activeTheme === 'dark') {
+              document.body.classList.add('dark-theme');
+            } else {
+              document.body.classList.remove('dark-theme');
+            }
             renderProfile(user);
-          } else {
-            renderLoginForm();
           }
-        } else {
-          renderLoginForm();
-        }
+          else renderLoginForm();
+        } else renderLoginForm();
       });
 
-      function renderLoginForm() {
-        const optionsHTML = DEPARTMENTS.map(dept => `<option value="${dept}">${dept}</option>`).join('');
-        container.innerHTML = `
-          <div class="auth-box">
-            <h2>Вход или регистрация</h2>
-            <div class="auth-tabs">
-              <button class="auth-tab active" data-tab="login">Войти</button>
-              <button class="auth-tab" data-tab="register">Регистрация</button>
-            </div>
-            <form id="auth-form" class="auth-form">
-              <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" required placeholder="example@mail.com">
-              </div>
-              <div class="form-group">
-                <label for="password">Пароль</label>
-                <input type="password" id="password" required placeholder="Введите пароль">
-              </div>
-              <div class="form-group" id="reg-extra" style="display:none;">
-                <label for="username">Фамилия Имя</label>
-                <input type="text" id="username" placeholder="Иванов Иван">
-              </div>
-              <div class="form-group" id="department-group" style="display:none;">
-                <label for="department">Отдел</label>
-                <select id="department">
-                  <option value="">-- Выберите отдел --</option>
-                  ${optionsHTML}
-                </select>
-              </div>
-              <button type="submit" class="btn" id="auth-submit-btn">Войти</button>
-            </form>
-            <p id="auth-message" class="auth-message"></p>
-            <div id="forgot-password-container" style="margin-top: 0.5rem; text-align: right;">
-              <a href="#" id="forgot-password-link" style="font-size: 0.9rem; color: var(--color-primary);">Забыли пароль?</a>
-            </div>
-            <div id="reset-password-section" style="display: none; margin-top: 1rem;">
-              <div class="form-group">
-                <label for="reset-email">Email для восстановления</label>
-                <input type="email" id="reset-email" placeholder="Введите ваш email">
-              </div>
-              <button class="btn" id="send-reset-btn">Отправить инструкцию</button>
-              <button class="btn btn-cancel" id="cancel-reset-btn" style="margin-left: 0.5rem;">Отмена</button>
-              <p id="reset-message" class="auth-message"></p>
-            </div>
-          </div>
-        `;
-
-        const authForm = document.getElementById('auth-form');
-        const authMessage = document.getElementById('auth-message');
-        const tabButtons = document.querySelectorAll('.auth-tab');
-        const submitBtn = document.getElementById('auth-submit-btn');
-        const regExtra = document.getElementById('reg-extra');
-        const departmentGroup = document.getElementById('department-group');
-        const forgotLink = document.getElementById('forgot-password-link');
-        const resetSection = document.getElementById('reset-password-section');
-        const resetEmail = document.getElementById('reset-email');
-        const sendResetBtn = document.getElementById('send-reset-btn');
-        const cancelResetBtn = document.getElementById('cancel-reset-btn');
-        const resetMessage = document.getElementById('reset-message');
-        const forgotContainer = document.getElementById('forgot-password-container');
-        let currentTab = 'login';
-
-        tabButtons.forEach(btn => {
-          btn.addEventListener('click', () => {
-            tabButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentTab = btn.dataset.tab;
-            if (currentTab === 'login') {
-              submitBtn.textContent = 'Войти';
-              regExtra.style.display = 'none';
-              departmentGroup.style.display = 'none';
-              forgotContainer.style.display = 'block';
-              resetSection.style.display = 'none';
-            } else {
-              submitBtn.textContent = 'Зарегистрироваться';
-              regExtra.style.display = 'block';
-              departmentGroup.style.display = 'block';
-              forgotContainer.style.display = 'none';
-              resetSection.style.display = 'none';
-            }
-            authMessage.textContent = '';
-            resetMessage.textContent = '';
-          });
-        });
-
-        forgotLink.addEventListener('click', (e) => {
-          e.preventDefault();
-          authForm.style.display = 'none';
-          forgotContainer.style.display = 'none';
-          resetSection.style.display = 'block';
-        });
-
-        cancelResetBtn.addEventListener('click', () => {
-          resetSection.style.display = 'none';
-          authForm.style.display = 'block';
-          forgotContainer.style.display = 'block';
-          resetMessage.textContent = '';
-        });
-
-        sendResetBtn.addEventListener('click', async () => {
-          const email = resetEmail.value.trim();
-          if (!email) {
-            resetMessage.textContent = 'Введите email.';
-            showToast('Введите email', 'error');
-            return;
-          }
-          try {
-            await auth.sendPasswordResetEmail(email);
-            resetMessage.textContent = 'Письмо отправлено! Проверьте почту.';
-            showToast('Письмо отправлено на ' + email, 'success');
-            setTimeout(() => {
-              resetSection.style.display = 'none';
-              authForm.style.display = 'block';
-              forgotContainer.style.display = 'block';
-              resetMessage.textContent = '';
-            }, 3000);
-          } catch (error) {
-            resetMessage.textContent = error.message;
-            showToast('Ошибка: ' + error.message, 'error');
-          }
-        });
-
-        authForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const email = document.getElementById('email').value.trim();
-          const password = document.getElementById('password').value.trim();
-          if (!email || !password) {
-            authMessage.textContent = 'Заполните все поля.';
-            showToast('Заполните все поля', 'error');
-            return;
-          }
-
-          try {
-            if (currentTab === 'login') {
-              const user = await firebaseLogin(email, password);
-              syncUserToLocal(user);
-              if (window.updateAuthUI) updateAuthUI();
-            } else {
-              const username = document.getElementById('username').value.trim();
-              const department = document.getElementById('department').value;
-              if (!username || !department) {
-                authMessage.textContent = 'Введите Фамилию Имя и выберите отдел.';
-                showToast('Заполните все поля', 'error');
-                return;
-              }
-              const newUser = await firebaseRegister(email, password, username, department);
-              syncUserToLocal(newUser);
-              if (window.updateAuthUI) updateAuthUI();
-            }
-          } catch (error) {
-            authMessage.textContent = error.message;
-            showToast(error.message, 'error');
-          }
-        });
+      function renderLoginForm(){
+        const opt=DEPARTMENTS.map(d=>`<option value="${d}">${d}</option>`).join('');
+        container.innerHTML=`<div class="auth-box"><h2>Вход или регистрация</h2><div class="auth-tabs"><button class="auth-tab active" data-tab="login">Войти</button><button class="auth-tab" data-tab="register">Регистрация</button></div><form id="auth-form" class="auth-form"><div class="form-group"><label for="email">Email</label><input type="email" id="email" required placeholder="example@mail.com"></div><div class="form-group"><label for="password">Пароль</label><input type="password" id="password" required placeholder="Введите пароль"></div><div class="form-group" id="reg-extra" style="display:none;"><label for="username">Фамилия Имя</label><input type="text" id="username" placeholder="Иванов Иван"></div><div class="form-group" id="department-group" style="display:none;"><label for="department">Отдел</label><select id="department"><option value="">-- Выберите отдел --</option>${opt}</select></div><button type="submit" class="btn" id="auth-submit-btn">Войти</button></form><p id="auth-message" class="auth-message"></p><div id="forgot-password-container" style="margin-top:0.5rem;text-align:right;"><a href="#" id="forgot-password-link" style="font-size:0.9rem;color:var(--color-primary);">Забыли пароль?</a></div><div id="reset-password-section" style="display:none;margin-top:1rem;"><div class="form-group"><label for="reset-email">Email для восстановления</label><input type="email" id="reset-email" placeholder="Введите ваш email"></div><button class="btn" id="send-reset-btn">Отправить инструкцию</button><button class="btn btn-cancel" id="cancel-reset-btn" style="margin-left:0.5rem;">Отмена</button><p id="reset-message" class="auth-message"></p></div></div>`;
+        const authForm=document.getElementById('auth-form'), authMsg=document.getElementById('auth-message'), tabs=document.querySelectorAll('.auth-tab'), submitBtn=document.getElementById('auth-submit-btn'), regExtra=document.getElementById('reg-extra'), depGroup=document.getElementById('department-group'), forgotLink=document.getElementById('forgot-password-link'), resetSec=document.getElementById('reset-password-section'), resetEmail=document.getElementById('reset-email'), sendResetBtn=document.getElementById('send-reset-btn'), cancelResetBtn=document.getElementById('cancel-reset-btn'), resetMsg=document.getElementById('reset-message'), forgotCont=document.getElementById('forgot-password-container');
+        let currentTab='login';
+        tabs.forEach(btn=>{ btn.addEventListener('click',()=>{ tabs.forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTab=btn.dataset.tab; if(currentTab==='login'){submitBtn.textContent='Войти';regExtra.style.display='none';depGroup.style.display='none';forgotCont.style.display='block';resetSec.style.display='none';}else{submitBtn.textContent='Зарегистрироваться';regExtra.style.display='block';depGroup.style.display='block';forgotCont.style.display='none';resetSec.style.display='none';} authMsg.textContent='';resetMsg.textContent='';});});
+        forgotLink.addEventListener('click',e=>{e.preventDefault();authForm.style.display='none';forgotCont.style.display='none';resetSec.style.display='block';});
+        cancelResetBtn.addEventListener('click',()=>{resetSec.style.display='none';authForm.style.display='block';forgotCont.style.display='block';resetMsg.textContent='';});
+        sendResetBtn.addEventListener('click',async()=>{ const em=resetEmail.value.trim(); if(!em){resetMsg.textContent='Введите email.';showToast('Введите email','error');return;} try{await auth.sendPasswordResetEmail(em);resetMsg.textContent='Письмо отправлено!';showToast('Письмо отправлено на '+em,'success');setTimeout(()=>{resetSec.style.display='none';authForm.style.display='block';forgotCont.style.display='block';resetMsg.textContent='';},3000);}catch(e){resetMsg.textContent=e.message;showToast('Ошибка: '+e.message,'error');}});
+        authForm.addEventListener('submit',async e=>{ e.preventDefault(); const email=document.getElementById('email').value.trim(), pass=document.getElementById('password').value.trim(); if(!email||!pass){authMsg.textContent='Заполните все поля.';showToast('Заполните все поля','error');return;} try{if(currentTab==='login'){const user=await firebaseLogin(email,pass);syncUserToLocal(user);if(window.updateAuthUI)updateAuthUI();}else{const uname=document.getElementById('username').value.trim(), dep=document.getElementById('department').value; if(!uname||!dep){authMsg.textContent='Введите Фамилию Имя и выберите отдел.';showToast('Заполните все поля','error');return;} const newUser=await firebaseRegister(email,pass,uname,dep); syncUserToLocal(newUser); if(window.updateAuthUI)updateAuthUI();}}catch(err){authMsg.textContent=err.message;showToast(err.message,'error');}});
       }
 
-      function renderProfile(user) {
-        const achievementsConfig = getAchievementsConfig();
-        const gameHistory = user.gameHistory || [];
+      function renderProfile(user){
+        const achCfg=getAchievementsConfig(); const gh=user.gameHistory||[];
+        const purchased = user.purchasedItems || [];
+        const hasTheme = purchased.includes('dark_theme');
 
-        container.innerHTML = `
-          <div class="profile-box">
-            <div class="profile-header">
-              ${renderAvatarDiv(user)}
+        container.innerHTML=`<div class="profile-box">
+          <div class="profile-header">${renderAvatarDiv(user)}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${user.department?`<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>`:''}<p><small>${user.email}</small></p></div></div>
+          <div class="profile-details"><p><strong>Баллы:</strong> <span id="profile-points">${user.points||0}</span></p><p><strong>Локоины:</strong> <span id="profile-lokoin">${user.lokoin_balance||0}</span></p><p><strong>О себе:</strong> <span id="profile-desc-text">${user.description||'—'}</span></p></div>
+          <h3 class="section-title">Достижения (<span id="ach-count">${(user.achievements||[]).length}</span>/${achCfg.length})</h3>
+          <div class="achievements-grid">${achCfg.map(ach=>{const unl=(user.achievements||[]).includes(ach.id);const hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span>${!hid&&!unl?`<span class="ach-hint">${ach.description}</span>`:''}</div>`;}).join('')}</div>
+          <h3 class="section-title">История игр</h3><div id="history-container">${gh.length===0?'<p class="no-data">Пока не сыграно ни одной игры.</p>':`<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container" style="text-align:center;"></div>`}</div>
+          <h3 class="section-title">Статистика</h3><div class="stats-container" id="stats-container"></div>
+
+          ${hasTheme ? `
+          <div class="accordion">
+            <button class="accordion-header" data-target="theme-section"><span>🎨 Тема оформления</span><span class="accordion-arrow">▼</span></button>
+            <div class="accordion-content" id="theme-section">
               <div>
-                <h2>${user.username}</h2>
-                <span class="badge badge-${user.role}">${user.role}</span>
-                ${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}
-                <p><small>${user.email}</small></p>
-              </div>
-            </div>
-            <div class="profile-details">
-              <p><strong>Баллы:</strong> <span id="profile-points">${user.points || 0}</span></p>
-              <p><strong>О себе:</strong> <span id="profile-desc-text">${user.description || '—'}</span></p>
-            </div>
-
-            <h3 class="section-title">Достижения (<span id="ach-count">${(user.achievements || []).length}</span>/${achievementsConfig.length})</h3>
-            <div class="achievements-grid">
-              ${achievementsConfig.map(ach => {
-                const unlocked = (user.achievements || []).includes(ach.id);
-                const hidden = ach.hidden && !unlocked;
-                return `
-                  <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
-                    <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
-                    <span class="ach-name">${hidden ? '???' : ach.name}</span>
-                    ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
-                  </div>
-                `;
-              }).join('')}
-            </div>
-
-            <h3 class="section-title">История игр</h3>
-            <div id="history-container">
-              ${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `
-                <table class="history-table">
-                  <thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead>
-                  <tbody id="history-body"></tbody>
-                </table>
-                <div id="more-container" style="text-align:center;"></div>
-              `}
-            </div>
-
-            <h3 class="section-title">Статистика</h3>
-            <div class="stats-container" id="stats-container"></div>
-
-            <div class="accordion">
-              <button class="accordion-header" data-target="edit-section">
-                <span>✏️ Редактировать профиль</span>
-                <span class="accordion-arrow">▼</span>
-              </button>
-              <div class="accordion-content" id="edit-section">
-                <div class="profile-edit">
-                  <div class="form-group">
-                    <label for="desc">О себе</label>
-                    <textarea id="desc" rows="3">${user.description || ''}</textarea>
-                  </div>
-                  <button class="btn" id="save-profile-btn">Сохранить описание</button>
-                  <p id="profile-save-message" class="auth-message"></p>
+                <p>Выберите тему:</p>
+                <div class="theme-btns">
+                  <button class="theme-btn ${user.activeTheme !== 'dark' ? 'active' : ''}" data-theme="light">☀️ Светлая</button>
+                  <button class="theme-btn ${user.activeTheme === 'dark' ? 'active' : ''}" data-theme="dark">🌙 Тёмная</button>
                 </div>
               </div>
             </div>
-
-            <div class="accordion">
-              <button class="accordion-header" data-target="password-section">
-                <span>🔒 Сменить пароль</span>
-                <span class="accordion-arrow">▼</span>
-              </button>
-              <div class="accordion-content" id="password-section">
-                <div class="profile-password-change">
-                  <div class="form-group">
-                    <label for="old-password">Старый пароль</label>
-                    <input type="password" id="old-password" placeholder="Введите старый пароль">
-                  </div>
-                  <div class="form-group">
-                    <label for="new-password">Новый пароль</label>
-                    <input type="password" id="new-password" placeholder="Введите новый пароль">
-                  </div>
-                  <button class="btn" id="change-password-btn">Сменить пароль</button>
-                  <p id="password-change-message" class="auth-message"></p>
-                </div>
-              </div>
-            </div>
-
-            <button class="btn btn-logout" id="logout-btn">Выйти</button>
           </div>
-        `;
+          ` : ''}
 
-        // Аккордеон
-        document.querySelectorAll('.accordion-header').forEach(header => {
-          header.addEventListener('click', () => {
-            header.parentElement.classList.toggle('open');
-          });
+          <div class="accordion"><button class="accordion-header" data-target="edit-section"><span>✏️ Редактировать профиль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content" id="edit-section"><div class="profile-edit"><div class="form-group"><label for="desc">О себе</label><textarea id="desc" rows="3">${user.description||''}</textarea></div><button class="btn" id="save-profile-btn">Сохранить описание</button><p id="profile-save-message" class="auth-message"></p></div></div></div>
+          <div class="accordion"><button class="accordion-header" data-target="password-section"><span>🔒 Сменить пароль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content" id="password-section"><div class="profile-password-change"><div class="form-group"><label for="old-password">Старый пароль</label><input type="password" id="old-password" placeholder="Введите старый пароль"></div><div class="form-group"><label for="new-password">Новый пароль</label><input type="password" id="new-password" placeholder="Введите новый пароль"></div><button class="btn" id="change-password-btn">Сменить пароль</button><p id="password-change-message" class="auth-message"></p></div></div></div>
+          <button class="btn btn-logout" id="logout-btn">Выйти</button>
+        </div>`;
+
+        // Аккордеоны
+        document.querySelectorAll('.accordion-header').forEach(h=>{
+          h.addEventListener('click',()=>{ h.parentElement.classList.toggle('open'); });
         });
 
         // Статистика
-        const statsContainer = document.getElementById('stats-container');
-        if (statsContainer && gameHistory.length > 0) {
-          statsContainer.innerHTML = buildStatsHTML(gameHistory);
-        } else if (statsContainer) {
-          statsContainer.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
+        const statsCont=document.getElementById('stats-container');
+        if(statsCont) statsCont.innerHTML = buildStatsHTML(user);
+
+        // История игр
+        if(gh.length>0){
+          const sorted=[...gh].reverse(); const tbody=document.getElementById('history-body'), moreCont=document.getElementById('more-container');
+          let disp=5; const step=10;
+          function renderRows(){
+            const slice=sorted.slice(0,disp);
+            let rows='';
+            slice.forEach(e=>{ const dt=new Date(e.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); const gn=e.game==='clicker'?'🖱️ Кликер':e.game==='memory'?'🧠 Найди пару':e.game==='snake'?'🐍 Змейка':e.game; rows+=`<tr><td>${gn}</td><td>+${e.points}</td><td>${dt}</td></tr>`; });
+            tbody.innerHTML=rows;
+            if(disp<sorted.length){ moreCont.innerHTML=`<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`; document.getElementById('load-more-btn').addEventListener('click',()=>{disp=Math.min(disp+step,sorted.length);renderRows();}); }
+            else moreCont.innerHTML='';
+          }
+          renderRows();
         }
 
-        // Пагинация истории
-        if (gameHistory.length > 0) {
-          const sortedHistory = [...gameHistory].reverse();
-          const historyBody = document.getElementById('history-body');
-          const moreContainer = document.getElementById('more-container');
-          let displayCount = 5;
-          const step = 10;
-
-          function renderHistoryRows() {
-            const slice = sortedHistory.slice(0, displayCount);
-            let rows = '';
-            slice.forEach(entry => {
-              const date = new Date(entry.timestamp).toLocaleString('ru-RU', {
-                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-              });
-              const gameName = 
-                entry.game === 'clicker' ? '🖱️ Кликер' :
-                entry.game === 'memory'  ? '🧠 Найди пару' :
-                entry.game === 'snake'   ? '🐍 Змейка' :
-                entry.game;
-              rows += `<tr><td>${gameName}</td><td>+${entry.points}</td><td>${date}</td></tr>`;
+        // Кнопки темы
+        if (hasTheme) {
+          document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const theme = btn.dataset.theme;
+              await firebaseUpdateProfile(user.uid, { activeTheme: theme });
+              if (theme === 'dark') {
+                document.body.classList.add('dark-theme');
+              } else {
+                document.body.classList.remove('dark-theme');
+              }
+              // Обновить активные классы кнопок
+              document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              showToast(`Тема изменена на ${theme === 'dark' ? 'тёмную' : 'светлую'}`, 'info');
             });
-            historyBody.innerHTML = rows;
-
-            if (displayCount < sortedHistory.length) {
-              moreContainer.innerHTML = `<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`;
-              document.getElementById('load-more-btn').addEventListener('click', () => {
-                displayCount = Math.min(displayCount + step, sortedHistory.length);
-                renderHistoryRows();
-              });
-            } else {
-              moreContainer.innerHTML = '';
-            }
-          }
-
-          renderHistoryRows();
+          });
         }
 
-        document.getElementById('save-profile-btn').addEventListener('click', async () => {
-          const desc = document.getElementById('desc').value.trim();
-          try {
-            await firebaseUpdateProfile(user.uid, { description: desc });
-            showToast('Описание обновлено', 'success');
-            syncUserToLocal({ ...user, description: desc });
-            document.getElementById('profile-desc-text').textContent = desc || '—';
-          } catch (err) {
-            showToast('Ошибка сохранения', 'error');
-          }
+        // Сохранение описания
+        document.getElementById('save-profile-btn').addEventListener('click',async()=>{
+          const desc=document.getElementById('desc').value.trim();
+          try{
+            await firebaseUpdateProfile(user.uid,{description:desc});
+            showToast('Описание обновлено','success');
+            syncUserToLocal({...user,description:desc});
+            document.getElementById('profile-desc-text').textContent=desc||'—';
+          }catch(e){showToast('Ошибка сохранения','error');}
         });
 
-        document.getElementById('change-password-btn').addEventListener('click', async () => {
-          const oldPassword = document.getElementById('old-password').value;
-          const newPassword = document.getElementById('new-password').value.trim();
-          if (!oldPassword || !newPassword) {
-            showToast('Заполните оба поля', 'error');
-            return;
-          }
-          try {
-            const credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPassword);
-            await auth.currentUser.reauthenticateWithCredential(credential);
-            await auth.currentUser.updatePassword(newPassword);
-            showToast('Пароль изменён', 'success');
-            document.getElementById('old-password').value = '';
-            document.getElementById('new-password').value = '';
-          } catch (error) {
-            showToast('Ошибка: ' + error.message, 'error');
-          }
+        // Смена пароля
+        document.getElementById('change-password-btn').addEventListener('click',async()=>{
+          const old=document.getElementById('old-password').value, nw=document.getElementById('new-password').value.trim();
+          if(!old||!nw){showToast('Заполните оба поля','error');return;}
+          try{
+            const cred=firebase.auth.EmailAuthProvider.credential(user.email,old);
+            await auth.currentUser.reauthenticateWithCredential(cred);
+            await auth.currentUser.updatePassword(nw);
+            showToast('Пароль изменён','success');
+            document.getElementById('old-password').value='';
+            document.getElementById('new-password').value='';
+          }catch(e){showToast('Ошибка: '+e.message,'error');}
         });
 
-        document.getElementById('logout-btn').addEventListener('click', () => {
-          firebaseLogout();
-        });
+        // Выход
+        document.getElementById('logout-btn').addEventListener('click',()=>{firebaseLogout();});
       }
     });
   </script>
