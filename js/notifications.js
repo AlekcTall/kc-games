@@ -151,6 +151,47 @@ function initNotifications() {
   }
 }
 
+// Вспомогательная функция для добавления уведомления
+async function _addNotificationToUser(userId, message) {
+  if (!userId || !message) return;
+  await db.collection('users').doc(userId).collection('notifications').add({
+    message: message,
+    read: false,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+// Уведомление о пополнении/списании локоинов (автоматическое или от админа)
+async function addLokoinNotification(userId, amount, comment = '') {
+  if (!userId || amount === 0) return;
+  const userDoc = await db.collection('users').doc(userId).get();
+  if (!userDoc.exists) return;
+  const balance = userDoc.data().lokoin_balance || 0;
+  const absAmount = Math.abs(amount);
+  const plural = pluralizeLokoin(absAmount);
+  const balancePlural = pluralizeLokoin(balance);
+  let message;
+  if (amount > 0) {
+    message = `Баланс пополнен на ${absAmount} локоин${plural}`;
+    if (comment) message += ` (${comment})`;
+    message += `. Общий баланс: ${balance} локоин${balancePlural}.`;
+  } else {
+    message = `Баланс уменьшен на ${absAmount} локоин${plural}`;
+    if (comment) message += ` (${comment})`;
+    message += `. Общий баланс: ${balance} локоин${balancePlural}.`;
+  }
+  await _addNotificationToUser(userId, message);
+}
+
+// Уведомление о покупке товара
+async function addPurchaseNotification(userId, itemName, price, newBalance) {
+  if (!userId) return;
+  const pluralPrice = pluralizeLokoin(price);
+  const pluralBalance = pluralizeLokoin(newBalance);
+  const message = `Вы приобрели «${itemName}» за ${price} локоин${pluralPrice}. Общий баланс: ${newBalance} локоин${pluralBalance}.`;
+  await _addNotificationToUser(userId, message);
+}
+
 function showBrowserNotification(message) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
