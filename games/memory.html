@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="../css/style.css">
   <style>
     .memory-game {
-      max-width: 550px;
+      max-width: 600px;
       margin: 2rem auto;
       text-align: center;
       background: white;
@@ -96,13 +96,41 @@
       max-width: 350px;
       word-wrap: break-word;
     }
-    .toast--visible {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    .toast--visible { opacity: 1; transform: translateX(0); }
     .toast--success { background: #27ae60; }
     .toast--info { background: #3498db; }
     .toast--error { background: #e74c3c; }
+
+    /* Таблицы рекордов */
+    .memory-leaderboards {
+      margin-top: 2rem;
+      text-align: left;
+    }
+    .leaderboard-group {
+      margin-bottom: 1.5rem;
+    }
+    .leaderboard-group h3 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    .leaderboard-group table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .leaderboard-group th, .leaderboard-group td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+    .leaderboard-group th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+    .leaderboard-group .me {
+      background: #e6f7ff;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -115,6 +143,25 @@
     </div>
     <div class="memory-board" id="board"></div>
     <p class="memory-message" id="message"></p>
+
+    <!-- Рейтинги -->
+    <div class="memory-leaderboards" id="memory-leaderboards">
+      <div class="leaderboard-group">
+        <h3>🏆 Лучшее время</h3>
+        <table id="top-time-table">
+          <thead><tr><th>#</th><th>Игрок</th><th>Секунд</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="leaderboard-group">
+        <h3>🧠 Лучшие ходы</h3>
+        <table id="top-moves-table">
+          <thead><tr><th>#</th><th>Игрок</th><th>Ходов</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
     <a href="../games.html" class="memory-back">← Вернуться к играм</a>
   </div>
 
@@ -157,10 +204,14 @@
     let matched = 0;
     let gameFinished = false;
     let firstCardOpened = false;
-
     let seconds = 0;
     let timerInterval = null;
+    let currentUid = null;
+
     const timerEl = document.getElementById('timer');
+    const movesEl = document.getElementById('moves');
+    const board = document.getElementById('board');
+    const messageEl = document.getElementById('message');
 
     function updateTimer() {
       const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -187,10 +238,6 @@
       }
     }
 
-    const board = document.getElementById('board');
-    const movesEl = document.getElementById('moves');
-    const messageEl = document.getElementById('message');
-
     function createBoard() {
       shuffled = [...CARDS];
       shuffleArray(shuffled);
@@ -202,7 +249,6 @@
       firstCardOpened = false;
       movesEl.textContent = '0';
       messageEl.textContent = '';
-
       shuffled.forEach((emoji, index) => {
         const card = document.createElement('div');
         card.className = 'memory-card';
@@ -219,7 +265,6 @@
       if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
       if (flippedCards.length === 2) return;
 
-      // Первое открытие карты за игру
       if (!firstCardOpened) {
         firstCardOpened = true;
         if (auth.currentUser) {
@@ -245,10 +290,7 @@
         card2.classList.add('matched');
         matched += 2;
         flippedCards = [];
-
-        if (matched === CARDS.length) {
-          finishGame();
-        }
+        if (matched === CARDS.length) finishGame();
       } else {
         setTimeout(() => {
           card1.classList.remove('flipped');
@@ -265,7 +307,6 @@
       stopTimer();
       messageEl.textContent = '🎉 Все пары найдены!';
 
-      // Синхронизируем статистику
       if (auth.currentUser) {
         await syncGameStats('memory', {
           bestMoves: moves,
@@ -285,11 +326,64 @@
       } else {
         showToast('Игра пройдена! Войдите в профиль, чтобы получить баллы.', 'info');
       }
+
+      updateAllLeaderboards();
     }
 
-    // Старт
-    createBoard();
-    startTimer();
+    // Обновление рейтингов
+    async function updateAllLeaderboards() {
+      try {
+        const snapshot = await db.collection('users').get();
+        const players = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const stats = data.gameStats?.memory;
+          if (stats) {
+            if (stats.bestTime && stats.bestTime > 0) {
+              players.push({
+                uid: doc.id,
+                username: data.username || 'Аноним',
+                bestTime: stats.bestTime,
+                bestMoves: stats.bestMoves || 999
+              });
+            }
+          }
+        });
+
+        // Топ по времени (меньше = лучше)
+        const timeTop = [...players].sort((a, b) => a.bestTime - b.bestTime).slice(0, 10);
+        const timeTbody = document.querySelector('#top-time-table tbody');
+        if (timeTbody) {
+          timeTbody.innerHTML = timeTop.map((p, i) => {
+            const isMe = (currentUid && p.uid === currentUid) ? ' class="me"' : '';
+            return `<tr${isMe}><td>${i+1}</td><td>${p.username}</td><td>${p.bestTime}</td></tr>`;
+          }).join('');
+          if (timeTop.length === 0) timeTbody.innerHTML = '<tr><td colspan="3">Нет данных</td></tr>';
+        }
+
+        // Топ по ходам (меньше = лучше)
+        const movesTop = [...players].sort((a, b) => a.bestMoves - b.bestMoves).slice(0, 10);
+        const movesTbody = document.querySelector('#top-moves-table tbody');
+        if (movesTbody) {
+          movesTbody.innerHTML = movesTop.map((p, i) => {
+            const isMe = (currentUid && p.uid === currentUid) ? ' class="me"' : '';
+            return `<tr${isMe}><td>${i+1}</td><td>${p.username}</td><td>${p.bestMoves}</td></tr>`;
+          }).join('');
+          if (movesTop.length === 0) movesTbody.innerHTML = '<tr><td colspan="3">Нет данных</td></tr>';
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки рейтингов:', err);
+      }
+    }
+
+    // Инициализация
+    (function init() {
+      const currentUser = getCurrentUser();
+      if (currentUser) currentUid = currentUser.uid || currentUser.id;
+      createBoard();
+      startTimer();
+      updateAllLeaderboards();
+    })();
   </script>
 </body>
 </html>
