@@ -267,6 +267,8 @@
 
       if (!firstCardOpened) {
         firstCardOpened = true;
+        // Запускаем таймер при первом клике
+        startTimer();
         if (auth.currentUser) {
           syncGameStats('memory', { openedFirst: true });
         }
@@ -376,12 +378,12 @@
       }
     }
 
-    // Инициализация
+    // Инициализация (без запуска таймера)
     (function init() {
       const currentUser = getCurrentUser();
       if (currentUser) currentUid = currentUser.uid || currentUser.id;
       createBoard();
-      startTimer();
+      // Таймер теперь не запускается здесь
       updateAllLeaderboards();
     })();
   </script>
