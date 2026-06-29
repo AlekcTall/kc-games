@@ -1548,7 +1548,7 @@ body {
 body.dark-theme {
   --color-bg: #1a1a2e;
   --color-header: #16213e;
-  --color-primary: #0f3460;
+  --color-primary: #4a9eff;          /* Яркий синий для кнопок и ссылок */
   --color-accent: #e94560;
   --color-text: #eee;
   --color-white: #2c2c3e;
@@ -1703,4 +1703,41 @@ body.dark-theme .editable select,
 body.dark-theme .editable input {
   background: #2c2c3e;
   color: #eee;
+}
+
+/* Улучшения контрастности в тёмной теме */
+body.dark-theme .btn {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+body.dark-theme .btn:hover {
+  background: #6bb5ff;
+}
+
+/* Ссылка-имя в рейтинге — капсула */
+body.dark-theme .player-name-link {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  padding: 0.2rem 0.7rem;
+  border-radius: 20px;
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-block;
+}
+
+body.dark-theme .player-name-link:hover {
+  background: rgba(255,255,255,0.25);
+  text-decoration: none;
+}
+
+/* Статус в шапке */
+body.dark-theme .auth-greeting,
+body.dark-theme #logout-link {
+  color: #fff;
+}
+
+body.dark-theme .btn-logout-header {
+  color: #fff;
+  border-color: #fff;
 }
