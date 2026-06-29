@@ -1553,6 +1553,23 @@ body.dark-theme {
   --color-text: #eee;
   --color-white: #2c2c3e;
 }
+body.dark-theme .accordion {
+  border-color: #444;
+}
+
+body.dark-theme .accordion-header {
+  background: #2c2c3e;
+  color: #eee;
+}
+
+body.dark-theme .accordion-header:hover {
+  background: #3a3a4e;
+}
+
+body.dark-theme .accordion-content {
+  background: #2c2c3e;
+  color: #eee;
+}
 
 body.dark-theme {
   background: var(--color-bg);
@@ -1763,4 +1780,11 @@ body.dark-theme .logo {
 body.dark-theme .public-profile-box {
   background: var(--color-white);
   color: var(--color-text);
+}
+.auth-greeting {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  color: #fff;
+  display: inline-block;
 }
