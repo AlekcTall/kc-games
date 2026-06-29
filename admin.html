@@ -444,7 +444,7 @@
         }
       }
 
-      // ----- Магазин (Firestore) -----
+       // ----- Магазин (Firestore) -----
       async function renderShopTab() {
         const tabContent = document.getElementById('admin-tab-content');
         tabContent.innerHTML = '<p>Загрузка товаров...</p>';
@@ -454,9 +454,10 @@
           snap.forEach(doc => { items.push({ id: doc.id, ...doc.data() }); });
           let html = `<h3>Товары в магазине (${items.length})</h3>`;
           if (items.length > 0) {
-            html += `<table class="admin-users-table"><thead><tr><th>Название</th><th>Категория</th><th>Цена</th><th>Уник.</th><th>Действия</th></tr></thead><tbody>`;
+            html += `<table class="admin-users-table"><thead><tr><th>ID</th><th>Название</th><th>Категория</th><th>Цена</th><th>Уник.</th><th>Действия</th></tr></thead><tbody>`;
             items.forEach(item => {
               html += `<tr>
+                <td><code>${item.id}</code></td>
                 <td>${item.icon || '🛒'} ${item.title}</td>
                 <td>${item.category || ''}</td>
                 <td>${item.price}</td>
@@ -475,10 +476,11 @@
             <div class="admin-add-game" style="margin-top:2rem;">
               <h4>Добавить товар</h4>
               <form id="add-shop-item-form">
-                <div class="form-group"><label>Название</label><input type="text" id="shop-title" required></div>
+                <div class="form-group"><label>ID товара (оставьте пустым для автоматического)</label><input type="text" id="shop-id" placeholder="dark_theme"></div>
+                <div class="form-group"><label>Название *</label><input type="text" id="shop-title" required></div>
                 <div class="form-group"><label>Описание</label><textarea id="shop-desc" rows="2"></textarea></div>
                 <div class="form-group"><label>Категория</label><input type="text" id="shop-category" placeholder="Кастомизация"></div>
-                <div class="form-group"><label>Цена</label><input type="number" id="shop-price" min="1" required></div>
+                <div class="form-group"><label>Цена *</label><input type="number" id="shop-price" min="1" required></div>
                 <div class="form-group"><label>Иконка (emoji)</label><input type="text" id="shop-icon" value="🛒"></div>
                 <div class="form-group"><label>Эффект</label><input type="text" id="shop-effect" placeholder="dark_theme"></div>
                 <div class="form-group"><label>Уникальный</label><select id="shop-unique"><option value="true">Да</option><option value="false">Нет</option></select></div>
@@ -509,6 +511,7 @@
           // Добавление
           document.getElementById('add-shop-item-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const customId = document.getElementById('shop-id').value.trim();
             const newItem = {
               title: document.getElementById('shop-title').value.trim(),
               description: document.getElementById('shop-desc').value.trim(),
@@ -522,9 +525,23 @@
               showToast('Название и цена обязательны', 'error');
               return;
             }
-            await db.collection('shopItems').add(newItem);
-            showToast('Товар добавлен', 'success');
-            renderShopTab();
+            try {
+              if (customId) {
+                // Проверим, нет ли уже такого ID
+                const existing = await db.collection('shopItems').doc(customId).get();
+                if (existing.exists) {
+                  showToast('Товар с таким ID уже существует', 'error');
+                  return;
+                }
+                await db.collection('shopItems').doc(customId).set(newItem);
+              } else {
+                await db.collection('shopItems').add(newItem);
+              }
+              showToast('Товар добавлен', 'success');
+              renderShopTab();
+            } catch (err) {
+              showToast('Ошибка: ' + err.message, 'error');
+            }
           });
         } catch (err) {
           console.error(err);
@@ -545,6 +562,15 @@
         document.getElementById('shop-item-effect').value = item.effect || '';
         document.getElementById('shop-item-unique').value = item.unique ? 'true' : 'false';
         document.getElementById('shop-item-message').textContent = '';
+        // Покажем ID (нередактируемый)
+        let idField = document.getElementById('shop-item-id-display');
+        if (!idField) {
+          idField = document.createElement('div');
+          idField.id = 'shop-item-id-display';
+          idField.style.marginBottom = '1rem';
+          document.querySelector('#shop-item-modal .modal').insertBefore(idField, document.querySelector('#shop-item-title').parentElement);
+        }
+        idField.innerHTML = `<strong>ID товара:</strong> <code>${item.id}</code>`;
         document.getElementById('shop-item-modal').style.display = 'flex';
       }
 
@@ -574,10 +600,6 @@
           document.getElementById('shop-item-message').textContent = 'Ошибка: ' + err.message;
         }
       });
-
-      function getGames() { return JSON.parse(localStorage.getItem('krugames_games')) || []; }
-      function saveGames(games) { localStorage.setItem('krugames_games', JSON.stringify(games)); }
-    });
   </script>
 </body>
 </html>
