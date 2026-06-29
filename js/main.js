@@ -65,7 +65,7 @@ function updateAuthUI(firebaseUser) {
   if (firebaseUser) {
     const current = getCurrentUser();
     const name = current ? current.username : firebaseUser.email;
-    statusEl.innerHTML = `👤 ${name} | <a href="#" id="logout-link">Выйти</a>`;
+    statusEl.innerHTML = `👤 <span class="auth-greeting">${name}</span> | <a href="#" id="logout-link">Выйти</a>`;
     const logoutLink = document.getElementById('logout-link');
     if (logoutLink) {
       logoutLink.addEventListener('click', (e) => {
