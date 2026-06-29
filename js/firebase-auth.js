@@ -15,6 +15,8 @@ async function firebaseRegister(email, password, username, department) {
       email: email,
       department: department,
       points: 0,
+      lokoin_balance: 0,
+      purchasedItems: [],
       role: 'user',
       description: '',
       achievements: [],
@@ -28,6 +30,8 @@ async function firebaseRegister(email, password, username, department) {
       username: username,
       department: department,
       points: 0,
+      lokoin_balance: 0,
+      purchasedItems: [],
       role: 'user',
       description: '',
       achievements: [],
@@ -56,6 +60,8 @@ async function firebaseLogin(email, password) {
         username: data.username,
         department: data.department,
         points: data.points || 0,
+        lokoin_balance: data.lokoin_balance || 0,
+        purchasedItems: data.purchasedItems || [],
         role: data.role || 'user',
         description: data.description || '',
         achievements: data.achievements || [],
@@ -101,7 +107,7 @@ async function firebaseUpdateProfile(uid, data) {
   }
 }
 
-// ================== НАЧИСЛЕНИЕ БАЛЛОВ ==================
+// ================== НАЧИСЛЕНИЕ БАЛЛОВ (С ЛОКОИНАМИ) ==================
 
 async function addPointsToCurrentUser(points, gameId = null) {
   const user = auth.currentUser;
@@ -111,15 +117,24 @@ async function addPointsToCurrentUser(points, gameId = null) {
     const doc = await userRef.get();
     if (!doc.exists) return false;
     const data = doc.data();
-    const newPoints = (data.points || 0) + points;
+    const oldPoints = data.points || 0;
+    const newPoints = oldPoints + points;
+
+    // Вычисляем прирост локоинов
+    const oldLokoin = Math.floor(oldPoints / 10);
+    const newLokoin = Math.floor(newPoints / 10);
+    const delta = newLokoin - oldLokoin;
+    const currentLokoinBalance = data.lokoin_balance || 0;
+    const newLokoinBalance = currentLokoinBalance + delta;
+
     const updateData = { points: newPoints };
+
     if (gameId) {
       const completedGames = data.completedGames || [];
       if (!completedGames.includes(gameId)) {
         completedGames.push(gameId);
         updateData.completedGames = completedGames;
       }
-      // Добавляем запись в историю
       const gameHistory = data.gameHistory || [];
       gameHistory.push({
         game: gameId,
@@ -128,10 +143,24 @@ async function addPointsToCurrentUser(points, gameId = null) {
       });
       updateData.gameHistory = gameHistory;
     }
+
+    // Обновляем локоины, если есть прирост
+    if (delta > 0) {
+      updateData.lokoin_balance = newLokoinBalance;
+    }
+
     await userRef.update(updateData);
+
+    // Отправляем уведомление о пополнении локоинов
+    if (delta > 0 && typeof addLokoinNotification === 'function') {
+      addLokoinNotification(user.uid, delta).catch(e => console.error('Ошибка уведомления:', e));
+    }
+
+    // Синхронизируем локальный кэш
     const current = getCurrentUser();
     if (current) {
       current.points = newPoints;
+      if (delta > 0) current.lokoin_balance = newLokoinBalance;
       if (updateData.completedGames) current.completedGames = updateData.completedGames;
       if (updateData.gameHistory) current.gameHistory = updateData.gameHistory;
       setCurrentUser(current);
@@ -246,7 +275,8 @@ function updateAuthUI(firebaseUser) {
 function syncUserToLocal(userData) {
   setCurrentUser(userData);
 }
-// ================== УВЕДОМЛЕНИЯ ==================
+
+// ================== УВЕДОМЛЕНИЯ (базовая) ==================
 
 async function addNotification(userId, message, link = '') {
   if (!userId) return;
