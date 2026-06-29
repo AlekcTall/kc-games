@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="../css/style.css">
   <style>
     .clicker-game {
-      max-width: 500px;
+      max-width: 550px;
       margin: 2rem auto;
       text-align: center;
       background: white;
@@ -76,6 +76,34 @@
     .toast--success { background: #27ae60; }
     .toast--info { background: #3498db; }
     .toast--error { background: #e74c3c; }
+
+    /* Таблица рекордов */
+    .leaderboard-clicker {
+      margin-top: 1.5rem;
+      text-align: left;
+    }
+    .leaderboard-clicker h3 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    .leaderboard-clicker table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .leaderboard-clicker th, .leaderboard-clicker td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+    .leaderboard-clicker th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+    .leaderboard-clicker .me {
+      background: #e6f7ff;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -85,6 +113,16 @@
     <div class="clicker-score" id="score">0</div>
     <button class="clicker-btn" id="click-btn">КЛИК</button>
     <p id="message" style="margin-top: 1rem; font-weight: bold;"></p>
+
+    <!-- Блок рекордов -->
+    <div class="leaderboard-clicker" id="clicker-leaderboard">
+      <h3>🏆 Лучшие кликеры</h3>
+      <table id="top-table">
+        <thead><tr><th>#</th><th>Игрок</th><th>Кликов</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <a href="../games.html" class="clicker-back">← Вернуться к играм</a>
   </div>
 
@@ -123,19 +161,31 @@
     const CLICKS_PER_AWARD = 20;
     let score = 0;
     let awardedCount = 0;
-    let totalClicks = 0; // общее количество кликов за всё время (восстановим из Firestore)
+    let totalClicks = 0;
+    let bestClicks = 0;       // личный рекорд (из Firestore)
+    let currentUid = null;
 
     const scoreEl = document.getElementById('score');
     const clickBtn = document.getElementById('click-btn');
     const messageEl = document.getElementById('message');
 
-    // Восстанавливаем totalClicks из сохранённой статистики
-    (async function init() {
+    // Загрузка личного рекорда и топа
+    async function loadBestAndTop() {
       const currentUser = getCurrentUser();
+      if (currentUser) currentUid = currentUser.uid || currentUser.id;
+      // Личный рекорд из профиля
       if (currentUser && currentUser.gameStats?.clicker?.totalClicks) {
-        totalClicks = currentUser.gameStats.clicker.totalClicks;
+        bestClicks = currentUser.gameStats.clicker.totalClicks;
       }
-      // Загружаем актуальное из Firestore, если есть
+      if (auth.currentUser) {
+        try {
+          const doc = await db.collection('users').doc(auth.currentUser.uid).get();
+          if (doc.exists && doc.data().gameStats?.clicker?.totalClicks) {
+            bestClicks = doc.data().gameStats.clicker.totalClicks;
+          }
+        } catch(e) {}
+      }
+      // Восстановим totalClicks (общий счётчик кликов) из Firestore, если есть
       if (auth.currentUser) {
         try {
           const doc = await db.collection('users').doc(auth.currentUser.uid).get();
@@ -143,29 +193,75 @@
             totalClicks = doc.data().gameStats.clicker.totalClicks;
           }
         } catch(e) {}
+      } else if (currentUser && currentUser.gameStats?.clicker?.totalClicks) {
+        totalClicks = currentUser.gameStats.clicker.totalClicks;
       }
-    })();
+      updateTopTable();
+    }
+
+    // Получение и отображение топа-10 кликеров
+    async function updateTopTable() {
+      const tbody = document.querySelector('#top-table tbody');
+      if (!tbody) return;
+      try {
+        const snapshot = await db.collection('users').get();
+        const players = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const clicks = data.gameStats?.clicker?.totalClicks || 0;
+          if (clicks > 0) {
+            players.push({
+              uid: doc.id,
+              username: data.username || 'Аноним',
+              clicks: clicks
+            });
+          }
+        });
+        players.sort((a, b) => b.clicks - a.clicks);
+        const top10 = players.slice(0, 10);
+        tbody.innerHTML = top10.map((p, i) => {
+          const isMe = (currentUid && p.uid === currentUid) ? ' class="me"' : '';
+          return `<tr${isMe}>
+            <td>${i+1}</td>
+            <td>${p.username}</td>
+            <td>${p.clicks}</td>
+          </tr>`;
+        }).join('');
+        if (top10.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3">Пока нет рекордов</td></tr>';
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки топа кликеров:', err);
+      }
+    }
 
     clickBtn.addEventListener('click', () => {
       score++;
       totalClicks++;
       scoreEl.textContent = score;
 
+      // Обновляем личный рекорд, если побит
+      if (totalClicks > bestClicks) {
+        bestClicks = totalClicks;
+        messageEl.textContent = `Новый личный рекорд: ${bestClicks} кликов!`;
+      }
+
       const expectedAwards = Math.floor(score / CLICKS_PER_AWARD);
       if (expectedAwards > awardedCount) {
         const newAwards = expectedAwards - awardedCount;
         awardedCount = expectedAwards;
 
-        // Начисляем баллы
         const currentUser = getCurrentUser();
         if (currentUser && currentUser.uid && auth.currentUser) {
           addPointsToCurrentUser(POINTS_PER_AWARD * newAwards, 'clicker').then(async (success) => {
             if (success) {
-              messageEl.textContent = `+${POINTS_PER_AWARD * newAwards} балл(ов)! Всего в игре: ${awardedCount * POINTS_PER_AWARD}`;
+              messageEl.textContent = `+${POINTS_PER_AWARD * newAwards} балл(ов)! Личный рекорд: ${bestClicks} кликов`;
               // Синхронизируем статистику кликов
               await syncGameStats('clicker', { totalClicks: totalClicks });
               // Проверяем достижения
               checkAndAwardAchievements();
+              // Обновляем топ
+              updateTopTable();
             }
           });
         } else {
@@ -174,12 +270,15 @@
       }
     });
 
-    // При закрытии страницы сохраняем общее количество кликов, чтобы не потерять
+    // При закрытии страницы сохраняем общее количество кликов
     window.addEventListener('beforeunload', () => {
       if (auth.currentUser) {
         syncGameStats('clicker', { totalClicks: totalClicks });
       }
     });
+
+    // Старт
+    loadBestAndTop();
   </script>
 </body>
 </html>
