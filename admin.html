@@ -6,9 +6,7 @@
   <title>Админ-панель – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .feedback-list {
-      margin-top: 1rem;
-    }
+    .feedback-list { margin-top: 1rem; }
     .feedback-item {
       background: #fff;
       border: 1px solid #eee;
@@ -16,12 +14,8 @@
       padding: 1rem;
       margin-bottom: 1rem;
     }
-    .feedback-item-header {
-      margin-bottom: 0.5rem;
-    }
-    .feedback-item-header small {
-      color: #999;
-    }
+    .feedback-item-header { margin-bottom: 0.5rem; }
+    .feedback-item-header small { color: #999; }
   </style>
 </head>
 <body>
@@ -35,6 +29,7 @@
           <li><a href="index.html" class="nav__link">Главная</a></li>
           <li><a href="games.html" class="nav__link">Игры</a></li>
           <li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li>
+          <li><a href="shop.html" class="nav__link">Магазин</a></li>
           <li><a href="profile.html" class="nav__link">Профиль</a></li>
           <li><a href="admin.html" class="nav__link active">Админ</a></li>
         </ul>
@@ -47,10 +42,67 @@
     <div class="container" id="admin-container"></div>
   </main>
 
-  <footer class="footer">
-    <div class="container">
-     <p>© 2026 ваши амбассадоры</p>
+  <!-- Модальное окно для изменения локоинов -->
+  <div class="modal-overlay" id="lokoin-modal" style="display:none;">
+    <div class="modal">
+      <span class="modal-close" id="lokoin-modal-close">&times;</span>
+      <h3>Изменить баланс локоинов</h3>
+      <div class="form-group">
+        <label for="lokoin-amount">Количество (положительное – пополнение, отрицательное – списание)</label>
+        <input type="number" id="lokoin-amount" placeholder="Например: 50 или -10" step="1">
+      </div>
+      <div class="form-group">
+        <label for="lokoin-comment">Комментарий</label>
+        <input type="text" id="lokoin-comment" placeholder="Причина изменения">
+      </div>
+      <button class="btn" id="lokoin-submit">Применить</button>
+      <p id="lokoin-message" class="auth-message" style="margin-top:0.5rem;"></p>
     </div>
+  </div>
+
+  <!-- Модальное окно для редактирования товара -->
+  <div class="modal-overlay" id="shop-item-modal" style="display:none;">
+    <div class="modal">
+      <span class="modal-close" id="shop-item-modal-close">&times;</span>
+      <h3>Редактировать товар</h3>
+      <div class="form-group">
+        <label for="shop-item-title">Название</label>
+        <input type="text" id="shop-item-title" required>
+      </div>
+      <div class="form-group">
+        <label for="shop-item-desc">Описание</label>
+        <textarea id="shop-item-desc" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="shop-item-category">Категория</label>
+        <input type="text" id="shop-item-category" placeholder="Кастомизация">
+      </div>
+      <div class="form-group">
+        <label for="shop-item-price">Цена (локоинов)</label>
+        <input type="number" id="shop-item-price" min="1" required>
+      </div>
+      <div class="form-group">
+        <label for="shop-item-icon">Иконка (emoji)</label>
+        <input type="text" id="shop-item-icon" value="🛒">
+      </div>
+      <div class="form-group">
+        <label for="shop-item-effect">Эффект (код)</label>
+        <input type="text" id="shop-item-effect" placeholder="dark_theme">
+      </div>
+      <div class="form-group">
+        <label for="shop-item-unique">Уникальный</label>
+        <select id="shop-item-unique">
+          <option value="true">Да</option>
+          <option value="false">Нет</option>
+        </select>
+      </div>
+      <button class="btn" id="shop-item-save">Сохранить</button>
+      <p id="shop-item-message" class="auth-message" style="margin-top:0.5rem;"></p>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container"><p>© 2026 ваши амбассадоры</p></div>
   </footer>
 
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
@@ -106,7 +158,7 @@
             <button class="admin-tab active" data-tab="games">Игры</button>
             <button class="admin-tab" data-tab="users">Пользователи</button>
             <button class="admin-tab" data-tab="feedback">Обращения</button>
-            <button class="admin-tab" data-tab="cart">Корзина</button>
+            <button class="admin-tab" data-tab="shop">Магазин</button>
           </div>
           <div id="admin-tab-content" class="admin-tab-content"></div>
         `;
@@ -129,7 +181,7 @@
             case 'games': renderGamesTab(); break;
             case 'users': renderUsersTab(); break;
             case 'feedback': renderFeedbackTab(); break;
-            case 'cart': tabContent.innerHTML = '<p>Корзина пока пуста.</p>'; break;
+            case 'shop': renderShopTab(); break;
           }
         }
       }
@@ -138,7 +190,6 @@
       function renderGamesTab() {
         const tabContent = document.getElementById('admin-tab-content');
         let games = getGames();
-
         let html = `
           <h3>Управление играми</h3>
           <div class="admin-game-list">
@@ -155,28 +206,15 @@
           <div class="admin-add-game">
             <h4>Добавить игру</h4>
             <form id="add-game-form">
-              <div class="form-group">
-                <label for="game-title">Название</label>
-                <input type="text" id="game-title" required>
-              </div>
-              <div class="form-group">
-                <label for="game-desc">Описание</label>
-                <input type="text" id="game-desc" required>
-              </div>
-              <div class="form-group">
-                <label for="game-icon">Иконка (emoji)</label>
-                <input type="text" id="game-icon" value="🎮">
-              </div>
-              <div class="form-group">
-                <label for="game-url">URL игры</label>
-                <input type="text" id="game-url" placeholder="games/my-game.html">
-              </div>
+              <div class="form-group"><label for="game-title">Название</label><input type="text" id="game-title" required></div>
+              <div class="form-group"><label for="game-desc">Описание</label><input type="text" id="game-desc" required></div>
+              <div class="form-group"><label for="game-icon">Иконка (emoji)</label><input type="text" id="game-icon" value="🎮"></div>
+              <div class="form-group"><label for="game-url">URL игры</label><input type="text" id="game-url" placeholder="games/my-game.html"></div>
               <button type="submit" class="btn">Добавить</button>
             </form>
           </div>
         `;
         tabContent.innerHTML = html;
-
         document.querySelectorAll('.remove-game-btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             const gameId = e.target.dataset.gameId;
@@ -186,26 +224,14 @@
             renderGamesTab();
           });
         });
-
         document.getElementById('add-game-form').addEventListener('submit', (e) => {
           e.preventDefault();
           const title = document.getElementById('game-title').value.trim();
           const desc = document.getElementById('game-desc').value.trim();
           const icon = document.getElementById('game-icon').value.trim() || '🎮';
           const url = document.getElementById('game-url').value.trim();
-
-          if (!title || !desc) {
-            showToast('Заполните название и описание', 'error');
-            return;
-          }
-
-          games.push({
-            id: 'game_' + Date.now(),
-            title: title,
-            description: desc,
-            icon: icon,
-            url: url || '#'
-          });
+          if (!title || !desc) { showToast('Заполните название и описание', 'error'); return; }
+          games.push({ id: 'game_' + Date.now(), title, description: desc, icon, url: url || '#' });
           saveGames(games);
           showToast('Игра добавлена', 'success');
           renderGamesTab();
@@ -216,7 +242,6 @@
       async function renderUsersTab() {
         const tabContent = document.getElementById('admin-tab-content');
         tabContent.innerHTML = '<p>Загрузка пользователей...</p>';
-
         try {
           const snapshot = await db.collection('users').get();
           const users = [];
@@ -228,41 +253,39 @@
               email: data.email || '',
               department: data.department || '',
               points: data.points || 0,
+              lokoin_balance: data.lokoin_balance || 0,
               role: data.role || 'user',
               achievements: data.achievements || []
             });
           });
-
           users.sort((a, b) => b.points - a.points);
-
-          let html = '<h3>Пользователи</h3><table class="admin-users-table"><thead><tr><th>Игрок</th><th>Email</th><th>Отдел</th><th>Баллы</th><th>Роль</th><th>Достижения</th><th>Действия</th></tr></thead><tbody>';
-
+          let html = '<h3>Пользователи</h3><table class="admin-users-table"><thead><tr><th>Игрок</th><th>Email</th><th>Отдел</th><th>Баллы</th><th>Локоины</th><th>Роль</th><th>Достижения</th><th>Действия</th></tr></thead><tbody>';
           users.forEach(user => {
             const avatarHtml = (typeof renderAvatarDiv === 'function')
               ? renderAvatarDiv(user)
               : `<div class="avatar-circle" style="background-color: ${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
-
             html += `
               <tr data-user-id="${user.uid}">
                 <td class="player-cell">${avatarHtml}<span>${user.username}</span></td>
                 <td>${user.email}</td>
                 <td class="editable" data-field="department">${user.department || '—'}</td>
                 <td class="editable" data-field="points">${user.points}</td>
+                <td><span class="lokoin-display">${user.lokoin_balance}</span></td>
                 <td class="editable" data-field="role">${user.role}</td>
                 <td>${user.achievements.length}</td>
                 <td>
                   <button class="btn btn-small edit-user-btn">✏️</button>
                   <button class="btn btn-small save-user-btn" style="display:none;">💾</button>
                   <button class="btn btn-small cancel-user-btn" style="display:none;">❌</button>
+                  <button class="btn btn-small adjust-lokoin-btn" title="Изменить локоины">💰</button>
                 </td>
               </tr>
             `;
           });
-
           html += '</tbody></table>';
           tabContent.innerHTML = html;
           attachUserEditHandlers(users);
-
+          attachLokoinHandlers(users);
         } catch (err) {
           console.error('Ошибка загрузки пользователей:', err);
           tabContent.innerHTML = '<p>Не удалось загрузить список пользователей.</p>';
@@ -277,7 +300,6 @@
           const saveBtn = row.querySelector('.save-user-btn');
           const cancelBtn = row.querySelector('.cancel-user-btn');
           const cells = row.querySelectorAll('.editable');
-
           cells.forEach(cell => cell.dataset.original = cell.innerText);
 
           editBtn.addEventListener('click', () => {
@@ -330,44 +352,83 @@
         });
       }
 
+      function attachLokoinHandlers(users) {
+        const rows = document.querySelectorAll('.admin-users-table tbody tr');
+        rows.forEach((row, index) => {
+          const user = users[index];
+          const btn = row.querySelector('.adjust-lokoin-btn');
+          const display = row.querySelector('.lokoin-display');
+          if (!btn || !display) return;
+          btn.addEventListener('click', () => openLokoinModal(user, display));
+        });
+      }
+
+      let currentLokoinUser = null;
+      let currentLokoinDisplay = null;
+
+      function openLokoinModal(user, displayElement) {
+        currentLokoinUser = user;
+        currentLokoinDisplay = displayElement;
+        document.getElementById('lokoin-amount').value = '';
+        document.getElementById('lokoin-comment').value = '';
+        document.getElementById('lokoin-message').textContent = '';
+        document.getElementById('lokoin-modal').style.display = 'flex';
+      }
+
+      document.getElementById('lokoin-modal-close').addEventListener('click', () => {
+        document.getElementById('lokoin-modal').style.display = 'none';
+      });
+      document.getElementById('lokoin-submit').addEventListener('click', async () => {
+        const amountStr = document.getElementById('lokoin-amount').value.trim();
+        const comment = document.getElementById('lokoin-comment').value.trim();
+        const amount = parseInt(amountStr, 10);
+        if (isNaN(amount) || amount === 0) {
+          document.getElementById('lokoin-message').textContent = 'Введите число (не ноль).';
+          return;
+        }
+        try {
+          const userRef = db.collection('users').doc(currentLokoinUser.uid);
+          const doc = await userRef.get();
+          if (!doc.exists) throw new Error('Пользователь не найден');
+          const oldBalance = doc.data().lokoin_balance || 0;
+          const newBalance = oldBalance + amount;
+          if (newBalance < 0) {
+            document.getElementById('lokoin-message').textContent = 'Недостаточно локоинов. Баланс не может быть отрицательным.';
+            return;
+          }
+          await userRef.update({ lokoin_balance: newBalance });
+          currentLokoinUser.lokoin_balance = newBalance;
+          currentLokoinDisplay.textContent = newBalance;
+          document.getElementById('lokoin-modal').style.display = 'none';
+          showToast('Баланс локоинов обновлён', 'success');
+          // Отправка уведомления
+          if (typeof addLokoinNotification === 'function') {
+            addLokoinNotification(currentLokoinUser.uid, amount, comment);
+          }
+        } catch (err) {
+          document.getElementById('lokoin-message').textContent = 'Ошибка: ' + err.message;
+        }
+      });
+
       // ----- Обращения (Firestore) -----
       async function renderFeedbackTab() {
         const tabContent = document.getElementById('admin-tab-content');
         tabContent.innerHTML = '<p>Загрузка обращений...</p>';
-
         try {
           const snapshot = await db.collection('feedback').orderBy('createdAt', 'desc').get();
           const feedbacks = [];
           snapshot.forEach(doc => {
             const data = doc.data();
-            feedbacks.push({
-              id: doc.id,
-              ...data,
-              createdAt: data.createdAt ? data.createdAt.toDate() : null
-            });
+            feedbacks.push({ id: doc.id, ...data, createdAt: data.createdAt ? data.createdAt.toDate() : null });
           });
-
-          if (feedbacks.length === 0) {
-            tabContent.innerHTML = '<p>Нет обращений.</p>';
-            return;
-          }
-
+          if (feedbacks.length === 0) { tabContent.innerHTML = '<p>Нет обращений.</p>'; return; }
           let html = `<h3>Обращения (${feedbacks.length})</h3><div class="feedback-list">`;
           feedbacks.forEach(fb => {
             const date = fb.createdAt ? fb.createdAt.toLocaleString('ru-RU') : '—';
-            html += `
-              <div class="feedback-item">
-                <div class="feedback-item-header">
-                  <strong>${fb.topic}</strong> от ${fb.name} <small>${date}</small>
-                </div>
-                <p>${fb.message}</p>
-                <button class="btn btn-small btn-danger delete-feedback-btn" data-fb-id="${fb.id}">Удалить</button>
-              </div>
-            `;
+            html += `<div class="feedback-item"><div class="feedback-item-header"><strong>${fb.topic}</strong> от ${fb.name} <small>${date}</small></div><p>${fb.message}</p><button class="btn btn-small btn-danger delete-feedback-btn" data-fb-id="${fb.id}">Удалить</button></div>`;
           });
           html += '</div>';
           tabContent.innerHTML = html;
-
           document.querySelectorAll('.delete-feedback-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
               if (confirm('Удалить обращение?')) {
@@ -377,19 +438,145 @@
               }
             });
           });
-
         } catch (err) {
           console.error('Ошибка загрузки обращений:', err);
           tabContent.innerHTML = '<p>Не удалось загрузить обращения.</p>';
         }
       }
 
-      function getGames() {
-        return JSON.parse(localStorage.getItem('krugames_games')) || [];
+      // ----- Магазин (Firestore) -----
+      async function renderShopTab() {
+        const tabContent = document.getElementById('admin-tab-content');
+        tabContent.innerHTML = '<p>Загрузка товаров...</p>';
+        try {
+          const snap = await db.collection('shopItems').get();
+          const items = [];
+          snap.forEach(doc => { items.push({ id: doc.id, ...doc.data() }); });
+          let html = `<h3>Товары в магазине (${items.length})</h3>`;
+          if (items.length > 0) {
+            html += `<table class="admin-users-table"><thead><tr><th>Название</th><th>Категория</th><th>Цена</th><th>Уник.</th><th>Действия</th></tr></thead><tbody>`;
+            items.forEach(item => {
+              html += `<tr>
+                <td>${item.icon || '🛒'} ${item.title}</td>
+                <td>${item.category || ''}</td>
+                <td>${item.price}</td>
+                <td>${item.unique ? '✓' : '—'}</td>
+                <td>
+                  <button class="btn btn-small edit-shop-item-btn" data-id="${item.id}">✏️</button>
+                  <button class="btn btn-small btn-danger delete-shop-item-btn" data-id="${item.id}">Удалить</button>
+                </td>
+              </tr>`;
+            });
+            html += `</tbody></table>`;
+          } else {
+            html += '<p>Товаров пока нет.</p>';
+          }
+          html += `
+            <div class="admin-add-game" style="margin-top:2rem;">
+              <h4>Добавить товар</h4>
+              <form id="add-shop-item-form">
+                <div class="form-group"><label>Название</label><input type="text" id="shop-title" required></div>
+                <div class="form-group"><label>Описание</label><textarea id="shop-desc" rows="2"></textarea></div>
+                <div class="form-group"><label>Категория</label><input type="text" id="shop-category" placeholder="Кастомизация"></div>
+                <div class="form-group"><label>Цена</label><input type="number" id="shop-price" min="1" required></div>
+                <div class="form-group"><label>Иконка (emoji)</label><input type="text" id="shop-icon" value="🛒"></div>
+                <div class="form-group"><label>Эффект</label><input type="text" id="shop-effect" placeholder="dark_theme"></div>
+                <div class="form-group"><label>Уникальный</label><select id="shop-unique"><option value="true">Да</option><option value="false">Нет</option></select></div>
+                <button type="submit" class="btn">Добавить</button>
+              </form>
+            </div>
+          `;
+          tabContent.innerHTML = html;
+
+          // Удаление
+          document.querySelectorAll('.delete-shop-item-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              if (confirm('Удалить товар?')) {
+                await db.collection('shopItems').doc(e.target.dataset.id).delete();
+                showToast('Товар удалён', 'success');
+                renderShopTab();
+              }
+            });
+          });
+          // Редактирование
+          document.querySelectorAll('.edit-shop-item-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const id = btn.dataset.id;
+              const item = items.find(i => i.id === id);
+              if (item) openEditShopItemModal(item);
+            });
+          });
+          // Добавление
+          document.getElementById('add-shop-item-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newItem = {
+              title: document.getElementById('shop-title').value.trim(),
+              description: document.getElementById('shop-desc').value.trim(),
+              category: document.getElementById('shop-category').value.trim(),
+              price: parseInt(document.getElementById('shop-price').value, 10),
+              icon: document.getElementById('shop-icon').value.trim() || '🛒',
+              effect: document.getElementById('shop-effect').value.trim(),
+              unique: document.getElementById('shop-unique').value === 'true'
+            };
+            if (!newItem.title || !newItem.price) {
+              showToast('Название и цена обязательны', 'error');
+              return;
+            }
+            await db.collection('shopItems').add(newItem);
+            showToast('Товар добавлен', 'success');
+            renderShopTab();
+          });
+        } catch (err) {
+          console.error(err);
+          tabContent.innerHTML = '<p>Ошибка загрузки магазина.</p>';
+        }
       }
-      function saveGames(games) {
-        localStorage.setItem('krugames_games', JSON.stringify(games));
+
+      // ----- Модальное окно редактирования товара -----
+      let currentEditShopItemId = null;
+
+      function openEditShopItemModal(item) {
+        currentEditShopItemId = item.id;
+        document.getElementById('shop-item-title').value = item.title || '';
+        document.getElementById('shop-item-desc').value = item.description || '';
+        document.getElementById('shop-item-category').value = item.category || '';
+        document.getElementById('shop-item-price').value = item.price || 1;
+        document.getElementById('shop-item-icon').value = item.icon || '🛒';
+        document.getElementById('shop-item-effect').value = item.effect || '';
+        document.getElementById('shop-item-unique').value = item.unique ? 'true' : 'false';
+        document.getElementById('shop-item-message').textContent = '';
+        document.getElementById('shop-item-modal').style.display = 'flex';
       }
+
+      document.getElementById('shop-item-modal-close').addEventListener('click', () => {
+        document.getElementById('shop-item-modal').style.display = 'none';
+      });
+      document.getElementById('shop-item-save').addEventListener('click', async () => {
+        const updated = {
+          title: document.getElementById('shop-item-title').value.trim(),
+          description: document.getElementById('shop-item-desc').value.trim(),
+          category: document.getElementById('shop-item-category').value.trim(),
+          price: parseInt(document.getElementById('shop-item-price').value, 10),
+          icon: document.getElementById('shop-item-icon').value.trim(),
+          effect: document.getElementById('shop-item-effect').value.trim(),
+          unique: document.getElementById('shop-item-unique').value === 'true'
+        };
+        if (!updated.title || !updated.price) {
+          document.getElementById('shop-item-message').textContent = 'Название и цена обязательны.';
+          return;
+        }
+        try {
+          await db.collection('shopItems').doc(currentEditShopItemId).update(updated);
+          showToast('Товар обновлён', 'success');
+          document.getElementById('shop-item-modal').style.display = 'none';
+          renderShopTab();
+        } catch (err) {
+          document.getElementById('shop-item-message').textContent = 'Ошибка: ' + err.message;
+        }
+      });
+
+      function getGames() { return JSON.parse(localStorage.getItem('krugames_games')) || []; }
+      function saveGames(games) { localStorage.setItem('krugames_games', JSON.stringify(games)); }
     });
   </script>
 </body>
