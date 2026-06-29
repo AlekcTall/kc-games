@@ -273,11 +273,13 @@
     let bestScore = 0;
     let currentUid = null;
 
+    // Эффект проглатывания: массив «бульбов», каждый: { segIndex (индекс сегмента, к которому привязан), scale (размер) }
+    let bulges = [];
+
     // Загрузка личного рекорда и топа
     async function loadBestAndTop() {
       const currentUser = getCurrentUser();
       if (currentUser) currentUid = currentUser.uid || currentUser.id;
-      // Личный рекорд из профиля
       if (currentUser && currentUser.gameStats?.snake?.maxScore) {
         bestScore = currentUser.gameStats.snake.maxScore;
       }
@@ -292,7 +294,6 @@
       updateTopTable();
     }
 
-    // Получение и отображение топа-10
     async function updateTopTable() {
       const tbody = document.querySelector('#top-table tbody');
       if (!tbody) return;
@@ -301,12 +302,12 @@
         const players = [];
         snapshot.forEach(doc => {
           const data = doc.data();
-          const score = data.gameStats?.snake?.maxScore || 0;
-          if (score > 0) {
+          const sc = data.gameStats?.snake?.maxScore || 0;
+          if (sc > 0) {
             players.push({
               uid: doc.id,
               username: data.username || 'Аноним',
-              score: score
+              score: sc
             });
           }
         });
@@ -339,6 +340,7 @@
       isWallCollision = false;
       scoreEl.textContent = '0';
       messageEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} яблок` : '';
+      bulges = [];
     }
 
     function randomFood() {
@@ -354,6 +356,8 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Сетка
       ctx.strokeStyle = '#f0f0f0';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= GRID_SIZE; i++) {
@@ -365,14 +369,73 @@
         ctx.lineTo(canvas.width, i * CELL_SIZE);
         ctx.stroke();
       }
-      ctx.fillStyle = '#e74c3c';
+
+      // Яблоко — эмодзи
+      ctx.font = `${CELL_SIZE * 0.8}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🍎', food.x * CELL_SIZE + CELL_SIZE/2, food.y * CELL_SIZE + CELL_SIZE/2);
+
+      // Бульбы (проглоченные яблоки) — рисуем до змеи, чтобы они были под ней
+      for (const bulge of bulges) {
+        if (bulge.segIndex < snake.length) {
+          const seg = snake[bulge.segIndex];
+          const x = seg.x * CELL_SIZE + CELL_SIZE/2;
+          const y = seg.y * CELL_SIZE + CELL_SIZE/2;
+          ctx.fillStyle = 'rgba(231, 76, 60, 0.6)';
+          ctx.beginPath();
+          ctx.arc(x, y, CELL_SIZE * 0.7, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Тело змеи (с хвоста, чтобы голова была сверху)
+      for (let i = snake.length - 1; i >= 0; i--) {
+        const seg = snake[i];
+        const x = seg.x * CELL_SIZE, y = seg.y * CELL_SIZE;
+        const radius = CELL_SIZE * 0.35;
+        if (i === 0) {
+          // Голова: крупнее, ярче
+          ctx.fillStyle = '#1abc9c';
+          ctx.shadowColor = 'rgba(0,0,0,0.2)';
+          ctx.shadowBlur = 4;
+          roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, radius + 4);
+          ctx.fill();
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          // Глаза
+          ctx.fillStyle = 'white';
+          const eyeX = x + CELL_SIZE/2 + (direction.x * CELL_SIZE/4);
+          const eyeY = y + CELL_SIZE/2 + (direction.y * CELL_SIZE/4);
+          ctx.beginPath();
+          ctx.arc(eyeX, eyeY, CELL_SIZE*0.15, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle = 'black';
+          ctx.beginPath();
+          ctx.arc(eyeX + direction.x*2, eyeY + direction.y*2, CELL_SIZE*0.07, 0, Math.PI*2);
+          ctx.fill();
+        } else {
+          // Тело: оттенок зависит от позиции
+          const shade = 0.7 + (i / snake.length) * 0.3;
+          ctx.fillStyle = `rgba(46, 204, 113, ${shade})`;
+          roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, radius);
+          ctx.fill();
+        }
+      }
+    }
+
+    function roundRect(x, y, w, h, r) {
       ctx.beginPath();
-      ctx.arc(food.x * CELL_SIZE + CELL_SIZE/2, food.y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 - 1, 0, Math.PI*2);
-      ctx.fill();
-      snake.forEach((seg, i) => {
-        ctx.fillStyle = i === 0 ? '#27ae60' : '#2ecc71';
-        ctx.fillRect(seg.x * CELL_SIZE + 1, seg.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
-      });
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
     }
 
     async function awardSnakePoints() {
@@ -385,7 +448,6 @@
             showToast('+1 балл за змейку!', 'success');
             await syncGameStats('snake', { maxScore: Math.max(score, bestScore) });
             checkAndAwardAchievements();
-            // обновим личный рекорд и топ
             if (score > bestScore) bestScore = score;
             updateTopTable();
           }
@@ -429,15 +491,25 @@
         return;
       }
       snake.unshift(head);
+
+      // Двигаем бульбы: увеличиваем индекс сегмента на 1, удаляем, если вышли за пределы
+      bulges = bulges.filter(b => {
+        b.segIndex++;
+        return b.segIndex < snake.length;
+      });
+
       if (head.x === food.x && head.y === food.y) {
         score++;
         if (score > maxScore) maxScore = score;
         scoreEl.textContent = score;
+        // Добавляем бульб в начало (индекс 0)
+        bulges.push({ segIndex: 0 });
         food = randomFood();
         if (score % 5 === 0) {
           awardedLevel++;
           awardSnakePoints();
         }
+        // Змейка растёт — не удаляем хвост, т.е. просто не делаем snake.pop()
       } else {
         snake.pop();
       }
