@@ -47,6 +47,17 @@ function renderAvatarDiv(user) {
   return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
 }
 
+// Склонение слова "локоин"
+function pluralizeLokoin(n) {
+  const abs = Math.abs(n);
+  const lastDigit = abs % 10;
+  const lastTwoDigits = abs % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return 'ов';
+  if (lastDigit === 1) return '';
+  if (lastDigit >= 2 && lastDigit <= 4) return 'а';
+  return 'ов';
+}
+
 // Обновление статуса в шапке
 function updateAuthUI(firebaseUser) {
   const statusEl = document.getElementById('auth-status');
@@ -104,12 +115,20 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotifications();
   }
 
-  // Автоматическое обновление статуса авторизации
+  // Автоматическое обновление статуса авторизации и темы
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
       updateAuthUI(user);
+      // Применение тёмной темы, если пользователь авторизован и она выбрана
+      const cu = getCurrentUser();
+      if (cu && cu.activeTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+      } else {
+        document.body.classList.remove('dark-theme');
+      }
     });
   } else {
     updateAuthUI(null);
+    document.body.classList.remove('dark-theme');
   }
 });
