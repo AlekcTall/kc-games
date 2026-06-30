@@ -100,11 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Пасхалки
-  if (typeof initEasterEggs === 'function') {
-    initEasterEggs();
-  }
-
+  // Пасхалки — будут инициализированы после авторизации (ниже)
   // Обратная связь
   if (typeof initFeedback === 'function') {
     initFeedback();
@@ -119,6 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
       updateAuthUI(user);
+      // Инициализируем пасхалки после авторизации
+      if (user && typeof initEasterEggs === 'function') {
+        initEasterEggs();
+      }
       // Применение тёмной темы, если пользователь авторизован и она выбрана
       const cu = getCurrentUser();
       if (cu && cu.activeTheme === 'dark') {
