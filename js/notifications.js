@@ -14,7 +14,16 @@ const TYPE_ICONS = {
   admin: '⚙️',
   system: 'ℹ️'
 };
-
+// Склонение слова "локоин"
+function pluralizeLokoin(n) {
+  const abs = Math.abs(n);
+  const lastDigit = abs % 10;
+  const lastTwoDigits = abs % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return 'ов';
+  if (lastDigit === 1) return '';
+  if (lastDigit >= 2 && lastDigit <= 4) return 'а';
+  return 'ов';
+}
 // Модальное окно уведомления (создадим динамически)
 let notifModal = null;
 
