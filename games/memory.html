@@ -55,7 +55,13 @@
   <script src="../js/firebase-auth.js"></script>
   <script src="../js/storage.js"></script>
   <script src="../js/achievements.js"></script>
+  <script src="../js/easter-eggs.js"></script>
   <script>
+    // Пасхалки
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof initEasterEggs === 'function') initEasterEggs();
+    });
+
     function showToast(msg,type='info'){ let c=document.getElementById('toast-container'); if(!c){c=document.createElement('div');c.id='toast-container';document.body.appendChild(c);} const t=document.createElement('div'); t.className=`toast toast--${type}`; t.textContent=msg; c.appendChild(t); t.offsetHeight; t.classList.add('toast--visible'); setTimeout(()=>{t.classList.remove('toast--visible');t.addEventListener('transitionend',()=>{if(t.parentNode)t.remove();if(!c.children.length)c.remove();});},3500); }
     const EMOJIS=['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'], CARDS=[...EMOJIS,...EMOJIS];
     let shuffled=[], flipped=[], moves=0, matched=0, gameFinished=false, firstCard=false, seconds=0, timerInterval=null, currentUid=null;
@@ -86,7 +92,6 @@
     }
     function showGameOverBox(){ gameOverCont.innerHTML=`<div class="game-over-box"><h3>Игра окончена!</h3><div class="result-stats">⏱️ Время: ${seconds} сек. | 🔄 Ходов: ${moves}</div><button class="btn" id="restart-btn">Ещё раз</button><a href="../games.html" class="btn" style="background:#666;">К играм</a></div>`; document.getElementById('restart-btn').addEventListener('click',()=>{stopTimer();createBoard();updateAllLeaderboards();}); }
     
-    // Проверка видимости рейтинга
     function updateLeaderboardVisibility(){
       const timeTable = document.getElementById('top-time-table');
       const movesTable = document.getElementById('top-moves-table');
@@ -112,7 +117,7 @@
         const snap=await db.collection('users').get(), players=[];
         snap.forEach(doc=>{
           const d=doc.data();
-          if(d.role === 'admin') return;   // исключаем админов
+          if(d.role === 'admin') return;
           const s=d.gameStats?.memory;
           if(s&&s.bestTime&&s.bestTime>0) players.push({uid:doc.id,username:d.username||'Аноним',bestTime:s.bestTime,bestMoves:s.bestMoves||999});
         });
@@ -137,7 +142,6 @@
       }catch(e){console.error(e);}
     }
 
-    // Инициализация после готовности auth
     auth.onAuthStateChanged(user => {
       const cu=getCurrentUser(); if(cu) currentUid=cu.uid||cu.id;
       createBoard();
