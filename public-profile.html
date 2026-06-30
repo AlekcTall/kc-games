@@ -6,327 +6,108 @@
   <title>Профиль игрока – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .public-profile-box {
-      max-width: 800px;
-      margin: 0 auto;
-      background: white;
-      padding: 2rem;
-      border-radius: var(--border-radius);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    .back-link {
-      display: inline-block;
-      margin-top: 1rem;
-      color: var(--color-primary);
-      text-decoration: none;
-    }
-    .section-title {
-      margin-top: 2rem;
-      border-bottom: 2px solid #f0f0f0;
-      padding-bottom: 0.5rem;
-    }
-    .history-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-    .history-table th,
-    .history-table td {
-      padding: 0.5rem;
-      border-bottom: 1px solid #eee;
-      text-align: left;
-    }
-    .history-table th {
-      font-size: 0.85rem;
-      color: #666;
-    }
-    .no-data {
-      color: #999;
-      font-style: italic;
-    }
-    .btn-more {
-      margin-top: 1rem;
-      padding: 0.5rem 1.5rem;
-      background: #f0f0f0;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .btn-more:hover {
-      background: #e0e0e0;
-    }
-    /* Статистика */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    .stat-card {
-      background: #f9f9fb;
-      border-radius: 12px;
-      padding: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-    }
-    .stat-icon {
-      font-size: 2rem;
-    }
-    .stat-detail {
-      display: flex;
-      flex-direction: column;
-    }
-    .stat-value {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--color-header);
-    }
-    .stat-label {
-      font-size: 0.8rem;
-      color: #666;
-    }
-    @media (max-width: 480px) {
-      .public-profile-box {
-        padding: 1rem;
-      }
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    .public-profile-box { max-width:800px; margin:0 auto; background:white; padding:2rem; border-radius:var(--border-radius); box-shadow:0 2px 10px rgba(0,0,0,0.05); }
+    .back-link { display:inline-block; margin-top:1rem; color:var(--color-primary); text-decoration:none; }
+    .section-title { margin-top:2rem; border-bottom:2px solid #f0f0f0; padding-bottom:0.5rem; }
+    .history-table { width:100%; border-collapse:collapse; margin-top:1rem; }
+    .history-table th,.history-table td { padding:0.5rem; border-bottom:1px solid #eee; text-align:left; }
+    .history-table th { font-size:0.85rem; color:#666; }
+    .no-data { color:#999; font-style:italic; }
+    .btn-more { margin-top:1rem; padding:0.5rem 1.5rem; background:#f0f0f0; border:1px solid #ddd; border-radius:6px; cursor:pointer; }
+    .btn-more:hover { background:#e0e0e0; }
+    .stats-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:1rem; margin-top:1rem; }
+    .stat-card { background:#f9f9fb; border-radius:12px; padding:1rem; display:flex; align-items:center; gap:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.03); }
+    .stat-icon { font-size:2rem; }
+    .stat-detail { display:flex; flex-direction:column; }
+    .stat-value { font-size:1.1rem; font-weight:700; color:var(--color-header); }
+    .stat-label { font-size:0.8rem; color:#666; }
+    @media (max-width:480px) { .public-profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
-
-  <header class="header">
-    <div class="container header__inner">
-      <a href="index.html" class="logo">КЦ-Игры</a>
-      <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
-      <nav class="nav" id="main-nav">
-        <ul class="nav__list">
-          <li><a href="index.html" class="nav__link">Главная</a></li>
-          <li><a href="games.html" class="nav__link">Игры</a></li>
-          <li><a href="leaderboard.html" class="nav__link active">Рейтинг</a></li>
-          <li><a href="shop.html" class="nav__link">Магазин</a></li>
-          <li><a href="profile.html" class="nav__link">Профиль</a></li>
-          <li><a href="admin.html" class="nav__link">Админ</a></li>
-        </ul>
-      </nav>
-      <div id="auth-status" class="auth-status"></div>
-    </div>
-  </header>
-
-  <main class="main">
-    <div class="container" id="public-profile-container">
-      <!-- Заполнится скриптом -->
-    </div>
-  </main>
-
-  <footer class="footer">
-    <div class="container">
-      <p>© 2026 ваши амбассадоры</p>
-    </div>
-  </footer>
-
-  <!-- Firebase SDK -->
+  <header class="header"><div class="container header__inner"><a href="index.html" class="logo">КЦ-Игры</a><button class="burger" id="burger-btn" aria-label="Меню">☰</button><nav class="nav" id="main-nav"><ul class="nav__list"><li><a href="index.html" class="nav__link">Главная</a></li><li><a href="games.html" class="nav__link">Игры</a></li><li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li><li><a href="shop.html" class="nav__link">Магазин</a></li><li><a href="profile.html" class="nav__link">Профиль</a></li><li><a href="admin.html" class="nav__link">Админ</a></li></ul></nav><div id="auth-status" class="auth-status"></div></div></header>
+  <main class="main"><div class="container" id="public-profile-container"></div></main>
+  <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-  <script src="js/feedback.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/firebase-auth.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/notifications.js"></script>
+  <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
-
   <script>
-    // Функция для формирования HTML-блока статистики
-    function buildStatsHTML(history) {
-      const dailyPoints = {};
-      const gamePoints = {};
-      history.forEach(entry => {
-        const date = new Date(entry.timestamp);
-        const dayKey = date.toISOString().slice(0, 10);
-        dailyPoints[dayKey] = (dailyPoints[dayKey] || 0) + entry.points;
-
-        const gameName = 
-          entry.game === 'clicker' ? '🖱️ Кликер' :
-          entry.game === 'memory'  ? '🧠 Найди пару' :
-          entry.game === 'snake'   ? '🐍 Змейка' :
-          entry.game;
-        gamePoints[gameName] = (gamePoints[gameName] || 0) + entry.points;
+    function buildStatsHTML(history){
+      const daily={}; const games={};
+      history.forEach(e=>{
+        const d=new Date(e.timestamp).toISOString().slice(0,10);
+        daily[d]=(daily[d]||0)+e.points;
+        const gn=e.game==='clicker'?'🖱️ Кликер':e.game==='memory'?'🧠 Найди пару':e.game==='snake'?'🐍 Змейка':e.game;
+        games[gn]=(games[gn]||0)+e.points;
       });
-
-      const days = Object.values(dailyPoints);
-      const totalPoints = days.reduce((a, b) => a + b, 0);
-      const bestDay = Math.max(...days);
-      const bestDayDate = Object.keys(dailyPoints).find(date => dailyPoints[date] === bestDay);
-      const avgPerDay = days.length > 0 ? Math.round(totalPoints / days.length) : 0;
-      const bestGame = Object.entries(gamePoints).sort((a, b) => b[1] - a[1])[0];
-      const bestGameName = bestGame ? bestGame[0] : '—';
-      const bestGamePoints = bestGame ? bestGame[1] : 0;
-
-      return `
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-icon">⭐</span>
-            <div class="stat-detail">
-              <div class="stat-value">${totalPoints}</div>
-              <div class="stat-label">Всего баллов</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">📅</span>
-            <div class="stat-detail">
-              <div class="stat-value">${new Date(bestDayDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-              <div class="stat-label">Лучший день (${bestDay} балл)</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">📊</span>
-            <div class="stat-detail">
-              <div class="stat-value">${avgPerDay}</div>
-              <div class="stat-label">Средний заработок в день</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <span class="stat-icon">🎮</span>
-            <div class="stat-detail">
-              <div class="stat-value">${bestGameName}</div>
-              <div class="stat-label">Самая результативная игра (${bestGamePoints} балл)</div>
-            </div>
-          </div>
-        </div>
-      `;
+      const days=Object.values(daily); const total=days.reduce((a,b)=>a+b,0);
+      const bestDay=Math.max(...days); const bestDayDate=Object.keys(daily).find(d=>daily[d]===bestDay);
+      const avg=days.length?Math.round(total/days.length):0;
+      const bestGame=Object.entries(games).sort((a,b)=>b[1]-a[1])[0];
+      return `<div class="stats-grid">
+        <div class="stat-card"><span class="stat-icon">⭐</span><div class="stat-detail"><div class="stat-value">${total}</div><div class="stat-label">Всего баллов</div></div></div>
+        <div class="stat-card"><span class="stat-icon">📅</span><div class="stat-detail"><div class="stat-value">${new Date(bestDayDate).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div><div class="stat-label">Лучший день (${bestDay} балл.)</div></div></div>
+        <div class="stat-card"><span class="stat-icon">📊</span><div class="stat-detail"><div class="stat-value">${avg}</div><div class="stat-label">Средний заработок в день</div></div></div>
+        <div class="stat-card"><span class="stat-icon">🎮</span><div class="stat-detail"><div class="stat-value">${bestGame?bestGame[0]:'—'}</div><div class="stat-label">Самая результативная игра (${bestGame?bestGame[1]:0} балл.)</div></div></div>
+      </div>`;
     }
-
     document.addEventListener('DOMContentLoaded', async () => {
       const container = document.getElementById('public-profile-container');
-      const params = new URLSearchParams(window.location.search);
-      const userId = params.get('id');
-
-      if (!userId) {
-        container.innerHTML = '<p>Пользователь не указан.</p>';
-        return;
-      }
-
-      try {
-        const doc = await db.collection('users').doc(userId).get();
-        if (!doc.exists) {
-          container.innerHTML = '<p>Пользователь не найден.</p>';
+      
+      // Проверка авторизации
+      auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+          container.innerHTML = '<p>Войдите в профиль, чтобы увидеть данные игрока.</p>';
           return;
         }
-        const user = doc.data();
-        user.uid = doc.id;
-
-        const achievementsConfig = getAchievementsConfig();
-        const unlockedAch = user.achievements || [];
-        const gameHistory = user.gameHistory || [];
-
-        const avatarHtml = (typeof renderAvatarDiv === 'function')
-          ? renderAvatarDiv(user)
-          : `<div class="avatar-circle" style="background-color: ${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
-
-        container.innerHTML = `
-          <div class="public-profile-box">
-            <div class="profile-header">
-              ${avatarHtml}
-              <div>
-                <h2>${user.username}</h2>
-                <span class="badge badge-${user.role}">${user.role}</span>
-                ${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}
-              </div>
-            </div>
-            <div class="profile-details">
-              <p><strong>Баллы:</strong> ${user.points || 0}</p>
-              <p><strong>О себе:</strong> ${user.description || '—'}</p>
-            </div>
-
-            <h3 class="section-title">Достижения (${unlockedAch.length}/${achievementsConfig.length})</h3>
-            <div class="achievements-grid">
-              ${achievementsConfig.map(ach => {
-                const unlocked = unlockedAch.includes(ach.id);
-                const hidden = ach.hidden && !unlocked;
-                return `
-                  <div class="achievement-item ${unlocked ? 'unlocked' : 'locked'}">
-                    <span class="ach-icon">${hidden ? '❓' : ach.icon}</span>
-                    <span class="ach-name">${hidden ? '???' : ach.name}</span>
-                    ${!hidden && !unlocked ? `<span class="ach-hint">${ach.description}</span>` : ''}
-                  </div>
-                `;
-              }).join('')}
-            </div>
-
-            <h3 class="section-title">История игр</h3>
-            <div id="history-container">
-              ${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `
-                <table class="history-table">
-                  <thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead>
-                  <tbody id="history-body"></tbody>
-                </table>
-                <div id="more-container" style="text-align:center;"></div>
-              `}
-            </div>
-
-            <h3 class="section-title">Статистика</h3>
-            <div class="stats-container" id="stats-container"></div>
-
+        
+        const params = new URLSearchParams(window.location.search);
+        const userId = params.get('id');
+        if (!userId) { container.innerHTML='<p>Пользователь не указан.</p>'; return; }
+        try {
+          const doc = await db.collection('users').doc(userId).get();
+          if (!doc.exists) { container.innerHTML='<p>Пользователь не найден.</p>'; return; }
+          const userData = doc.data(); userData.uid = doc.id;
+          const achCfg = getAchievementsConfig();
+          const unlockedAch = userData.achievements||[];
+          const gameHistory = userData.gameHistory||[];
+          const avatarHtml = (typeof renderAvatarDiv==='function') ? renderAvatarDiv(userData) : `<div class="avatar-circle" style="background-color:${getColorFromUid(userData.uid)}">${getInitials(userData.username)}</div>`;
+          container.innerHTML = `<div class="public-profile-box">
+            <div class="profile-header">${avatarHtml}<div><h2>${userData.username}</h2><span class="badge badge-${userData.role}">${userData.role}</span>${userData.department?`<p class="profile-department"><strong>Отдел:</strong> ${userData.department}</p>`:''}</div></div>
+            <div class="profile-details"><p><strong>Баллы:</strong> ${userData.points||0}</p><p><strong>О себе:</strong> ${userData.description||'—'}</p></div>
+            <h3 class="section-title">Достижения (${unlockedAch.length}/${achCfg.length})</h3>
+            <div class="achievements-grid">${achCfg.map(ach=>{const unl=unlockedAch.includes(ach.id);const hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span>${!hid&&!unl?`<span class="ach-hint">${ach.description}</span>`:''}</div>`;}).join('')}</div>
+            <h3 class="section-title">История игр</h3><div id="history-container">${gameHistory.length===0?'<p class="no-data">Пока не сыграно ни одной игры.</p>':`<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container" style="text-align:center;"></div>`}</div>
+            <h3 class="section-title">Статистика</h3><div class="stats-container" id="stats-container"></div>
             <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
-          </div>
-        `;
-
-        // Пагинация истории
-        if (gameHistory.length > 0) {
-          const sortedHistory = [...gameHistory].reverse();
-          const historyBody = document.getElementById('history-body');
-          const moreContainer = document.getElementById('more-container');
-          let displayCount = 5;
-          const step = 10;
-
-          function renderHistoryRows() {
-            const slice = sortedHistory.slice(0, displayCount);
-            let rows = '';
-            slice.forEach(entry => {
-              const date = new Date(entry.timestamp).toLocaleString('ru-RU', {
-                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-              });
-              const gameName = 
-                entry.game === 'clicker' ? '🖱️ Кликер' :
-                entry.game === 'memory'  ? '🧠 Найди пару' :
-                entry.game === 'snake'   ? '🐍 Змейка' :
-                entry.game;
-              rows += `<tr><td>${gameName}</td><td>+${entry.points}</td><td>${date}</td></tr>`;
-            });
-            historyBody.innerHTML = rows;
-
-            if (displayCount < sortedHistory.length) {
-              moreContainer.innerHTML = `<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`;
-              document.getElementById('load-more-btn').addEventListener('click', () => {
-                displayCount = Math.min(displayCount + step, sortedHistory.length);
-                renderHistoryRows();
-              });
-            } else {
-              moreContainer.innerHTML = '';
+          </div>`;
+          if (gameHistory.length>0){
+            const sorted = [...gameHistory].reverse();
+            const tbody = document.getElementById('history-body'), moreCont = document.getElementById('more-container');
+            let disp = 5; const step = 10;
+            function renderRows(){
+              const slice = sorted.slice(0,disp);
+              let rows='';
+              slice.forEach(e=>{ const dt=new Date(e.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); const gn=e.game==='clicker'?'🖱️ Кликер':e.game==='memory'?'🧠 Найди пару':e.game==='snake'?'🐍 Змейка':e.game; rows+=`<tr><td>${gn}</td><td>+${e.points}</td><td>${dt}</td></tr>`; });
+              tbody.innerHTML=rows;
+              if(disp<sorted.length){ moreCont.innerHTML=`<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`; document.getElementById('load-more-btn').addEventListener('click',()=>{disp=Math.min(disp+step,sorted.length);renderRows();}); }
+              else moreCont.innerHTML='';
             }
+            renderRows();
           }
-
-          renderHistoryRows();
-        }
-
-        const statsContainer = document.getElementById('stats-container');
-        if (statsContainer && gameHistory.length > 0) {
-          statsContainer.innerHTML = buildStatsHTML(gameHistory);
-        } else if (statsContainer) {
-          statsContainer.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
-        }
-
-      } catch (error) {
-        console.error('Ошибка загрузки профиля:', error);
-        container.innerHTML = `<p>Не удалось загрузить профиль. Ошибка: ${error.message}</p>`;
-      }
+          const statsCont = document.getElementById('stats-container');
+          if(statsCont && gameHistory.length>0) statsCont.innerHTML = buildStatsHTML(gameHistory);
+          else if(statsCont) statsCont.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
+        } catch(e) { console.error(e); container.innerHTML='<p>Не удалось загрузить профиль.</p>'; }
+      });
     });
   </script>
 </body>
