@@ -136,7 +136,13 @@
         }
       }catch(e){console.error(e);}
     }
-    (function(){ const cu=getCurrentUser(); if(cu) currentUid=cu.uid||cu.id; createBoard(); updateAllLeaderboards(); })();
+
+    // Инициализация после готовности auth
+    auth.onAuthStateChanged(user => {
+      const cu=getCurrentUser(); if(cu) currentUid=cu.uid||cu.id;
+      createBoard();
+      updateAllLeaderboards();
+    });
   </script>
 </body>
 </html>
