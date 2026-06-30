@@ -27,27 +27,9 @@
   <main class="main">
     <div class="container">
       <h2>Магазин</h2>
-      <div class="shop-filters">
-        <div class="filter-group">
-          <label for="shop-search">🔍 Поиск</label>
-          <input type="text" id="shop-search" placeholder="Название товара...">
-        </div>
-        <div class="filter-group">
-          <label for="shop-category">Категория</label>
-          <select id="shop-category">
-            <option value="">Все категории</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="shop-sort">Сортировка</label>
-          <select id="shop-sort">
-            <option value="default">По умолчанию</option>
-            <option value="price_asc">Сначала дешёвые</option>
-            <option value="price_desc">Сначала дорогие</option>
-          </select>
-        </div>
+      <div id="shop-content">
+        <!-- Динамическое содержимое -->
       </div>
-      <div id="shop-grid" class="shop-grid"></div>
     </div>
   </main>
   <footer class="footer">
@@ -93,10 +75,10 @@
     // Глобальные функции для уведомлений и склонений будут доступны из main.js
     let allItems = [];
     let currentUserDoc = null; // кэш документа пользователя
-    const grid = document.getElementById('shop-grid');
-    const searchInput = document.getElementById('shop-search');
-    const categorySelect = document.getElementById('shop-category');
-    const sortSelect = document.getElementById('shop-sort');
+    const shopContent = document.getElementById('shop-content');
+    
+    // Элементы фильтров и сетки создадим динамически после авторизации
+    let grid, searchInput, categorySelect, sortSelect;
 
     // Модальные окна
     const itemModal = document.getElementById('item-modal');
@@ -291,40 +273,74 @@
       if (e.target === confirmModal) confirmModal.style.display = 'none';
     });
 
-    // Обработчики фильтров
-    searchInput.addEventListener('input', renderShop);
-    categorySelect.addEventListener('change', renderShop);
-    sortSelect.addEventListener('change', renderShop);
-
-    // Инициализация
+    // Инициализация: строим интерфейс только после проверки auth
     auth.onAuthStateChanged(async (user) => {
-      if (user) {
+      if (!user) {
+        shopContent.innerHTML = '<p class="no-results">Войдите в профиль, чтобы просматривать магазин.</p>';
+        return;
+      }
+
+      // Пользователь авторизован — строим интерфейс магазина
+      shopContent.innerHTML = `
+        <div class="shop-filters">
+          <div class="filter-group">
+            <label for="shop-search">🔍 Поиск</label>
+            <input type="text" id="shop-search" placeholder="Название товара...">
+          </div>
+          <div class="filter-group">
+            <label for="shop-category">Категория</label>
+            <select id="shop-category">
+              <option value="">Все категории</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="shop-sort">Сортировка</label>
+            <select id="shop-sort">
+              <option value="default">По умолчанию</option>
+              <option value="price_asc">Сначала дешёвые</option>
+              <option value="price_desc">Сначала дорогие</option>
+            </select>
+          </div>
+        </div>
+        <div id="shop-grid" class="shop-grid"></div>
+      `;
+
+      grid = document.getElementById('shop-grid');
+      searchInput = document.getElementById('shop-search');
+      categorySelect = document.getElementById('shop-category');
+      sortSelect = document.getElementById('shop-sort');
+
+      // Загружаем данные пользователя
+      currentUserDoc = await getCurrentUserDoc();
+      if (!currentUserDoc) {
+        // На всякий случай создаём документ, если его почему-то нет
+        await db.collection('users').doc(user.uid).set({
+          username: user.email || 'Аноним',
+          points: 0,
+          lokoin_balance: 0,
+          purchasedItems: [],
+          achievements: [],
+          gameHistory: [],
+          role: 'user',
+          email: user.email,
+          activeTheme: 'light'
+        }, { merge: true });
         currentUserDoc = await getCurrentUserDoc();
-        if (!currentUserDoc) {
-          // Создадим документ, если почему-то нет (но обычно регистрация создаёт)
-          await db.collection('users').doc(user.uid).set({
-            username: user.email || 'Аноним',
-            points: 0,
-            lokoin_balance: 0,
-            purchasedItems: [],
-            achievements: [],
-            gameHistory: [],
-            role: 'user',
-            email: user.email,
-            activeTheme: 'light'
-          }, { merge: true });
-          currentUserDoc = await getCurrentUserDoc();
-        }
-        // Применяем тему
-        if (currentUserDoc.activeTheme === 'dark') {
-          document.body.classList.add('dark-theme');
-        } else {
-          document.body.classList.remove('dark-theme');
-        }
+      }
+
+      // Применяем тему
+      if (currentUserDoc.activeTheme === 'dark') {
+        document.body.classList.add('dark-theme');
       } else {
-        currentUserDoc = null;
         document.body.classList.remove('dark-theme');
       }
+
+      // Обработчики фильтров
+      searchInput.addEventListener('input', renderShop);
+      categorySelect.addEventListener('change', renderShop);
+      sortSelect.addEventListener('change', renderShop);
+
+      // Загружаем товары
       await loadShopItems();
     });
   </script>
