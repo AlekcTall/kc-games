@@ -294,40 +294,24 @@
       updateTopTable();
     }
 
-    async function updateTopTable() {
-      const tbody = document.querySelector('#top-table tbody');
-      if (!tbody) return;
-      try {
-        const snapshot = await db.collection('users').get();
-        const players = [];
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const sc = data.gameStats?.snake?.maxScore || 0;
-          if (sc > 0) {
-            players.push({
-              uid: doc.id,
-              username: data.username || 'Аноним',
-              score: sc
-            });
-          }
-        });
-        players.sort((a, b) => b.score - a.score);
-        const top10 = players.slice(0, 10);
-        tbody.innerHTML = top10.map((p, i) => {
-          const isMe = (currentUid && p.uid === currentUid) ? ' class="me"' : '';
-          return `<tr${isMe}>
-            <td>${i+1}</td>
-            <td>${p.username}</td>
-            <td>${p.score}</td>
-          </tr>`;
-        }).join('');
-        if (top10.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="3">Пока нет рекордов</td></tr>';
-        }
-      } catch (err) {
-        console.error('Ошибка загрузки топа:', err);
-      }
-    }
+    async function updateTop(){
+  const tbody=document.querySelector('#top-table tbody'); if(!tbody)return;
+  try{
+    const snap=await db.collection('users').get(), players=[];
+    snap.forEach(doc=>{
+      const d=doc.data();
+      if(d.role === 'admin') return;
+      const sc=d.gameStats?.snake?.maxScore||0;
+      if(sc>0) players.push({uid:doc.id,username:d.username||'Аноним',score:sc});
+    });
+    players.sort((a,b)=>b.score-a.score); const top10=players.slice(0,10);
+    tbody.innerHTML=top10.map((p,i)=>{
+      const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
+      return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.score}</td></tr>`;
+    }).join('');
+    if(!top10.length) tbody.innerHTML='<tr><td colspan="3">Пока нет рекордов</td></tr>';
+  }catch(e){console.error(e);}
+}
 
     function initGame() {
       snake = [{x: 10, y: 10}];
