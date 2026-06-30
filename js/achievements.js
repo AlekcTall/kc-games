@@ -5,19 +5,22 @@ function getAchievementsConfig() {
   return [
     { id: 'first_game', name: 'Первый блин', description: 'Сыграйте в любую игру', icon: '🎮', hidden: false },
     { id: 'clicker_100', name: 'Кликоман', description: 'Наберите 100 кликов в кликере', icon: '🖱️', hidden: false },
-    { id: 'clicker_1000', name: 'Кликераст', description: 'Наберите 1000 кликов в кликере', icon: '🖱️', hidden: false },
+    { id: 'clicker_1000', name: 'Мышку сломаешь!', description: 'Наберите 1000 кликов в кликере', icon: '💥🖱️', hidden: false },
     { id: 'snake_start', name: 'Змеелов', description: 'Начните игру в змейку', icon: '🐍', hidden: false },
     { id: 'snake_100', name: 'Удав', description: 'Съешьте 100 яблок в змейке', icon: '🐍', hidden: false },
     { id: 'snake_200', name: 'Анаконда', description: 'Съешьте 200 яблок в змейке', icon: '🐍', hidden: false },
     { id: 'snake_self', name: 'Самоед', description: 'Врежьтесь в себя в змейке', icon: '🐍', hidden: true },
-    { id: 'snake_wall', name: 'Стенолаз', description: 'Врежьтесь в стену в змейке', icon: '🐍', hidden: true },
+    { id: 'snake_wall', name: 'Ауч!', description: 'Врежьтесь в стену в змейке', icon: '🐍', hidden: true },
     { id: 'memory_first', name: 'Помню', description: 'Откройте первую карту в найди пару', icon: '🧠', hidden: false },
     { id: 'memory_complete', name: 'Идеальная память', description: 'Завершите игру найди пару', icon: '🧠', hidden: false },
     { id: 'memory_12moves', name: 'Эконом', description: 'Найдите все пары за ≤12 ходов', icon: '🧠', hidden: false },
     { id: 'memory_30sec', name: 'Спидран', description: 'Найдите все пары за ≤30 секунд', icon: '🧠', hidden: false },
-    { id: 'memory_8moves', name: 'Гроссмейстер', description: 'Найдите все пары ровно за 8 ходов', icon: '🧠', hidden: true },
+    { id: 'memory_8moves', name: 'Невозможно!', description: 'Найдите все пары ровно за 8 ходов', icon: '🧠', hidden: true },
+    { id: 'profile_bio', name: 'О себе', description: 'Заполните поле «О себе» (минимум 10 символов)', icon: '✏️', hidden: true },
+    // Динамические достижения (проверяются отдельно)
     { id: 'top10', name: 'В десятке', description: 'Попадите в топ‑10 общего рейтинга', icon: '🏆', hidden: false },
     { id: 'top3', name: 'Пьедестал', description: 'Займите 1, 2 или 3 место в рейтинге', icon: '🥇', hidden: false },
+    // Пасхалки
     { id: 'easter_logo', name: 'Лого‑кликер', description: 'Найдите пасхалку в логотипе', icon: '🥚', hidden: true },
     { id: 'easter_footer', name: 'Подвал', description: 'Найдите пасхалку в футере', icon: '🥚', hidden: true },
     { id: 'easter_symbol', name: 'Секретный символ', description: 'Найдите секретный символ на главной', icon: '🥚', hidden: true },
@@ -34,20 +37,21 @@ async function checkAndAwardAchievements() {
   const userDoc = await db.collection('users').doc(user.uid).get();
   if (!userDoc.exists) return;
   const data = userDoc.data();
-  const unlocked = data.achievements || [];
+  let unlocked = data.achievements || [];
   const gameStats = data.gameStats || {};
   const gameHistory = data.gameHistory || [];
   const easterEggs = data.easterEggsFound || [];
-  const points = data.points || 0;
+  const description = data.description || '';
 
   const config = getAchievementsConfig();
   const newlyUnlocked = [];
+  const toRemove = [];
 
   // Проверяем каждое достижение
   for (const ach of config) {
-    if (unlocked.includes(ach.id)) continue;
-
+    const alreadyUnlocked = unlocked.includes(ach.id);
     let earned = false;
+
     switch (ach.id) {
       case 'first_game': earned = gameHistory.length > 0; break;
       case 'clicker_100': earned = (gameStats.clicker?.totalClicks || 0) >= 100; break;
@@ -62,6 +66,8 @@ async function checkAndAwardAchievements() {
       case 'memory_12moves': earned = gameStats.memory?.completed && gameStats.memory.bestMoves <= 12; break;
       case 'memory_30sec': earned = gameStats.memory?.completed && gameStats.memory.bestTime <= 30; break;
       case 'memory_8moves': earned = gameStats.memory?.completed && gameStats.memory.bestMoves === 8; break;
+      case 'profile_bio': earned = description.length >= 10; break;
+
       case 'top10':
       case 'top3': {
         // Проверка рейтинга через запрос всех пользователей
@@ -73,10 +79,18 @@ async function checkAndAwardAchievements() {
         });
         allPlayers.sort((a, b) => b.points - a.points);
         const rank = allPlayers.findIndex(p => p.uid === user.uid) + 1;
-        if (rank > 0 && rank <= 10) earned = true; // top10
-        if (rank > 0 && rank <= 3 && ach.id === 'top3') earned = true;
+
+        if (ach.id === 'top10') {
+          earned = (rank > 0 && rank <= 10);
+          if (!earned && alreadyUnlocked) toRemove.push(ach.id);
+        }
+        if (ach.id === 'top3') {
+          earned = (rank > 0 && rank <= 3);
+          if (!earned && alreadyUnlocked) toRemove.push(ach.id);
+        }
         break;
       }
+
       case 'easter_logo': earned = easterEggs.includes('logo'); break;
       case 'easter_footer': earned = easterEggs.includes('footer'); break;
       case 'easter_symbol': earned = easterEggs.includes('symbol'); break;
@@ -84,14 +98,22 @@ async function checkAndAwardAchievements() {
       case 'easter_word': earned = easterEggs.includes('word'); break;
     }
 
-    if (earned) {
+    // Обработка: добавить или удалить
+    if (earned && !alreadyUnlocked) {
       unlocked.push(ach.id);
       newlyUnlocked.push(ach);
+    } else if (!earned && alreadyUnlocked && toRemove.includes(ach.id)) {
+      // удалим
     }
   }
 
-  if (newlyUnlocked.length > 0) {
-    // Сохраняем в Firestore
+  // Удаляем слетевшие достижения
+  if (toRemove.length > 0) {
+    unlocked = unlocked.filter(id => !toRemove.includes(id));
+  }
+
+  // Сохраняем изменения в Firestore
+  if (newlyUnlocked.length > 0 || toRemove.length > 0) {
     await db.collection('users').doc(user.uid).update({ achievements: unlocked });
     // Локальный кэш
     const current = getCurrentUser();
@@ -100,9 +122,10 @@ async function checkAndAwardAchievements() {
       setCurrentUser(current);
     }
 
-    // Отправляем уведомления с типом 'achievement'
+    // Уведомления о новых достижениях
     for (const ach of newlyUnlocked) {
       await addNotification(user.uid, `Получено достижение: ${ach.icon} ${ach.name}`, 'achievement', 'profile.html');
     }
+    // Уведомления о слетевших (опционально, но пока не делаем)
   }
 }
