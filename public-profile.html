@@ -21,12 +21,32 @@
     .stat-detail { display:flex; flex-direction:column; }
     .stat-value { font-size:1.1rem; font-weight:700; color:var(--color-header); }
     .stat-label { font-size:0.8rem; color:#666; }
+    /* Модалка достижения */
+    .ach-modal-content { text-align: center; max-width: 350px; }
+    .ach-modal-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+    .ach-modal-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .ach-modal-desc { font-size: 0.95rem; color: #555; margin-bottom: 0.5rem; }
+    .ach-modal-status { font-size: 0.9rem; font-weight: 500; }
+    .ach-unlocked-status { color: #27ae60; }
+    .ach-locked-status { color: #e67e22; }
     @media (max-width:480px) { .public-profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
   <header class="header"><div class="container header__inner"><a href="index.html" class="logo">КЦ-Игры</a><button class="burger" id="burger-btn" aria-label="Меню">☰</button><nav class="nav" id="main-nav"><ul class="nav__list"><li><a href="index.html" class="nav__link">Главная</a></li><li><a href="games.html" class="nav__link">Игры</a></li><li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li><li><a href="shop.html" class="nav__link">Магазин</a></li><li><a href="profile.html" class="nav__link">Профиль</a></li><li><a href="admin.html" class="nav__link">Админ</a></li></ul></nav><div id="auth-status" class="auth-status"></div></div></header>
   <main class="main"><div class="container" id="public-profile-container"></div></main>
+
+  <!-- Модальное окно достижения -->
+  <div class="modal-overlay" id="ach-modal" style="display:none;">
+    <div class="modal ach-modal-content">
+      <span class="modal-close" id="ach-modal-close">&times;</span>
+      <div class="ach-modal-icon" id="ach-modal-icon"></div>
+      <div class="ach-modal-title" id="ach-modal-title"></div>
+      <div class="ach-modal-desc" id="ach-modal-desc"></div>
+      <div class="ach-modal-status" id="ach-modal-status"></div>
+    </div>
+  </div>
+
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -61,7 +81,28 @@
     }
     document.addEventListener('DOMContentLoaded', async () => {
       const container = document.getElementById('public-profile-container');
-      
+
+      // Модальное окно достижения
+      const achModal = document.getElementById('ach-modal');
+      const achModalClose = document.getElementById('ach-modal-close');
+      const achModalIcon = document.getElementById('ach-modal-icon');
+      const achModalTitle = document.getElementById('ach-modal-title');
+      const achModalDesc = document.getElementById('ach-modal-desc');
+      const achModalStatus = document.getElementById('ach-modal-status');
+
+      function showAchievementModal(ach, unlocked) {
+        achModalIcon.textContent = ach.hidden && !unlocked ? '❓' : ach.icon;
+        achModalTitle.textContent = ach.hidden && !unlocked ? '???' : ach.name;
+        achModalDesc.textContent = ach.hidden && !unlocked ? 'Откройте, чтобы узнать' : ach.description;
+        achModalStatus.innerHTML = unlocked
+          ? '<span class="ach-unlocked-status">✅ Получено</span>'
+          : '<span class="ach-locked-status">🔒 Ещё не получено</span>';
+        achModal.style.display = 'flex';
+      }
+
+      achModalClose.addEventListener('click', () => { achModal.style.display = 'none'; });
+      window.addEventListener('click', (e) => { if (e.target === achModal) achModal.style.display = 'none'; });
+
       // Проверка авторизации
       auth.onAuthStateChanged(async (user) => {
         if (!user) {
@@ -84,11 +125,24 @@
             <div class="profile-header">${avatarHtml}<div><h2>${userData.username}</h2><span class="badge badge-${userData.role}">${userData.role}</span>${userData.department?`<p class="profile-department"><strong>Отдел:</strong> ${userData.department}</p>`:''}</div></div>
             <div class="profile-details"><p><strong>Баллы:</strong> ${userData.points||0}</p><p><strong>О себе:</strong> ${userData.description||'—'}</p></div>
             <h3 class="section-title">Достижения (${unlockedAch.length}/${achCfg.length})</h3>
-            <div class="achievements-grid">${achCfg.map(ach=>{const unl=unlockedAch.includes(ach.id);const hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span>${!hid&&!unl?`<span class="ach-hint">${ach.description}</span>`:''}</div>`;}).join('')}</div>
+            <div class="achievements-grid">${achCfg.map(ach=>{const unl=unlockedAch.includes(ach.id);const hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}" data-ach-id="${ach.id}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span>${!hid&&!unl?`<span class="ach-hint">${ach.description}</span>`:''}</div>`;}).join('')}</div>
             <h3 class="section-title">История игр</h3><div id="history-container">${gameHistory.length===0?'<p class="no-data">Пока не сыграно ни одной игры.</p>':`<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container" style="text-align:center;"></div>`}</div>
             <h3 class="section-title">Статистика</h3><div class="stats-container" id="stats-container"></div>
             <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
           </div>`;
+
+          // Навешиваем обработчики клика по достижениям
+          document.querySelectorAll('.achievement-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const achId = item.dataset.achId;
+              const ach = achCfg.find(a => a.id === achId);
+              if (ach) {
+                const unlocked = unlockedAch.includes(achId);
+                showAchievementModal(ach, unlocked);
+              }
+            });
+          });
+
           if (gameHistory.length>0){
             const sorted = [...gameHistory].reverse();
             const tbody = document.getElementById('history-body'), moreCont = document.getElementById('more-container');
