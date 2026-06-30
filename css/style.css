@@ -1305,6 +1305,14 @@ body {
   cursor: pointer;
   font-size: 0.9rem;
   color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notif-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .notification-item.unread {
@@ -1328,6 +1336,7 @@ body {
   display: block;
   font-size: 0.75rem;
   color: #999;
+  margin-left: auto;
 }
 
 .btn-clear {
@@ -1342,6 +1351,43 @@ body {
 
 .btn-clear:hover {
   background: #eee;
+}
+
+/* Модальное окно уведомления */
+.notif-modal-content {
+  text-align: center;
+  max-width: 400px;
+  animation: fadeIn 0.3s ease;
+}
+
+.notif-detail-icon {
+  font-size: 3rem;
+  margin-bottom: 0.8rem;
+}
+
+.notif-detail-message {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
+}
+
+.notif-detail-date {
+  display: block;
+  margin-bottom: 1rem;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.notif-detail-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 768px) {
@@ -1552,7 +1598,7 @@ body {
 body.dark-theme {
   --color-bg: #1a1a2e;
   --color-header: #16213e;
-  --color-primary: #4a9eff;          /* Яркий синий для кнопок и ссылок */
+  --color-primary: #4a9eff;
   --color-accent: #e94560;
   --color-text: #eee;
   --color-white: #2c2c3e;
@@ -1569,7 +1615,7 @@ body.dark-theme .header {
 
 body.dark-theme .footer {
   background: var(--color-header);
-  color: #fff;               /* копирайт белый */
+  color: #fff;
 }
 
 body.dark-theme .nav__link {
@@ -1623,7 +1669,6 @@ body.dark-theme .faq-item__question:hover {
   background: #3a3a4e;
 }
 
-/* FAQ ответ внутри */
 body.dark-theme .faq-item__answer {
   background: #2c2c3e;
   color: #eee;
@@ -1641,7 +1686,7 @@ body.dark-theme .leaderboard-table th {
 
 body.dark-theme .leaderboard-table td {
   border-bottom-color: #444;
-  color: #fff;                /* весь текст в таблице белый */
+  color: #fff;
 }
 
 body.dark-theme .leaderboard-table tbody tr:nth-child(even) {
@@ -1717,7 +1762,6 @@ body.dark-theme .editable input {
   color: #eee;
 }
 
-/* Улучшения контрастности в тёмной теме */
 body.dark-theme .btn {
   background: var(--color-primary);
   color: #fff;
@@ -1727,7 +1771,6 @@ body.dark-theme .btn:hover {
   background: #6bb5ff;
 }
 
-/* Ссылка-имя в рейтинге — капсула */
 body.dark-theme .player-name-link {
   background: rgba(255,255,255,0.15);
   color: #fff;
@@ -1743,7 +1786,6 @@ body.dark-theme .player-name-link:hover {
   text-decoration: none;
 }
 
-/* Статус в шапке */
 body.dark-theme .auth-status {
   color: #fff;
 }
@@ -1758,20 +1800,15 @@ body.dark-theme .btn-logout-header {
   border-color: #fff;
 }
 
-/* Логотип всегда белый */
 body.dark-theme .logo {
   color: #fff;
 }
 
-/* Публичный профиль */
 body.dark-theme .public-profile-box {
   background: var(--color-white);
   color: var(--color-text);
 }
 
-/* ======================= */
-/* АККОРДЕОНЫ ПРОФИЛЯ (тёмная тема) */
-/* ======================= */
 body.dark-theme .accordion {
   border-color: #444;
 }
