@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
   <header class="header">
     <div class="container header__inner">
       <a href="index.html" class="logo">КЦ-Игры</a>
@@ -25,248 +24,153 @@
       <div id="auth-status" class="auth-status"></div>
     </div>
   </header>
-
   <main class="main">
     <div class="container">
       <h2>Таблица лидеров</h2>
-
-      <div class="leaderboard-filters" id="filters-block">
-        <!-- Кнопка сворачивания для мобильных (появляется только на узких экранах) -->
-        <button class="filters-toggle" id="filters-toggle" style="display:none;">Фильтры</button>
-        <div class="filter-row">
-          <div class="filter-group">
-            <label for="filter-name">🔍 Имя</label>
-            <input type="text" id="filter-name" placeholder="Введите имя...">
-          </div>
-          <div class="filter-group">
-            <label>📊 Баллы</label>
-            <div class="filter-range">
-              <input type="number" id="filter-points-min" placeholder="От" min="0">
-              <span>–</span>
-              <input type="number" id="filter-points-max" placeholder="До" min="0">
-            </div>
-          </div>
-          <div class="filter-group">
-            <label for="filter-department">🏢 Отдел</label>
-            <select id="filter-department">
-              <option value="">Все отделы</option>
-              <!-- Опции заполнятся скриптом -->
-            </select>
-          </div>
-          <div class="filter-group">
-            <label for="filter-achievements">🏆 Достижения</label>
-            <select id="filter-achievements">
-              <option value="all">Все</option>
-              <option value="some">Есть достижения</option>
-              <option value="none">Нет достижений</option>
-            </select>
-          </div>
-          <div class="filter-group" style="justify-content: flex-end;">
-            <button class="btn-reset-filters" id="reset-filters-btn">↺ Сбросить</button>
-          </div>
-        </div>
-      </div>
-
       <div id="leaderboard-container">
-        <!-- Таблица генерируется JS -->
+        <p class="no-results">Загрузка...</p>
       </div>
     </div>
   </main>
-
-  <footer class="footer">
-    <div class="container">
-      <p>© 2026 ваши амбассадоры</p>
-    </div>
-  </footer>
-
+  <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-  <script src="js/feedback.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/firebase-auth.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/easter-eggs.js"></script>
   <script src="js/notifications.js"></script>
+  <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
-
   <script>
-    const DEPARTMENTS = [
-      'РБ (Физические лица)',
-      'МСБ (Юридические лица)',
-      'ТМ (Телемаркетинг)',
-      'Депозиты (группа привлечения некредитных продуктов)',
-      'ОКК (отдел контроля качества)',
-      'ООБП (отдел оптимизации бизнес процессов)',
-      'Боссы (начальники и руководители начальников)',
-      'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
-    ];
-
+    const DEPARTMENTS = ['РБ (Физические лица)','МСБ (Юридические лица)','ТМ (Телемаркетинг)','Депозиты (группа привлечения некредитных продуктов)','ОКК (отдел контроля качества)','ООБП (отдел оптимизации бизнес процессов)','Боссы (начальники и руководители начальников)','Заблудшие души КЦ (в каком отделе КЦ я работаю?)'];
     document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('leaderboard-container');
-      const filterDept = document.getElementById('filter-department');
-      const filterAch = document.getElementById('filter-achievements');
-      const filterName = document.getElementById('filter-name');
-      const filterPointsMin = document.getElementById('filter-points-min');
-      const filterPointsMax = document.getElementById('filter-points-max');
-      const resetBtn = document.getElementById('reset-filters-btn');
-      const filtersBlock = document.getElementById('filters-block');
-      const filtersToggle = document.getElementById('filters-toggle');
-      const filterRow = filtersBlock.querySelector('.filter-row');
-
-      // Заполняем отделы
-      DEPARTMENTS.forEach(dept => {
-        const option = document.createElement('option');
-        option.value = dept;
-        option.textContent = dept;
-        filterDept.appendChild(option);
-      });
-
-      let allUsers = [];
-
-      // Загрузка пользователей из Firestore
-      async function loadUsersFromFirestore() {
-        try {
-          const snapshot = await db.collection('users').get();
-          allUsers = [];
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            allUsers.push({
-              uid: doc.id,        // для renderAvatarDiv
-              id: doc.id,
-              username: data.username || 'Без имени',
-              department: data.department || '',
-              points: data.points || 0,
-              role: data.role || 'user',
-              achievements: data.achievements || []
-            });
-          });
-          renderLeaderboard();
-        } catch (error) {
-          console.error('Ошибка загрузки пользователей:', error);
-          container.innerHTML = '<p class="no-results">Не удалось загрузить рейтинг. Попробуйте позже.</p>';
-        }
-      }
-
-      // Рендер таблицы с фильтрами
-      function renderLeaderboard() {
-        const deptFilter = filterDept.value;
-        const achFilter = filterAch.value;
-        const nameFilter = filterName.value.trim().toLowerCase();
-        const pointsMin = parseInt(filterPointsMin.value, 10);
-        const pointsMax = parseInt(filterPointsMax.value, 10);
-
-        let filtered = allUsers.filter(u => u.role !== 'admin');
-
-        if (deptFilter !== '') {
-          filtered = filtered.filter(u => u.department === deptFilter);
-        }
-        if (achFilter === 'some') {
-          filtered = filtered.filter(u => u.achievements.length > 0);
-        } else if (achFilter === 'none') {
-          filtered = filtered.filter(u => u.achievements.length === 0);
-        }
-        if (nameFilter !== '') {
-          filtered = filtered.filter(u => u.username.toLowerCase().includes(nameFilter));
-        }
-        if (!isNaN(pointsMin)) {
-          filtered = filtered.filter(u => u.points >= pointsMin);
-        }
-        if (!isNaN(pointsMax)) {
-          filtered = filtered.filter(u => u.points <= pointsMax);
-        }
-
-        filtered.sort((a, b) => b.points - a.points);
-
-        if (filtered.length === 0) {
-          container.innerHTML = '<p class="no-results">Никто не найден по заданным фильтрам.</p>';
+      
+      auth.onAuthStateChanged(user => {
+        if (!user) {
+          container.innerHTML = '<p class="no-results">Войдите в профиль, чтобы увидеть рейтинг.</p>';
           return;
         }
+        
+        // Пользователь авторизован – строим интерфейс
+        buildUI();
+      });
 
-        let html = `
-          <table class="leaderboard-table">
-            <thead>
-              <tr>
-                <th>Место</th>
-                <th>Игрок</th>
-                <th>Баллы</th>
-                <th>Отдел</th>
-                <th>🏆</th>
-              </tr>
-            </thead>
-            <tbody>
+      function buildUI() {
+        // Очищаем контейнер и вставляем фильтры и таблицу
+        container.innerHTML = `
+          <div class="leaderboard-filters" id="filters-block">
+            <button class="filters-toggle" id="filters-toggle" style="display:none;">Фильтры</button>
+            <div class="filter-row">
+              <div class="filter-group"><label for="filter-name">🔍 Имя</label><input type="text" id="filter-name" placeholder="Введите имя..."></div>
+              <div class="filter-group"><label>📊 Баллы</label><div class="filter-range"><input type="number" id="filter-points-min" placeholder="От" min="0"><span>–</span><input type="number" id="filter-points-max" placeholder="До" min="0"></div></div>
+              <div class="filter-group"><label for="filter-department">🏢 Отдел</label><select id="filter-department"><option value="">Все отделы</option></select></div>
+              <div class="filter-group"><label for="filter-achievements">🏆 Достижения</label><select id="filter-achievements"><option value="all">Все</option><option value="some">Есть достижения</option><option value="none">Нет достижений</option></select></div>
+              <div class="filter-group" style="justify-content: flex-end;"><button class="btn-reset-filters" id="reset-filters-btn">↺ Сбросить</button></div>
+            </div>
+          </div>
+          <div id="leaderboard-table-container"></div>
         `;
 
-        filtered.forEach((user, index) => {
-          const place = index + 1;
-          const achCount = user.achievements.length;
+        const filterDept = document.getElementById('filter-department');
+        const filterAch = document.getElementById('filter-achievements');
+        const filterName = document.getElementById('filter-name');
+        const filterPointsMin = document.getElementById('filter-points-min');
+        const filterPointsMax = document.getElementById('filter-points-max');
+        const resetBtn = document.getElementById('reset-filters-btn');
+        const filtersBlock = document.getElementById('filters-block');
+        const filtersToggle = document.getElementById('filters-toggle');
+        const tableContainer = document.getElementById('leaderboard-table-container');
 
-          // Класс для топ-3
-          let rowClass = '';
-          if (place === 1) rowClass = 'top-1';
-          else if (place === 2) rowClass = 'top-2';
-          else if (place === 3) rowClass = 'top-3';
+        DEPARTMENTS.forEach(d => { let o = new Option(d,d); filterDept.add(o); });
 
-          const avatarHtml = (typeof renderAvatarDiv === 'function')
-            ? renderAvatarDiv(user)
-            : `<div class="avatar-circle avatar-small" style="background-color: ${getColorFromUid(user.uid || user.id)}">${getInitials(user.username)}</div>`;
+        let allUsers = [];
 
-          html += `
-            <tr class="${rowClass}">
-              <td class="place-cell">#${place}</td>
-              <td class="player-cell">
-                ${avatarHtml}
-                <a href="public-profile.html?id=${user.id}" class="player-name-link">${user.username}</a>
-              </td>
-              <td>${user.points}</td>
-              <td>${user.department || '—'}</td>
-              <td>${achCount}</td>
-            </tr>
-          `;
+        async function load() {
+          try {
+            const snap = await db.collection('users').get();
+            allUsers = [];
+            snap.forEach(doc => {
+              const d = doc.data();
+              allUsers.push({
+                uid: doc.id,
+                id: doc.id,
+                username: d.username||'Без имени',
+                department: d.department||'',
+                points: d.points||0,
+                role: d.role||'user',
+                achievements: d.achievements||[]
+              });
+            });
+            render();
+          } catch(e) {
+            console.error(e);
+            tableContainer.innerHTML = '<p class="no-results">Не удалось загрузить рейтинг.</p>';
+          }
+        }
+
+        function render() {
+          let f = allUsers.filter(u => u.role !== 'admin');
+          if (filterDept.value) f = f.filter(u => u.department === filterDept.value);
+          const af = filterAch.value;
+          if (af==='some') f = f.filter(u => u.achievements.length>0);
+          else if (af==='none') f = f.filter(u => u.achievements.length===0);
+          const n = filterName.value.trim().toLowerCase();
+          if (n) f = f.filter(u => u.username.toLowerCase().includes(n));
+          const pMin = parseInt(filterPointsMin.value,10), pMax = parseInt(filterPointsMax.value,10);
+          if (!isNaN(pMin)) f = f.filter(u => u.points >= pMin);
+          if (!isNaN(pMax)) f = f.filter(u => u.points <= pMax);
+          f.sort((a,b) => b.points - a.points);
+
+          if (!f.length) {
+            tableContainer.innerHTML = '<p class="no-results">Никто не найден.</p>';
+            return;
+          }
+
+          let html = '<table class="leaderboard-table"><thead><tr><th>Место</th><th>Игрок</th><th>Баллы</th><th>Отдел</th><th>🏆</th></tr></thead><tbody>';
+          f.forEach((u,i) => {
+            let cls = i===0?'top-1':i===1?'top-2':i===2?'top-3':'';
+            const av = typeof renderAvatarDiv==='function' ? renderAvatarDiv(u) : `<div class="avatar-circle avatar-small" style="background:${getColorFromUid(u.uid)}">${getInitials(u.username)}</div>`;
+            html += `<tr class="${cls}"><td class="place-cell">#${i+1}</td><td class="player-cell">${av}<a href="public-profile.html?id=${u.id}" class="player-name-link">${u.username}</a></td><td>${u.points}</td><td>${u.department||'—'}</td><td>${u.achievements.length}</td></tr>`;
+          });
+          html += '</tbody></table>';
+          tableContainer.innerHTML = html;
+        }
+
+        [filterDept, filterAch, filterName, filterPointsMin, filterPointsMax].forEach(el => {
+          el.addEventListener('input', render);
+          el.addEventListener('change', render);
+        });
+        resetBtn.addEventListener('click', () => {
+          filterName.value='';
+          filterPointsMin.value='';
+          filterPointsMax.value='';
+          filterDept.value='';
+          filterAch.value='all';
+          render();
         });
 
-        html += '</tbody></table>';
-        container.innerHTML = html;
-      }
-
-      // Обработчики фильтров
-      [filterDept, filterAch, filterName, filterPointsMin, filterPointsMax].forEach(el => {
-        el.addEventListener('input', renderLeaderboard);
-        el.addEventListener('change', renderLeaderboard);
-      });
-
-      // Сброс всех фильтров
-      resetBtn.addEventListener('click', () => {
-        filterName.value = '';
-        filterPointsMin.value = '';
-        filterPointsMax.value = '';
-        filterDept.value = '';
-        filterAch.value = 'all';
-        renderLeaderboard();
-      });
-
-      // Мобильное сворачивание фильтров
-      function checkMobile() {
-        if (window.innerWidth <= 768) {
-          filtersToggle.style.display = 'block';
-          filtersBlock.classList.add('filters-collapsed');
-        } else {
-          filtersToggle.style.display = 'none';
-          filtersBlock.classList.remove('filters-collapsed');
+        function checkMobile() {
+          if (window.innerWidth <= 768) {
+            filtersToggle.style.display='block';
+            filtersBlock.classList.add('filters-collapsed');
+          } else {
+            filtersToggle.style.display='none';
+            filtersBlock.classList.remove('filters-collapsed');
+          }
         }
+        filtersToggle.addEventListener('click', () => {
+          filtersBlock.classList.toggle('filters-collapsed');
+        });
+        window.addEventListener('resize', checkMobile);
+        checkMobile();
+
+        load();
       }
-
-      filtersToggle.addEventListener('click', () => {
-        filtersBlock.classList.toggle('filters-collapsed');
-      });
-
-      window.addEventListener('resize', checkMobile);
-      checkMobile();
-
-      // Старт
-      loadUsersFromFirestore();
     });
   </script>
 </body>
