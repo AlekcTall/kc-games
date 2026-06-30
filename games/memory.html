@@ -148,6 +148,10 @@
       createBoard();
       updateAllLeaderboards();
     });
-  </script>
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof initEasterEggs === 'function') initEasterEggs();
+  });
+</script>
 </body>
 </html>
