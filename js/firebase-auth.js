@@ -279,19 +279,3 @@ function updateAuthUI(firebaseUser) {
 function syncUserToLocal(userData) {
   setCurrentUser(userData);
 }
-
-// ================== УВЕДОМЛЕНИЯ (базовая) ==================
-
-async function addNotification(userId, message, link = '') {
-  if (!userId) return;
-  try {
-    await db.collection('users').doc(userId).collection('notifications').add({
-      message,
-      link,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      read: false
-    });
-  } catch (error) {
-    console.error('Ошибка добавления уведомления:', error);
-  }
-}
