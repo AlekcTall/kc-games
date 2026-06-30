@@ -280,6 +280,7 @@
             showToast('Описание обновлено','success');
             syncUserToLocal({...user,description:desc});
             document.getElementById('profile-desc-text').textContent=desc||'—';
+            if (typeof checkAndAwardAchievements === 'function') checkAndAwardAchievements();
           }catch(e){showToast('Ошибка сохранения','error');}
         });
 
