@@ -10,6 +10,10 @@ async function firebaseRegister(email, password, username, department) {
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
+    
+    // Отправляем письмо для подтверждения email
+    await user.sendEmailVerification();
+    
     await db.collection('users').doc(user.uid).set({
       username: username,
       email: email,
@@ -262,7 +266,7 @@ function updateAuthUI(firebaseUser) {
   if (firebaseUser) {
     const user = getCurrentUser();
     const name = user ? user.username : firebaseUser.email;
-    statusEl.innerHTML = `👤 ${name} | <a href="#" id="logout-link">Выйти</a>`;
+    statusEl.innerHTML = `👤 <span class="auth-greeting">${name}</span> | <a href="#" id="logout-link">Выйти</a>`;
     document.getElementById('logout-link')?.addEventListener('click', (e) => {
       e.preventDefault();
       firebaseLogout();
