@@ -6,195 +6,39 @@
   <title>Найди пару – КЦ Игры</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
-    .memory-game {
-      max-width: 600px;
-      margin: 2rem auto;
-      text-align: center;
-      background: white;
-      padding: 2rem;
-      border-radius: var(--border-radius);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    .memory-stats {
-      display: flex;
-      justify-content: space-around;
-      margin-bottom: 1.5rem;
-      font-weight: 600;
-    }
-    .memory-board {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.8rem;
-      justify-content: center;
-    }
-    .memory-card {
-      aspect-ratio: 1 / 1;
-      background: var(--color-primary);
-      border-radius: 10px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2rem;
-      color: transparent;
-      user-select: none;
-      transition: transform 0.2s, background 0.2s;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    .memory-card.flipped,
-    .memory-card.matched {
-      background: #fff;
-      color: #333;
-      border: 2px solid var(--color-primary);
-      cursor: default;
-      transform: scale(0.95);
-    }
-    .memory-card.matched {
-      border-color: #27ae60;
-      background: #eafaf1;
-    }
-    .memory-message {
-      margin-top: 1.5rem;
-      font-weight: bold;
-      min-height: 1.5rem;
-    }
-    .memory-back {
-      display: inline-block;
-      margin-top: 1rem;
-      color: var(--color-primary);
-      text-decoration: none;
-    }
-    @media (max-width: 480px) {
-      .memory-board {
-        gap: 0.4rem;
-      }
-      .memory-card {
-        font-size: 1.5rem;
-      }
-    }
-    #toast-container {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      pointer-events: none;
-    }
-    .toast {
-      padding: 0.75rem 1.2rem;
-      border-radius: 8px;
-      color: #fff;
-      font-weight: 500;
-      font-size: 0.95rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      opacity: 0;
-      transform: translateX(100%);
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      pointer-events: auto;
-      max-width: 350px;
-      word-wrap: break-word;
-    }
-    .toast--visible { opacity: 1; transform: translateX(0); }
-    .toast--success { background: #27ae60; }
-    .toast--info { background: #3498db; }
-    .toast--error { background: #e74c3c; }
-
-    /* Таблицы рекордов */
-    .memory-leaderboards {
-      margin-top: 2rem;
-      text-align: left;
-    }
-    .leaderboard-group {
-      margin-bottom: 1.5rem;
-    }
-    .leaderboard-group h3 {
-      text-align: center;
-      margin-bottom: 0.5rem;
-      font-size: 1.1rem;
-    }
-    .leaderboard-group table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    .leaderboard-group th, .leaderboard-group td {
-      padding: 0.4rem 0.5rem;
-      border-bottom: 1px solid #eee;
-    }
-    .leaderboard-group th {
-      background: #f5f5f5;
-      font-weight: 600;
-    }
-    .leaderboard-group .me {
-      background: #e6f7ff;
-      font-weight: 600;
-    }
-
-    /* Блок завершения игры */
-    .game-over-box {
-      background: #f0f9f4;
-      border: 2px solid #27ae60;
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-top: 1.5rem;
-      text-align: center;
-      animation: fadeIn 0.4s ease;
-    }
-    .game-over-box h3 {
-      color: #27ae60;
-      margin-bottom: 0.8rem;
-    }
-    .game-over-box .result-stats {
-      font-size: 1.1rem;
-      margin-bottom: 1rem;
-    }
-    .game-over-box .btn {
-      margin: 0.3rem;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    .memory-game { max-width:600px; margin:2rem auto; text-align:center; background:white; padding:2rem; border-radius:var(--border-radius); box-shadow:0 2px 10px rgba(0,0,0,0.05); }
+    .memory-stats { display:flex; justify-content:space-around; margin-bottom:1.5rem; font-weight:600; }
+    .memory-board { display:grid; grid-template-columns:repeat(4,1fr); gap:0.8rem; justify-content:center; }
+    .memory-card { aspect-ratio:1/1; background:var(--color-primary); border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:2rem; color:transparent; user-select:none; transition:transform 0.2s,background 0.2s; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    .memory-card.flipped,.memory-card.matched { background:#fff; color:#333; border:2px solid var(--color-primary); cursor:default; transform:scale(0.95); }
+    .memory-card.matched { border-color:#27ae60; background:#eafaf1; }
+    .memory-message { margin-top:1.5rem; font-weight:bold; min-height:1.5rem; }
+    .memory-back { display:inline-block; margin-top:1rem; color:var(--color-primary); text-decoration:none; }
+    @media (max-width:480px){ .memory-board { gap:0.4rem; } .memory-card { font-size:1.5rem; } }
+    #toast-container{ position:fixed; top:1rem; right:1rem; z-index:9999; display:flex; flex-direction:column; gap:0.5rem; pointer-events:none; }
+    .toast{ padding:0.75rem 1.2rem; border-radius:8px; color:#fff; font-weight:500; font-size:0.95rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); opacity:0; transform:translateX(100%); transition:opacity 0.3s,transform 0.3s; pointer-events:auto; max-width:350px; word-wrap:break-word; }
+    .toast--visible{ opacity:1; transform:translateX(0); } .toast--success{background:#27ae60;} .toast--info{background:#3498db;} .toast--error{background:#e74c3c;}
+    .memory-leaderboards{ margin-top:2rem; text-align:left; } .leaderboard-group{ margin-bottom:1.5rem; } .leaderboard-group h3{ text-align:center; margin-bottom:0.5rem; font-size:1.1rem; }
+    .leaderboard-group table{ width:100%; border-collapse:collapse; font-size:0.9rem; } .leaderboard-group th,.leaderboard-group td{ padding:0.4rem 0.5rem; border-bottom:1px solid #eee; }
+    .leaderboard-group th{ background:#f5f5f5; font-weight:600; } .leaderboard-group .me{ background:#e6f7ff; font-weight:600; }
+    .game-over-box{ background:#f0f9f4; border:2px solid #27ae60; border-radius:12px; padding:1.5rem; margin-top:1.5rem; text-align:center; animation:fadeIn 0.4s ease; }
+    .game-over-box h3{ color:#27ae60; margin-bottom:0.8rem; } .game-over-box .result-stats{ font-size:1.1rem; margin-bottom:1rem; } .game-over-box .btn{ margin:0.3rem; }
+    @keyframes fadeIn{ from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
   </style>
 </head>
 <body>
   <div class="memory-game">
     <h2>🧠 Найди пару</h2>
-    <div class="memory-stats">
-      <span>🔄 Ходы: <span id="moves">0</span></span>
-      <span>⏱️ <span id="timer">00:00</span></span>
-      <span>🏆 Награда: <strong>5 баллов</strong></span>
-    </div>
+    <div class="memory-stats"><span>🔄 Ходы: <span id="moves">0</span></span><span>⏱️ <span id="timer">00:00</span></span><span>🏆 Награда: <strong>5 баллов</strong></span></div>
     <div class="memory-board" id="board"></div>
     <p class="memory-message" id="message"></p>
-
-    <!-- Блок завершения (изначально скрыт) -->
     <div id="game-over-container"></div>
-
-    <!-- Рейтинги -->
     <div class="memory-leaderboards" id="memory-leaderboards">
-      <div class="leaderboard-group">
-        <h3>🏆 Лучшее время</h3>
-        <table id="top-time-table">
-          <thead><tr><th>#</th><th>Игрок</th><th>Секунд</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="leaderboard-group">
-        <h3>🧠 Лучшие ходы</h3>
-        <table id="top-moves-table">
-          <thead><tr><th>#</th><th>Игрок</th><th>Ходов</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div class="leaderboard-group"><h3>🏆 Лучшее время</h3><table id="top-time-table"><thead><tr><th>#</th><th>Игрок</th><th>Секунд</th></tr></thead><tbody></tbody></table></div>
+      <div class="leaderboard-group"><h3>🧠 Лучшие ходы</h3><table id="top-moves-table"><thead><tr><th>#</th><th>Игрок</th><th>Ходов</th></tr></thead><tbody></tbody></table></div>
     </div>
-
     <a href="../games.html" class="memory-back">← Вернуться к играм</a>
   </div>
-
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -203,223 +47,64 @@
   <script src="../js/storage.js"></script>
   <script src="../js/achievements.js"></script>
   <script>
-    function showToast(message, type = 'info') {
-      let container = document.getElementById('toast-container');
-      if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        document.body.appendChild(container);
-      }
-      const toast = document.createElement('div');
-      toast.className = `toast toast--${type}`;
-      toast.textContent = message;
-      container.appendChild(toast);
-      toast.offsetHeight;
-      toast.classList.add('toast--visible');
-      setTimeout(() => {
-        toast.classList.remove('toast--visible');
-        toast.addEventListener('transitionend', () => {
-          if (toast.parentNode) toast.remove();
-          if (container.children.length === 0) container.remove();
+    function showToast(msg,type='info'){ let c=document.getElementById('toast-container'); if(!c){c=document.createElement('div');c.id='toast-container';document.body.appendChild(c);} const t=document.createElement('div'); t.className=`toast toast--${type}`; t.textContent=msg; c.appendChild(t); t.offsetHeight; t.classList.add('toast--visible'); setTimeout(()=>{t.classList.remove('toast--visible');t.addEventListener('transitionend',()=>{if(t.parentNode)t.remove();if(!c.children.length)c.remove();});},3500); }
+    const EMOJIS=['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'], CARDS=[...EMOJIS,...EMOJIS];
+    let shuffled=[], flipped=[], moves=0, matched=0, gameFinished=false, firstCard=false, seconds=0, timerInterval=null, currentUid=null;
+    const timerEl=document.getElementById('timer'), movesEl=document.getElementById('moves'), board=document.getElementById('board'), msgEl=document.getElementById('message'), gameOverCont=document.getElementById('game-over-container');
+    function updateTimer(){ const m=Math.floor(seconds/60).toString().padStart(2,'0'), s=(seconds%60).toString().padStart(2,'0'); timerEl.textContent=`${m}:${s}`; }
+    function startTimer(){ if(timerInterval)clearInterval(timerInterval); seconds=0; updateTimer(); timerInterval=setInterval(()=>{seconds++;updateTimer();},1000); }
+    function stopTimer(){ clearInterval(timerInterval); }
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
+    function createBoard(){ shuffled=[...CARDS]; shuffle(shuffled); board.innerHTML=''; flipped=[]; moves=0; matched=0; gameFinished=false; firstCard=false; movesEl.textContent='0'; timerEl.textContent='00:00'; msgEl.innerHTML=''; gameOverCont.innerHTML=''; shuffled.forEach((emoji,idx)=>{ const card=document.createElement('div'); card.className='memory-card'; card.dataset.index=idx; card.dataset.emoji=emoji; card.addEventListener('click',handleCardClick); board.appendChild(card); }); }
+    function handleCardClick(e){
+      if(gameFinished)return; const card=e.currentTarget;
+      if(card.classList.contains('flipped')||card.classList.contains('matched'))return; if(flipped.length===2)return;
+      if(!firstCard){ firstCard=true; startTimer(); if(auth.currentUser) syncGameStats('memory',{openedFirst:true}); }
+      card.classList.add('flipped'); card.textContent=card.dataset.emoji; flipped.push(card);
+      if(flipped.length===2){ moves++; movesEl.textContent=moves; checkMatch(); }
+    }
+    function checkMatch(){
+      const [c1,c2]=flipped;
+      if(c1.dataset.emoji===c2.dataset.emoji){ c1.classList.add('matched'); c2.classList.add('matched'); matched+=2; flipped=[]; if(matched===CARDS.length) finishGame(); }
+      else setTimeout(()=>{c1.classList.remove('flipped');c2.classList.remove('flipped');c1.textContent='';c2.textContent='';flipped=[];},800);
+    }
+    async function finishGame(){
+      gameFinished=true; stopTimer(); msgEl.textContent='🎉 Все пары найдены!';
+      if(auth.currentUser){ await syncGameStats('memory',{bestMoves:moves,bestTime:seconds,completed:true}); checkAndAwardAchievements(); }
+      const cu=getCurrentUser(); if(cu&&cu.uid&&auth.currentUser){ try{ await addPointsToCurrentUser(5,'memory'); showToast('+5 баллов за игру!','success'); }catch(e){console.error(e);} } else showToast('Войдите, чтобы получить баллы.','info');
+      updateAllLeaderboards(); showGameOverBox();
+    }
+    function showGameOverBox(){ gameOverCont.innerHTML=`<div class="game-over-box"><h3>Игра окончена!</h3><div class="result-stats">⏱️ Время: ${seconds} сек. | 🔄 Ходов: ${moves}</div><button class="btn" id="restart-btn">Ещё раз</button><a href="../games.html" class="btn" style="background:#666;">К играм</a></div>`; document.getElementById('restart-btn').addEventListener('click',()=>{stopTimer();createBoard();updateAllLeaderboards();}); }
+    async function updateAllLeaderboards(){
+      try{
+        const snap=await db.collection('users').get(), players=[];
+        snap.forEach(doc=>{
+          const d=doc.data();
+          if(d.role === 'admin') return;   // исключаем админов
+          const s=d.gameStats?.memory;
+          if(s&&s.bestTime&&s.bestTime>0) players.push({uid:doc.id,username:d.username||'Аноним',bestTime:s.bestTime,bestMoves:s.bestMoves||999});
         });
-      }, 3500);
-    }
-
-    const EMOJIS = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'];
-    const CARDS = [...EMOJIS, ...EMOJIS];
-    let shuffled = [];
-    let flippedCards = [];
-    let moves = 0;
-    let matched = 0;
-    let gameFinished = false;
-    let firstCardOpened = false;
-    let seconds = 0;
-    let timerInterval = null;
-    let currentUid = null;
-
-    const timerEl = document.getElementById('timer');
-    const movesEl = document.getElementById('moves');
-    const board = document.getElementById('board');
-    const messageEl = document.getElementById('message');
-    const gameOverContainer = document.getElementById('game-over-container');
-
-    function updateTimer() {
-      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-      const s = (seconds % 60).toString().padStart(2, '0');
-      timerEl.textContent = `${m}:${s}`;
-    }
-
-    function startTimer() {
-      if (timerInterval) clearInterval(timerInterval);
-      seconds = 0;
-      updateTimer();
-      timerInterval = setInterval(() => {
-        seconds++;
-        updateTimer();
-      }, 1000);
-    }
-
-    function stopTimer() { clearInterval(timerInterval); }
-
-    function shuffleArray(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-    }
-
-    function createBoard() {
-      shuffled = [...CARDS];
-      shuffleArray(shuffled);
-      board.innerHTML = '';
-      flippedCards = [];
-      moves = 0;
-      matched = 0;
-      gameFinished = false;
-      firstCardOpened = false;
-      movesEl.textContent = '0';
-      timerEl.textContent = '00:00';
-      messageEl.innerHTML = '';
-      gameOverContainer.innerHTML = '';
-      shuffled.forEach((emoji, index) => {
-        const card = document.createElement('div');
-        card.className = 'memory-card';
-        card.dataset.index = index;
-        card.dataset.emoji = emoji;
-        card.addEventListener('click', handleCardClick);
-        board.appendChild(card);
-      });
-    }
-
-    function handleCardClick(e) {
-      if (gameFinished) return;
-      const card = e.currentTarget;
-      if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
-      if (flippedCards.length === 2) return;
-
-      if (!firstCardOpened) {
-        firstCardOpened = true;
-        startTimer();
-        if (auth.currentUser) {
-          syncGameStats('memory', { openedFirst: true });
+        const timeTop=[...players].sort((a,b)=>a.bestTime-b.bestTime).slice(0,10);
+        const timeTbody=document.querySelector('#top-time-table tbody');
+        if(timeTbody){
+          timeTbody.innerHTML=timeTop.map((p,i)=>{
+            const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
+            return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.bestTime}</td></tr>`;
+          }).join('');
+          if(!timeTop.length) timeTbody.innerHTML='<tr><td colspan="3">Нет данных</td></tr>';
         }
-      }
-
-      card.classList.add('flipped');
-      card.textContent = card.dataset.emoji;
-      flippedCards.push(card);
-
-      if (flippedCards.length === 2) {
-        moves++;
-        movesEl.textContent = moves;
-        checkMatch();
-      }
+        const movesTop=[...players].sort((a,b)=>a.bestMoves-b.bestMoves).slice(0,10);
+        const movesTbody=document.querySelector('#top-moves-table tbody');
+        if(movesTbody){
+          movesTbody.innerHTML=movesTop.map((p,i)=>{
+            const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
+            return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.bestMoves}</td></tr>`;
+          }).join('');
+          if(!movesTop.length) movesTbody.innerHTML='<tr><td colspan="3">Нет данных</td></tr>';
+        }
+      }catch(e){console.error(e);}
     }
-
-    function checkMatch() {
-      const [card1, card2] = flippedCards;
-      if (card1.dataset.emoji === card2.dataset.emoji) {
-        card1.classList.add('matched');
-        card2.classList.add('matched');
-        matched += 2;
-        flippedCards = [];
-        if (matched === CARDS.length) finishGame();
-      } else {
-        setTimeout(() => {
-          card1.classList.remove('flipped');
-          card2.classList.remove('flipped');
-          card1.textContent = '';
-          card2.textContent = '';
-          flippedCards = [];
-        }, 800);
-      }
-    }
-
-    async function finishGame() {
-      gameFinished = true;
-      stopTimer();
-      messageEl.textContent = '🎉 Все пары найдены!';
-
-      if (auth.currentUser) {
-        await syncGameStats('memory', {
-          bestMoves: moves,
-          bestTime: seconds,
-          completed: true
-        });
-        checkAndAwardAchievements();
-      }
-
-      const currentUser = getCurrentUser();
-      if (currentUser && currentUser.uid && auth.currentUser) {
-        try {
-          const success = await addPointsToCurrentUser(5, 'memory');
-          if (success) showToast('+5 баллов за игру «Найди пару»!', 'success');
-          else showToast('Ошибка при начислении баллов', 'error');
-        } catch (err) { console.error(err); }
-      } else {
-        showToast('Игра пройдена! Войдите в профиль, чтобы получить баллы.', 'info');
-      }
-
-      updateAllLeaderboards();
-      showGameOverBox();
-    }
-
-    function showGameOverBox() {
-      gameOverContainer.innerHTML = `
-        <div class="game-over-box">
-          <h3>Игра окончена!</h3>
-          <div class="result-stats">
-            ⏱️ Время: ${seconds} сек. | 🔄 Ходов: ${moves}
-          </div>
-          <button class="btn" id="restart-btn">Ещё раз</button>
-          <a href="../games.html" class="btn" style="background:#666;">К играм</a>
-        </div>
-      `;
-      document.getElementById('restart-btn').addEventListener('click', () => {
-        stopTimer();
-        createBoard();
-        updateAllLeaderboards();
-      });
-    }
-
-    // Обновление рейтингов
-  async function updateAllLeaderboards(){
-  try{
-    const snap=await db.collection('users').get(), players=[];
-    snap.forEach(doc=>{
-      const d=doc.data();
-      if(d.role === 'admin') return;
-      const s=d.gameStats?.memory;
-      if(s&&s.bestTime&&s.bestTime>0) players.push({uid:doc.id,username:d.username||'Аноним',bestTime:s.bestTime,bestMoves:s.bestMoves||999});
-    });
-    const timeTop=[...players].sort((a,b)=>a.bestTime-b.bestTime).slice(0,10);
-    const timeTbody=document.querySelector('#top-time-table tbody');
-    if(timeTbody){
-      timeTbody.innerHTML=timeTop.map((p,i)=>{
-        const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
-        return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.bestTime}</td></tr>`;
-      }).join('');
-      if(!timeTop.length) timeTbody.innerHTML='<tr><td colspan="3">Нет данных</td></tr>';
-    }
-    const movesTop=[...players].sort((a,b)=>a.bestMoves-b.bestMoves).slice(0,10);
-    const movesTbody=document.querySelector('#top-moves-table tbody');
-    if(movesTbody){
-      movesTbody.innerHTML=movesTop.map((p,i)=>{
-        const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
-        return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.bestMoves}</td></tr>`;
-      }).join('');
-      if(!movesTop.length) movesTbody.innerHTML='<tr><td colspan="3">Нет данных</td></tr>';
-    }
-  }catch(e){console.error(e);}
-}
-
-    // Инициализация
-    (function init() {
-      const currentUser = getCurrentUser();
-      if (currentUser) currentUid = currentUser.uid || currentUser.id;
-      createBoard();
-      updateAllLeaderboards();
-    })();
+    (function(){ const cu=getCurrentUser(); if(cu) currentUid=cu.uid||cu.id; createBoard(); updateAllLeaderboards(); })();
   </script>
 </body>
 </html>
