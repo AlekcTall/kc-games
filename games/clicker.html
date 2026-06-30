@@ -6,123 +6,25 @@
   <title>Кликер – КЦ Игры</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
-    .clicker-game {
-      max-width: 550px;
-      margin: 2rem auto;
-      text-align: center;
-      background: white;
-      padding: 2rem;
-      border-radius: var(--border-radius);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    .clicker-score {
-      font-size: 4rem;
-      font-weight: bold;
-      margin: 1rem 0;
-      color: #2c3e50;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-    .clicker-btn {
-      background: linear-gradient(135deg, #e67e22, #d35400);
-      color: white;
-      border: none;
-      font-size: 2rem;
-      padding: 1.2rem 2.5rem;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: all 0.1s ease;
-      user-select: none;
-      box-shadow: 0 6px 20px rgba(230, 126, 34, 0.4);
-      outline: none;
-    }
-    .clicker-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(230, 126, 34, 0.5);
-    }
-    .clicker-btn:active {
-      transform: scale(0.95);
-      box-shadow: 0 4px 10px rgba(230, 126, 34, 0.4);
-    }
-    .clicker-goal {
-      font-size: 1.2rem;
-      margin-bottom: 0.5rem;
-      color: var(--color-header);
-    }
-    .clicker-back {
-      display: inline-block;
-      margin-top: 1rem;
-      color: var(--color-primary);
-      text-decoration: none;
-    }
-    #toast-container {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      pointer-events: none;
-    }
-    .toast {
-      padding: 0.75rem 1.2rem;
-      border-radius: 8px;
-      color: #fff;
-      font-weight: 500;
-      font-size: 0.95rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      opacity: 0;
-      transform: translateX(100%);
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      pointer-events: auto;
-      max-width: 350px;
-      word-wrap: break-word;
-    }
-    .toast--visible {
-      opacity: 1;
-      transform: translateX(0);
-    }
-    .toast--success { background: #27ae60; }
-    .toast--info { background: #3498db; }
-    .toast--error { background: #e74c3c; }
-
-    /* Таблица рекордов */
-    .leaderboard-clicker {
-      margin-top: 1.5rem;
-      text-align: left;
-    }
-    .leaderboard-clicker h3 {
-      text-align: center;
-      margin-bottom: 0.5rem;
-      font-size: 1.1rem;
-    }
-    .leaderboard-clicker table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    .leaderboard-clicker th, .leaderboard-clicker td {
-      padding: 0.4rem 0.5rem;
-      border-bottom: 1px solid #eee;
-    }
-    .leaderboard-clicker th {
-      background: #f5f5f5;
-      font-weight: 600;
-    }
-    .leaderboard-clicker .me {
-      background: #e6f7ff;
-      font-weight: 600;
-    }
-
-    /* Пульсация при достижении цели */
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
-    }
-    .pulse {
-      animation: pulse 0.3s ease;
-    }
+    .clicker-game { max-width:550px; margin:2rem auto; text-align:center; background:white; padding:2rem; border-radius:var(--border-radius); box-shadow:0 2px 10px rgba(0,0,0,0.05); }
+    .clicker-score { font-size:4rem; font-weight:bold; margin:1rem 0; color:#2c3e50; text-shadow:2px 2px 4px rgba(0,0,0,0.1); }
+    .clicker-btn { background:linear-gradient(135deg,#e67e22,#d35400); color:white; border:none; font-size:2rem; padding:1.2rem 2.5rem; border-radius:50px; cursor:pointer; transition:all 0.1s ease; user-select:none; box-shadow:0 6px 20px rgba(230,126,34,0.4); outline:none; }
+    .clicker-btn:hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(230,126,34,0.5); }
+    .clicker-btn:active { transform:scale(0.95); box-shadow:0 4px 10px rgba(230,126,34,0.4); }
+    .clicker-goal { font-size:1.2rem; margin-bottom:0.5rem; color:var(--color-header); }
+    .clicker-back { display:inline-block; margin-top:1rem; color:var(--color-primary); text-decoration:none; }
+    #toast-container { position:fixed; top:1rem; right:1rem; z-index:9999; display:flex; flex-direction:column; gap:0.5rem; pointer-events:none; }
+    .toast { padding:0.75rem 1.2rem; border-radius:8px; color:#fff; font-weight:500; font-size:0.95rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); opacity:0; transform:translateX(100%); transition:opacity 0.3s ease, transform 0.3s ease; pointer-events:auto; max-width:350px; word-wrap:break-word; }
+    .toast--visible { opacity:1; transform:translateX(0); }
+    .toast--success { background:#27ae60; } .toast--info { background:#3498db; } .toast--error { background:#e74c3c; }
+    .leaderboard-clicker { margin-top:1.5rem; text-align:left; }
+    .leaderboard-clicker h3 { text-align:center; margin-bottom:0.5rem; font-size:1.1rem; }
+    .leaderboard-clicker table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+    .leaderboard-clicker th,.leaderboard-clicker td { padding:0.4rem 0.5rem; border-bottom:1px solid #eee; }
+    .leaderboard-clicker th { background:#f5f5f5; font-weight:600; }
+    .leaderboard-clicker .me { background:#e6f7ff; font-weight:600; }
+    @keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.05);} 100%{transform:scale(1);} }
+    .pulse { animation:pulse 0.3s ease; }
   </style>
 </head>
 <body>
@@ -131,21 +33,13 @@
     <p class="clicker-goal">Каждые <strong>20</strong> кликов = <strong>1</strong> балл</p>
     <div class="clicker-score" id="score">0</div>
     <button class="clicker-btn" id="click-btn">КЛИК</button>
-    <p id="message" style="margin-top: 1rem; font-weight: bold; min-height: 1.5rem;"></p>
-
-    <!-- Блок рекордов -->
+    <p id="message" style="margin-top:1rem; font-weight:bold; min-height:1.5rem;"></p>
     <div class="leaderboard-clicker" id="clicker-leaderboard">
       <h3>🏆 Лучшие кликеры</h3>
-      <table id="top-table">
-        <thead><tr><th>#</th><th>Игрок</th><th>Кликов</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <table id="top-table"><thead><tr><th>#</th><th>Игрок</th><th>Кликов</th></tr></thead><tbody></tbody></table>
     </div>
-
     <a href="../games.html" class="clicker-back">← Вернуться к играм</a>
   </div>
-
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -154,124 +48,53 @@
   <script src="../js/storage.js"></script>
   <script src="../js/achievements.js"></script>
   <script>
-    function showToast(message, type = 'info') {
-      let container = document.getElementById('toast-container');
-      if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        document.body.appendChild(container);
-      }
-      const toast = document.createElement('div');
-      toast.className = `toast toast--${type}`;
-      toast.textContent = message;
-      container.appendChild(toast);
-      toast.offsetHeight;
-      toast.classList.add('toast--visible');
-      setTimeout(() => {
-        toast.classList.remove('toast--visible');
-        toast.addEventListener('transitionend', () => {
-          if (toast.parentNode) toast.remove();
-          if (container.children.length === 0) container.remove();
-        });
-      }, 3500);
+    function showToast(msg,type='info'){ let c=document.getElementById('toast-container'); if(!c){c=document.createElement('div');c.id='toast-container';document.body.appendChild(c);} const t=document.createElement('div'); t.className=`toast toast--${type}`; t.textContent=msg; c.appendChild(t); t.offsetHeight; t.classList.add('toast--visible'); setTimeout(()=>{t.classList.remove('toast--visible');t.addEventListener('transitionend',()=>{if(t.parentNode)t.remove();if(!c.children.length)c.remove();});},3500); }
+    const POINTS=1, CLICKS=20;
+    let score=0, awarded=0, total=0, best=0, currentUid=null;
+    const scoreEl=document.getElementById('score'), clickBtn=document.getElementById('click-btn'), msgEl=document.getElementById('message');
+    async function loadBest(){
+      const cu=getCurrentUser(); if(cu) currentUid=cu.uid||cu.id;
+      if(cu?.gameStats?.clicker?.totalClicks) best=cu.gameStats.clicker.totalClicks;
+      if(auth.currentUser){ try{const d=await db.collection('users').doc(auth.currentUser.uid).get(); if(d.exists&&d.data().gameStats?.clicker?.totalClicks){ best=d.data().gameStats.clicker.totalClicks; total=best; }}catch(e){} }
+      else if(cu?.gameStats?.clicker?.totalClicks) total=cu.gameStats.clicker.totalClicks;
+      updateTop();
     }
-
-    const POINTS_PER_AWARD = 1;
-    const CLICKS_PER_AWARD = 20;
-    let score = 0;
-    let awardedCount = 0;
-    let totalClicks = 0;
-    let bestClicks = 0;
-    let currentUid = null;
-
-    const scoreEl = document.getElementById('score');
-    const clickBtn = document.getElementById('click-btn');
-    const messageEl = document.getElementById('message');
-
-    async function loadBestAndTop() {
-      const currentUser = getCurrentUser();
-      if (currentUser) currentUid = currentUser.uid || currentUser.id;
-      if (currentUser && currentUser.gameStats?.clicker?.totalClicks) {
-        bestClicks = currentUser.gameStats.clicker.totalClicks;
-      }
-      if (auth.currentUser) {
-        try {
-          const doc = await db.collection('users').doc(auth.currentUser.uid).get();
-          if (doc.exists && doc.data().gameStats?.clicker?.totalClicks) {
-            bestClicks = doc.data().gameStats.clicker.totalClicks;
-            totalClicks = bestClicks;
-          }
-        } catch(e) {}
-      } else if (currentUser && currentUser.gameStats?.clicker?.totalClicks) {
-        totalClicks = currentUser.gameStats.clicker.totalClicks;
-      }
-      updateTopTable();
-    }
-
     async function updateTop(){
-  const tbody=document.querySelector('#top-table tbody'); if(!tbody)return;
-  try{
-    const snap=await db.collection('users').get();
-    const players=[];
-    snap.forEach(doc=>{
-      const d=doc.data();
-      if(d.role === 'admin') return; // не показываем админов
-      const cl=d.gameStats?.clicker?.totalClicks||0;
-      if(cl>0) players.push({uid:doc.id,username:d.username||'Аноним',clicks:cl});
-    });
-    players.sort((a,b)=>b.clicks-a.clicks); const top10=players.slice(0,10);
-    tbody.innerHTML=top10.map((p,i)=>{
-      const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
-      return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.clicks}</td></tr>`;
-    }).join('');
-    if(!top10.length) tbody.innerHTML='<tr><td colspan="3">Пока нет рекордов</td></tr>';
-  }catch(e){console.error(e);}
-}
-
-    clickBtn.addEventListener('click', () => {
-      score++;
-      totalClicks++;
-      scoreEl.textContent = score;
-
-      // Эффект пульсации каждые 20 кликов
-      if (score % CLICKS_PER_AWARD === 0) {
-        scoreEl.classList.add('pulse');
-        setTimeout(() => scoreEl.classList.remove('pulse'), 300);
-      }
-
-      if (totalClicks > bestClicks) {
-        bestClicks = totalClicks;
-        messageEl.textContent = `Новый личный рекорд: ${bestClicks} кликов!`;
-      }
-
-      const expectedAwards = Math.floor(score / CLICKS_PER_AWARD);
-      if (expectedAwards > awardedCount) {
-        const newAwards = expectedAwards - awardedCount;
-        awardedCount = expectedAwards;
-
-        const currentUser = getCurrentUser();
-        if (currentUser && currentUser.uid && auth.currentUser) {
-          addPointsToCurrentUser(POINTS_PER_AWARD * newAwards, 'clicker').then(async (success) => {
-            if (success) {
-              messageEl.textContent = `+${POINTS_PER_AWARD * newAwards} балл(ов)! Личный рекорд: ${bestClicks} кликов`;
-              await syncGameStats('clicker', { totalClicks: totalClicks });
-              checkAndAwardAchievements();
-              updateTopTable();
-            }
+      const tbody=document.querySelector('#top-table tbody'); if(!tbody)return;
+      try{
+        const snap=await db.collection('users').get();
+        const players=[];
+        snap.forEach(doc=>{
+          const d=doc.data();
+          if(d.role === 'admin') return;
+          const cl=d.gameStats?.clicker?.totalClicks||0;
+          if(cl>0) players.push({uid:doc.id,username:d.username||'Аноним',clicks:cl});
+        });
+        players.sort((a,b)=>b.clicks-a.clicks); const top10=players.slice(0,10);
+        tbody.innerHTML=top10.map((p,i)=>{
+          const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
+          return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.clicks}</td></tr>`;
+        }).join('');
+        if(!top10.length) tbody.innerHTML='<tr><td colspan="3">Пока нет рекордов</td></tr>';
+      }catch(e){console.error(e);}
+    }
+    clickBtn.addEventListener('click',()=>{
+      score++; total++; scoreEl.textContent=score;
+      if(score%CLICKS===0){ scoreEl.classList.add('pulse'); setTimeout(()=>scoreEl.classList.remove('pulse'),300); }
+      if(total>best){ best=total; msgEl.textContent=`Новый личный рекорд: ${best} кликов!`; }
+      const exp=Math.floor(score/CLICKS);
+      if(exp>awarded){
+        const add=exp-awarded; awarded=exp;
+        const cu=getCurrentUser();
+        if(cu&&cu.uid&&auth.currentUser){
+          addPointsToCurrentUser(POINTS*add,'clicker').then(async(success)=>{
+            if(success){ msgEl.textContent=`+${POINTS*add} балл(ов)! Личный рекорд: ${best} кликов`; await syncGameStats('clicker',{totalClicks:total}); checkAndAwardAchievements(); updateTop(); }
           });
-        } else {
-          messageEl.textContent = 'Войдите в профиль, чтобы получать баллы.';
-        }
+        } else msgEl.textContent='Войдите в профиль, чтобы получать баллы.';
       }
     });
-
-    window.addEventListener('beforeunload', () => {
-      if (auth.currentUser) {
-        syncGameStats('clicker', { totalClicks: totalClicks });
-      }
-    });
-
-    loadBestAndTop();
+    window.addEventListener('beforeunload',()=>{ if(auth.currentUser) syncGameStats('clicker',{totalClicks:total}); });
+    loadBest();
   </script>
 </body>
 </html>
