@@ -30,6 +30,7 @@
     .theme-btns { display:flex; gap:0.5rem; }
     .theme-btn { padding:0.5rem 1.2rem; border:1px solid #ccc; border-radius:6px; background:white; cursor:pointer; }
     .theme-btn.active { background:var(--color-primary); color:white; border-color:var(--color-primary); }
+    .verify-warning { background:#fff3cd; color:#856404; padding:0.5rem 1rem; border-radius:6px; margin-top:1rem; display:inline-block; }
     @media (max-width:480px) { .profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } }
   </style>
 </head>
@@ -103,9 +104,7 @@
           const doc=await db.collection('users').doc(firebaseUser.uid).get();
           if(doc.exists){
             const u=doc.data(); const user={uid:firebaseUser.uid,email:firebaseUser.email,...u};
-            // Обновляем кэш, если изменились данные
             syncUserToLocal(user);
-            // Применяем тему
             if (user.activeTheme === 'dark') {
               document.body.classList.add('dark-theme');
             } else {
@@ -126,16 +125,37 @@
         forgotLink.addEventListener('click',e=>{e.preventDefault();authForm.style.display='none';forgotCont.style.display='none';resetSec.style.display='block';});
         cancelResetBtn.addEventListener('click',()=>{resetSec.style.display='none';authForm.style.display='block';forgotCont.style.display='block';resetMsg.textContent='';});
         sendResetBtn.addEventListener('click',async()=>{ const em=resetEmail.value.trim(); if(!em){resetMsg.textContent='Введите email.';showToast('Введите email','error');return;} try{await auth.sendPasswordResetEmail(em);resetMsg.textContent='Письмо отправлено!';showToast('Письмо отправлено на '+em,'success');setTimeout(()=>{resetSec.style.display='none';authForm.style.display='block';forgotCont.style.display='block';resetMsg.textContent='';},3000);}catch(e){resetMsg.textContent=e.message;showToast('Ошибка: '+e.message,'error');}});
-        authForm.addEventListener('submit',async e=>{ e.preventDefault(); const email=document.getElementById('email').value.trim(), pass=document.getElementById('password').value.trim(); if(!email||!pass){authMsg.textContent='Заполните все поля.';showToast('Заполните все поля','error');return;} try{if(currentTab==='login'){const user=await firebaseLogin(email,pass);syncUserToLocal(user);if(window.updateAuthUI)updateAuthUI();}else{const uname=document.getElementById('username').value.trim(), dep=document.getElementById('department').value; if(!uname||!dep){authMsg.textContent='Введите Фамилию Имя и выберите отдел.';showToast('Заполните все поля','error');return;} const newUser=await firebaseRegister(email,pass,uname,dep); syncUserToLocal(newUser); if(window.updateAuthUI)updateAuthUI();}}catch(err){authMsg.textContent=err.message;showToast(err.message,'error');}});
+        authForm.addEventListener('submit',async e=>{ 
+          e.preventDefault(); 
+          const email=document.getElementById('email').value.trim(), pass=document.getElementById('password').value.trim(); 
+          if(!email||!pass){authMsg.textContent='Заполните все поля.';showToast('Заполните все поля','error');return;} 
+          try{
+            if(currentTab==='login'){
+              const user=await firebaseLogin(email,pass);
+              syncUserToLocal(user);
+              if(window.updateAuthUI)updateAuthUI();
+            } else {
+              const uname=document.getElementById('username').value.trim(), dep=document.getElementById('department').value; 
+              if(!uname||!dep){authMsg.textContent='Введите Фамилию Имя и выберите отдел.';showToast('Заполните все поля','error');return;} 
+              const newUser=await firebaseRegister(email,pass,uname,dep); 
+              syncUserToLocal(newUser); 
+              if(window.updateAuthUI)updateAuthUI();
+              // Показываем тост о подтверждении
+              showToast('На ваш email отправлено письмо для подтверждения. Проверьте почту!', 'info');
+            }
+          } catch(err){authMsg.textContent=err.message;showToast(err.message,'error');}
+        });
       }
 
       function renderProfile(user){
         const achCfg=getAchievementsConfig(); const gh=user.gameHistory||[];
         const purchased = user.purchasedItems || [];
         const hasTheme = purchased.includes('dark_theme');
+        const emailVerified = auth.currentUser ? auth.currentUser.emailVerified : false;
 
         container.innerHTML=`<div class="profile-box">
           <div class="profile-header">${renderAvatarDiv(user)}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${user.department?`<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>`:''}<p><small>${user.email}</small></p></div></div>
+          ${!emailVerified ? '<div class="verify-warning">⚠️ Ваш email не подтверждён. Проверьте почту и перейдите по ссылке в письме.</div>' : ''}
           <div class="profile-details"><p><strong>Баллы:</strong> <span id="profile-points">${user.points||0}</span></p><p><strong>Локоины:</strong> <span id="profile-lokoin">${user.lokoin_balance||0}</span></p><p><strong>О себе:</strong> <span id="profile-desc-text">${user.description||'—'}</span></p></div>
           <h3 class="section-title">Достижения (<span id="ach-count">${(user.achievements||[]).length}</span>/${achCfg.length})</h3>
           <div class="achievements-grid">${achCfg.map(ach=>{const unl=(user.achievements||[]).includes(ach.id);const hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span>${!hid&&!unl?`<span class="ach-hint">${ach.description}</span>`:''}</div>`;}).join('')}</div>
@@ -162,16 +182,13 @@
           <button class="btn btn-logout" id="logout-btn">Выйти</button>
         </div>`;
 
-        // Аккордеоны
         document.querySelectorAll('.accordion-header').forEach(h=>{
           h.addEventListener('click',()=>{ h.parentElement.classList.toggle('open'); });
         });
 
-        // Статистика
         const statsCont=document.getElementById('stats-container');
         if(statsCont) statsCont.innerHTML = buildStatsHTML(user);
 
-        // История игр
         if(gh.length>0){
           const sorted=[...gh].reverse(); const tbody=document.getElementById('history-body'), moreCont=document.getElementById('more-container');
           let disp=5; const step=10;
@@ -186,7 +203,6 @@
           renderRows();
         }
 
-        // Кнопки темы
         if (hasTheme) {
           document.querySelectorAll('.theme-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -197,7 +213,6 @@
               } else {
                 document.body.classList.remove('dark-theme');
               }
-              // Обновить активные классы кнопок
               document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
               btn.classList.add('active');
               showToast(`Тема изменена на ${theme === 'dark' ? 'тёмную' : 'светлую'}`, 'info');
@@ -205,7 +220,6 @@
           });
         }
 
-        // Сохранение описания
         document.getElementById('save-profile-btn').addEventListener('click',async()=>{
           const desc=document.getElementById('desc').value.trim();
           try{
@@ -216,7 +230,6 @@
           }catch(e){showToast('Ошибка сохранения','error');}
         });
 
-        // Смена пароля
         document.getElementById('change-password-btn').addEventListener('click',async()=>{
           const old=document.getElementById('old-password').value, nw=document.getElementById('new-password').value.trim();
           if(!old||!nw){showToast('Заполните оба поля','error');return;}
@@ -230,7 +243,6 @@
           }catch(e){showToast('Ошибка: '+e.message,'error');}
         });
 
-        // Выход
         document.getElementById('logout-btn').addEventListener('click',()=>{firebaseLogout();});
       }
     });
