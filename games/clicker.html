@@ -53,6 +53,17 @@
     const POINTS=1, CLICKS=20;
     let score=0, awarded=0, total=0, best=0, currentUid=null;
     const scoreEl=document.getElementById('score'), clickBtn=document.getElementById('click-btn'), msgEl=document.getElementById('message');
+
+    // Инициализация после готовности auth
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        loadBest();
+      } else {
+        // Гость: скрываем таблицу, показываем предупреждение
+        updateTopVisibility();
+      }
+    });
+
     async function loadBest(){
       const cu=getCurrentUser(); if(cu) currentUid=cu.uid||cu.id;
       if(cu?.gameStats?.clicker?.totalClicks) best=cu.gameStats.clicker.totalClicks;
@@ -61,6 +72,7 @@
       updateTopVisibility();
       updateTop();
     }
+
     function updateTopVisibility(){
       const table = document.getElementById('top-table');
       const warning = document.getElementById('auth-warning');
@@ -72,6 +84,7 @@
         if (warning) warning.style.display = 'none';
       }
     }
+
     async function updateTop(){
       const tbody=document.querySelector('#top-table tbody'); if(!tbody)return;
       if (!auth.currentUser) return;
@@ -92,6 +105,7 @@
         if(!top10.length) tbody.innerHTML='<tr><td colspan="3">Пока нет рекордов</td></tr>';
       }catch(e){console.error(e);}
     }
+
     clickBtn.addEventListener('click',()=>{
       score++; total++; scoreEl.textContent=score;
       if(score%CLICKS===0){ scoreEl.classList.add('pulse'); setTimeout(()=>scoreEl.classList.remove('pulse'),300); }
@@ -108,7 +122,6 @@
       }
     });
     window.addEventListener('beforeunload',()=>{ if(auth.currentUser) syncGameStats('clicker',{totalClicks:total}); });
-    loadBest();
   </script>
 </body>
 </html>
