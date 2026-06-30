@@ -1,176 +1,108 @@
-// achievements.js – финальная версия (Firebase, рейтинг, пасхалки, игровые достижения)
+// js/achievements.js
 
-const ACHIEVEMENTS = [
-  // Общие
-  { id: 'first_click', name: 'Первый клик', description: 'Сыграть в любую игру хотя бы раз', icon: '👆', hidden: false,
-    condition(user) { return user.points > 0; } },
-  { id: 'clicker_master', name: 'Кликер-мастер', description: 'Получить первое начисление баллов в кликере', icon: '🖱️', hidden: false,
-    condition(user) { return user.completedGames && user.completedGames.includes('clicker'); } },
-  { id: 'avatar_set', name: 'Индивидуальность', description: 'Установить аватар профиля', icon: '🖼️', hidden: true,
-    condition(user) { return user.avatar && user.avatar.trim() !== ''; } },
-  { id: 'about_me_20', name: 'Расскажи о себе', description: 'Заполнить поле «О себе» (не менее 20 символов)', icon: '📝', hidden: true,
-    condition(user) { return user.description && user.description.length >= 20; } },
-  { id: 'top10', name: 'В десятке!', description: 'Попасть в Топ-10 рейтинга', icon: '🔟', hidden: false, condition: null },
-  { id: 'top3', name: 'Пьедестал', description: 'Попасть в Топ-3 рейтинга', icon: '🏆', hidden: false, condition: null },
-  
-  // Пасхалки
-  { id: 'easter_first', name: 'Пасхалка найдена, есть ещё?', description: 'Найти любую пасхалку', icon: '🥚', hidden: false,
-    condition(user) { return user.easterEggsFound && user.easterEggsFound.length > 0; } },
-  { id: 'logo_click_5', name: 'Лого-кликер', description: 'Кликнуть 5 раз по логотипу', icon: '🖱️', hidden: true,
-    condition(user) { return isEasterEggFound('logo_click_5'); } },
-  { id: 'footer_button', name: 'Подвальный житель', description: 'Найти невидимую кнопку в футере', icon: '🔍', hidden: true,
-    condition(user) { return isEasterEggFound('footer_button'); } },
-  { id: 'secret_symbol', name: 'Секретный символ', description: 'Найти скрытый символ на главной странице', icon: '🔣', hidden: true,
-    condition(user) { return isEasterEggFound('secret_symbol'); } },
-  { id: 'konami_code', name: 'Konami Code', description: 'Ввести легендарный код', icon: '🎮', hidden: true,
-    condition(user) { return isEasterEggFound('konami_code'); } },
-  { id: 'secret_word_bonus', name: 'Секретное слово', description: 'Напечатать слово "бонус"', icon: '🔤', hidden: true,
-    condition(user) { return isEasterEggFound('secret_word_bonus'); } },
-
-  // Кликер
-  { id: 'clicker_100', name: 'Первая сотня', description: 'Сделать 100 кликов в кликере', icon: '💯', hidden: false,
-    condition(user) { return user.gameStats?.clicker?.totalClicks >= 100; } },
-  { id: 'clicker_1000', name: 'Мышку сломаешь!', description: 'Сделать 1000 кликов в кликере', icon: '🖱️💥', hidden: false,
-    condition(user) { return user.gameStats?.clicker?.totalClicks >= 1000; } },
-
-  // Змейка
-  { id: 'snake_start', name: 'Ням-ням', description: 'Начать игру в змейку', icon: '🐍', hidden: false,
-    condition(user) { return user.gameStats?.snake?.maxScore > 0; } },
-  { id: 'snake_self', name: 'Я вкусный', description: 'Врезаться в себя в змейке', icon: '🍩', hidden: true,
-    condition(user) { return user.gameStats?.snake?.selfEaten === true; } },
-  { id: 'snake_wall', name: 'Ауч!', description: 'Врезаться в стену в змейке', icon: '💥', hidden: true,
-    condition(user) { return user.gameStats?.snake?.wallCrash === true; } },
-  { id: 'snake_100', name: 'Ньютонова гравитация', description: 'Набрать 100 очков в змейке', icon: '🍎', hidden: false,
-    condition(user) { return user.gameStats?.snake?.maxScore >= 100; } },
-  { id: 'snake_king', name: 'Змеиный король', description: 'Набрать 200 очков в змейке', icon: '👑', hidden: true,
-    condition(user) { return user.gameStats?.snake?.maxScore >= 200; } },
-
-  // Найди пару
-  { id: 'memory_first', name: 'Каждой твари по паре', description: 'Открыть первую карту в «Найди пару»', icon: '🐶', hidden: false,
-    condition(user) { return user.gameStats?.memory?.openedFirst === true; } },
-  { id: 'memory_complete', name: 'Вот и попались', description: 'Пройти «Найди пару» впервые', icon: '🎉', hidden: false,
-    condition(user) { return user.gameStats?.memory?.completed === true; } },
-  { id: 'memory_photo', name: 'Фотографическая память', description: 'Пройти «Найди пару» ≤12 ходов и ≤30 секунд', icon: '📸', hidden: true,
-    condition(user) { 
-      const m = user.gameStats?.memory;
-      return m?.bestMoves <= 12 && m?.bestTime <= 30;
-    } },
-  { id: 'memory_perfect', name: 'Идеальная память', description: 'Пройти «Найди пару» ровно за 8 ходов', icon: '🧠', hidden: true,
-    condition(user) { return user.gameStats?.memory?.bestMoves === 8; } }
-];
-
+// Конфигурация достижений
 function getAchievementsConfig() {
-  return ACHIEVEMENTS;
+  return [
+    { id: 'first_game', name: 'Первый блин', description: 'Сыграйте в любую игру', icon: '🎮', hidden: false },
+    { id: 'clicker_100', name: 'Кликоман', description: 'Наберите 100 кликов в кликере', icon: '🖱️', hidden: false },
+    { id: 'clicker_1000', name: 'Кликераст', description: 'Наберите 1000 кликов в кликере', icon: '🖱️', hidden: false },
+    { id: 'snake_start', name: 'Змеелов', description: 'Начните игру в змейку', icon: '🐍', hidden: false },
+    { id: 'snake_100', name: 'Удав', description: 'Съешьте 100 яблок в змейке', icon: '🐍', hidden: false },
+    { id: 'snake_200', name: 'Анаконда', description: 'Съешьте 200 яблок в змейке', icon: '🐍', hidden: false },
+    { id: 'snake_self', name: 'Самоед', description: 'Врежьтесь в себя в змейке', icon: '🐍', hidden: true },
+    { id: 'snake_wall', name: 'Стенолаз', description: 'Врежьтесь в стену в змейке', icon: '🐍', hidden: true },
+    { id: 'memory_first', name: 'Помню', description: 'Откройте первую карту в найди пару', icon: '🧠', hidden: false },
+    { id: 'memory_complete', name: 'Идеальная память', description: 'Завершите игру найди пару', icon: '🧠', hidden: false },
+    { id: 'memory_12moves', name: 'Эконом', description: 'Найдите все пары за ≤12 ходов', icon: '🧠', hidden: false },
+    { id: 'memory_30sec', name: 'Спидран', description: 'Найдите все пары за ≤30 секунд', icon: '🧠', hidden: false },
+    { id: 'memory_8moves', name: 'Гроссмейстер', description: 'Найдите все пары ровно за 8 ходов', icon: '🧠', hidden: true },
+    { id: 'top10', name: 'В десятке', description: 'Попадите в топ‑10 общего рейтинга', icon: '🏆', hidden: false },
+    { id: 'top3', name: 'Пьедестал', description: 'Займите 1, 2 или 3 место в рейтинге', icon: '🥇', hidden: false },
+    { id: 'easter_logo', name: 'Лого‑кликер', description: 'Найдите пасхалку в логотипе', icon: '🥚', hidden: true },
+    { id: 'easter_footer', name: 'Подвал', description: 'Найдите пасхалку в футере', icon: '🥚', hidden: true },
+    { id: 'easter_symbol', name: 'Секретный символ', description: 'Найдите секретный символ на главной', icon: '🥚', hidden: true },
+    { id: 'easter_konami', name: 'Konami', description: 'Введите Konami Code', icon: '🥚', hidden: true },
+    { id: 'easter_word', name: 'Бонус', description: 'Введите секретное слово "бонус"', icon: '🥚', hidden: true }
+  ];
 }
 
-// Ранг пользователя по данным из Firestore
-async function getUserRankAsync(userId) {
-  let users = [];
-  try {
-    const snapshot = await db.collection('users').get();
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.role !== 'admin') {
-        users.push({ id: doc.id, points: data.points || 0 });
-      }
-    });
-  } catch (e) {
-    console.error('Ошибка загрузки рейтинга:', e);
-    return null;
-  }
-  users.sort((a, b) => b.points - a.points);
-  const index = users.findIndex(u => u.id === userId);
-  return index === -1 ? null : index + 1;
-}
+// Асинхронная проверка достижений
+async function checkAndAwardAchievements() {
+  const user = auth.currentUser;
+  if (!user) return;
 
-// Проверка и выдача достижений
-async function checkAndAwardAchievements(userId) {
-  const current = getCurrentUser();
-  const uid = userId || (current ? current.uid || current.id : null);
-  if (!uid) return;
-
-  let user;
-  let users;
-
-  if (typeof auth !== 'undefined' && auth.currentUser) {
-    try {
-      const doc = await db.collection('users').doc(uid).get();
-      if (doc.exists) {
-        user = doc.data();
-        user.uid = uid;
-        if (!user.achievements) user.achievements = [];
-        if (!user.completedGames) user.completedGames = [];
-        if (!user.easterEggsFound) user.easterEggsFound = [];
-        // gameStats уже будет в user
-      }
-    } catch (e) {
-      console.error('Ошибка загрузки пользователя:', e);
-      return;
-    }
-  }
-
-  if (!user) {
-    users = getUsers();
-    user = users.find(u => u.id == userId);
-    if (!user) return;
-    if (!user.achievements) user.achievements = [];
-    if (!user.completedGames) user.completedGames = [];
-    if (!user.easterEggsFound) user.easterEggsFound = [];
-  }
+  const userDoc = await db.collection('users').doc(user.uid).get();
+  if (!userDoc.exists) return;
+  const data = userDoc.data();
+  const unlocked = data.achievements || [];
+  const gameStats = data.gameStats || {};
+  const gameHistory = data.gameHistory || [];
+  const easterEggs = data.easterEggsFound || [];
+  const points = data.points || 0;
 
   const config = getAchievementsConfig();
-  let awardedSomething = false;
-  let rank = null;
+  const newlyUnlocked = [];
 
-  if (!user.achievements.includes('top10') || !user.achievements.includes('top3')) {
-    rank = await getUserRankAsync(uid);
-  }
-
+  // Проверяем каждое достижение
   for (const ach of config) {
-    if (user.achievements.includes(ach.id)) continue;
-    let conditionMet = false;
+    if (unlocked.includes(ach.id)) continue;
 
-    if (ach.id === 'top10') {
-      conditionMet = rank !== null && rank <= 10;
-    } else if (ach.id === 'top3') {
-      conditionMet = rank !== null && rank <= 3;
-    } else if (typeof ach.condition === 'function') {
-      conditionMet = ach.condition(user, getGames(), users || getUsers());
+    let earned = false;
+    switch (ach.id) {
+      case 'first_game': earned = gameHistory.length > 0; break;
+      case 'clicker_100': earned = (gameStats.clicker?.totalClicks || 0) >= 100; break;
+      case 'clicker_1000': earned = (gameStats.clicker?.totalClicks || 0) >= 1000; break;
+      case 'snake_start': earned = gameStats.snake?.maxScore !== undefined; break;
+      case 'snake_100': earned = (gameStats.snake?.maxScore || 0) >= 100; break;
+      case 'snake_200': earned = (gameStats.snake?.maxScore || 0) >= 200; break;
+      case 'snake_self': earned = gameStats.snake?.selfEaten === true; break;
+      case 'snake_wall': earned = gameStats.snake?.wallCrash === true; break;
+      case 'memory_first': earned = gameStats.memory?.openedFirst === true; break;
+      case 'memory_complete': earned = gameStats.memory?.completed === true; break;
+      case 'memory_12moves': earned = gameStats.memory?.completed && gameStats.memory.bestMoves <= 12; break;
+      case 'memory_30sec': earned = gameStats.memory?.completed && gameStats.memory.bestTime <= 30; break;
+      case 'memory_8moves': earned = gameStats.memory?.completed && gameStats.memory.bestMoves === 8; break;
+      case 'top10':
+      case 'top3': {
+        // Проверка рейтинга через запрос всех пользователей
+        const snap = await db.collection('users').get();
+        const allPlayers = [];
+        snap.forEach(doc => {
+          const d = doc.data();
+          if (d.role !== 'admin') allPlayers.push({ uid: doc.id, points: d.points || 0 });
+        });
+        allPlayers.sort((a, b) => b.points - a.points);
+        const rank = allPlayers.findIndex(p => p.uid === user.uid) + 1;
+        if (rank > 0 && rank <= 10) earned = true; // top10
+        if (rank > 0 && rank <= 3 && ach.id === 'top3') earned = true;
+        break;
+      }
+      case 'easter_logo': earned = easterEggs.includes('logo'); break;
+      case 'easter_footer': earned = easterEggs.includes('footer'); break;
+      case 'easter_symbol': earned = easterEggs.includes('symbol'); break;
+      case 'easter_konami': earned = easterEggs.includes('konami'); break;
+      case 'easter_word': earned = easterEggs.includes('word'); break;
     }
 
-    if (conditionMet) {
-      user.achievements.push(ach.id);
-      awardedSomething = true;
-
-      // Отправляем уведомление
-      const currentUid = auth.currentUser?.uid || user.uid || user.id;
-      if (currentUid && typeof addNotification === 'function') {
-        addNotification(currentUid, `🏆 Получено достижение: ${ach.name}!`, '');
-      }
-      if (!ach.hidden) {
-        setTimeout(() => showToast(`🏆 Получено достижение: ${ach.name}!`, 'success'), 200);
-      }
+    if (earned) {
+      unlocked.push(ach.id);
+      newlyUnlocked.push(ach);
     }
   }
 
-  if (awardedSomething) {
-    if (typeof auth !== 'undefined' && auth.currentUser) {
-      await syncAchievementsToFirestore(user.achievements);
-    } else {
-      saveUsers(users);
-      setCurrentUser(user);
+  if (newlyUnlocked.length > 0) {
+    // Сохраняем в Firestore
+    await db.collection('users').doc(user.uid).update({ achievements: unlocked });
+    // Локальный кэш
+    const current = getCurrentUser();
+    if (current) {
+      current.achievements = unlocked;
+      setCurrentUser(current);
     }
-    const localUser = getCurrentUser();
-    if (localUser) {
-      localUser.achievements = user.achievements;
-      localStorage.setItem('krugames_currentUser', JSON.stringify(localUser));
+
+    // Отправляем уведомления с типом 'achievement'
+    for (const ach of newlyUnlocked) {
+      await addNotification(user.uid, `Получено достижение: ${ach.icon} ${ach.name}`, 'achievement', 'profile.html');
     }
   }
-}
-
-function isEasterEggFound(eggId) {
-  const user = getCurrentUser();
-  if (!user) return false;
-  if (!user.easterEggsFound) return false;
-  return user.easterEggsFound.includes(eggId);
 }
