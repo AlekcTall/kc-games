@@ -24,6 +24,7 @@
     .game-over-box{ background:#f0f9f4; border:2px solid #27ae60; border-radius:12px; padding:1.5rem; margin-top:1.5rem; text-align:center; animation:fadeIn 0.4s ease; }
     .game-over-box h3{ color:#27ae60; margin-bottom:0.8rem; } .game-over-box .result-stats{ font-size:1.1rem; margin-bottom:1rem; } .game-over-box .btn{ margin:0.3rem; }
     @keyframes fadeIn{ from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+    .auth-warning { text-align: center; display: none; margin-top: 0.5rem; color: #888; }
   </style>
 </head>
 <body>
@@ -34,8 +35,16 @@
     <p class="memory-message" id="message"></p>
     <div id="game-over-container"></div>
     <div class="memory-leaderboards" id="memory-leaderboards">
-      <div class="leaderboard-group"><h3>🏆 Лучшее время</h3><table id="top-time-table"><thead><tr><th>#</th><th>Игрок</th><th>Секунд</th></tr></thead><tbody></tbody></table></div>
-      <div class="leaderboard-group"><h3>🧠 Лучшие ходы</h3><table id="top-moves-table"><thead><tr><th>#</th><th>Игрок</th><th>Ходов</th></tr></thead><tbody></tbody></table></div>
+      <div class="leaderboard-group">
+        <h3>🏆 Лучшее время</h3>
+        <table id="top-time-table"><thead><tr><th>#</th><th>Игрок</th><th>Секунд</th></tr></thead><tbody></tbody></table>
+        <p class="auth-warning" id="auth-warning-time">Войдите, чтобы увидеть рейтинг.</p>
+      </div>
+      <div class="leaderboard-group">
+        <h3>🧠 Лучшие ходы</h3>
+        <table id="top-moves-table"><thead><tr><th>#</th><th>Игрок</th><th>Ходов</th></tr></thead><tbody></tbody></table>
+        <p class="auth-warning" id="auth-warning-moves">Войдите, чтобы увидеть рейтинг.</p>
+      </div>
     </div>
     <a href="../games.html" class="memory-back">← Вернуться к играм</a>
   </div>
@@ -51,6 +60,7 @@
     const EMOJIS=['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'], CARDS=[...EMOJIS,...EMOJIS];
     let shuffled=[], flipped=[], moves=0, matched=0, gameFinished=false, firstCard=false, seconds=0, timerInterval=null, currentUid=null;
     const timerEl=document.getElementById('timer'), movesEl=document.getElementById('moves'), board=document.getElementById('board'), msgEl=document.getElementById('message'), gameOverCont=document.getElementById('game-over-container');
+    
     function updateTimer(){ const m=Math.floor(seconds/60).toString().padStart(2,'0'), s=(seconds%60).toString().padStart(2,'0'); timerEl.textContent=`${m}:${s}`; }
     function startTimer(){ if(timerInterval)clearInterval(timerInterval); seconds=0; updateTimer(); timerInterval=setInterval(()=>{seconds++;updateTimer();},1000); }
     function stopTimer(){ clearInterval(timerInterval); }
@@ -75,7 +85,29 @@
       updateAllLeaderboards(); showGameOverBox();
     }
     function showGameOverBox(){ gameOverCont.innerHTML=`<div class="game-over-box"><h3>Игра окончена!</h3><div class="result-stats">⏱️ Время: ${seconds} сек. | 🔄 Ходов: ${moves}</div><button class="btn" id="restart-btn">Ещё раз</button><a href="../games.html" class="btn" style="background:#666;">К играм</a></div>`; document.getElementById('restart-btn').addEventListener('click',()=>{stopTimer();createBoard();updateAllLeaderboards();}); }
+    
+    // Проверка видимости рейтинга
+    function updateLeaderboardVisibility(){
+      const timeTable = document.getElementById('top-time-table');
+      const movesTable = document.getElementById('top-moves-table');
+      const warnTime = document.getElementById('auth-warning-time');
+      const warnMoves = document.getElementById('auth-warning-moves');
+      if (!auth.currentUser) {
+        if (timeTable) timeTable.style.display = 'none';
+        if (movesTable) movesTable.style.display = 'none';
+        if (warnTime) warnTime.style.display = 'block';
+        if (warnMoves) warnMoves.style.display = 'block';
+      } else {
+        if (timeTable) timeTable.style.display = '';
+        if (movesTable) movesTable.style.display = '';
+        if (warnTime) warnTime.style.display = 'none';
+        if (warnMoves) warnMoves.style.display = 'none';
+      }
+    }
+
     async function updateAllLeaderboards(){
+      updateLeaderboardVisibility();
+      if (!auth.currentUser) return;
       try{
         const snap=await db.collection('users').get(), players=[];
         snap.forEach(doc=>{
