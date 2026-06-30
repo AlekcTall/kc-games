@@ -62,6 +62,16 @@
     const canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d'), scoreEl=document.getElementById('score'), msgEl=document.getElementById('message');
     const GRID=20, CELL=canvas.width/GRID;
     let snake,dir,food,score,awardedLevel,gameRunning,isSelf,isWall,maxScore=0,gameLoop,bestScore=0,currentUid=null,bulges=[];
+
+    // Инициализация после готовности auth
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        loadBestAndTop();
+      } else {
+        updateTopVisibility();
+      }
+    });
+
     async function loadBestAndTop(){
       const cu=getCurrentUser(); if(cu) currentUid=cu.uid||cu.id;
       if(cu?.gameStats?.snake?.maxScore) bestScore=cu.gameStats.snake.maxScore;
@@ -69,6 +79,7 @@
       updateTopVisibility();
       updateTop();
     }
+
     function updateTopVisibility(){
       const table = document.getElementById('top-table');
       const warning = document.getElementById('auth-warning');
@@ -80,6 +91,7 @@
         if (warning) warning.style.display = 'none';
       }
     }
+
     async function updateTop(){
       const tbody=document.querySelector('#top-table tbody'); if(!tbody)return;
       if (!auth.currentUser) return;
@@ -99,6 +111,7 @@
         if(!top10.length) tbody.innerHTML='<tr><td colspan="3">Пока нет рекордов</td></tr>';
       }catch(e){console.error(e);}
     }
+
     function initGame(){ snake=[{x:10,y:10}]; dir={x:1,y:0}; food=randomFood(); score=0; awardedLevel=0; gameRunning=true; isSelf=isWall=false; scoreEl.textContent='0'; msgEl.textContent=bestScore>0?`Личный рекорд: ${bestScore} яблок`:''; bulges=[]; }
     function randomFood(){ let f; do{ f={x:Math.floor(Math.random()*GRID),y:Math.floor(Math.random()*GRID)}; }while(snake.some(s=>s.x===f.x&&s.y===f.y)); return f; }
     function draw(){
@@ -145,7 +158,6 @@
       switch(e.key){ case'ArrowUp':if(dir.y===0)dir={x:0,y:-1};e.preventDefault();break; case'ArrowDown':if(dir.y===0)dir={x:0,y:1};e.preventDefault();break; case'ArrowLeft':if(dir.x===0)dir={x:-1,y:0};e.preventDefault();break; case'ArrowRight':if(dir.x===0)dir={x:1,y:0};e.preventDefault();break; }
     });
     document.querySelectorAll('.mobile-controls button').forEach(b=>{ b.addEventListener('click',()=>{ if(!gameRunning)return; if(b.classList.contains('up')&&dir.y===0)dir={x:0,y:-1}; if(b.classList.contains('down')&&dir.y===0)dir={x:0,y:1}; if(b.classList.contains('left')&&dir.x===0)dir={x:-1,y:0}; if(b.classList.contains('right')&&dir.x===0)dir={x:1,y:0}; }); });
-    loadBestAndTop();
   </script>
 </body>
 </html>
