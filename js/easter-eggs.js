@@ -1,139 +1,119 @@
-// easter-eggs.js – пасхалки (индивидуальные, с синхронизацией через Firebase)
+// js/easter-eggs.js
 
-const EASTER_EGGS = {
-  // Проверяет, найдена ли пасхалка текущим пользователем
-  isFound(eggId) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    if (!user.easterEggsFound) user.easterEggsFound = [];
-    return user.easterEggsFound.includes(eggId);
-  },
+// Пасхалки (easter eggs)
+// Активируются только для авторизованных пользователей
 
-  // Отмечает пасхалку как найденную и сохраняет в облако + localStorage
-  async markFound(eggId) {
-    const user = getCurrentUser();
-    if (!user) return false;
-    if (!user.easterEggsFound) user.easterEggsFound = [];
-
-    // Уже есть – выходим
-    if (user.easterEggsFound.includes(eggId)) return false;
-
-    // Добавляем в массив
-    user.easterEggsFound.push(eggId);
-
-    // Обновляем локального пользователя
-    setCurrentUser(user);
-
-    // Сохраняем в Firestore
-    if (typeof syncEasterEggsToFirestore === 'function') {
-      await syncEasterEggsToFirestore(user.easterEggsFound);
-    }
-
-    return true; // новая пасхалка
-  },
-
-  // Начисление баллов + проверка достижений + уведомление
-  async award(eggId, points, message) {
-    const isNew = await this.markFound(eggId);
-    if (!isNew) return; // уже была найдена
-
-    const user = getCurrentUser();
-    if (!user) {
-      showToast('Войдите в профиль, чтобы получить награду за пасхалку!', 'error');
-      return;
-    }
-
-    // Начисляем баллы (облачная функция)
-    if (typeof addPointsToCurrentUser === 'function') {
-      await addPointsToCurrentUser(points, null);
-    }
-
-    // Проверяем достижения
-    if (typeof checkAndAwardAchievements === 'function') {
-      await checkAndAwardAchievements(user.uid || user.id);
-    }
-
-    showToast(message || `Пасхалка найдена! +${points} баллов.`, 'info');
-  }
-};
-
-// ===== ИНИЦИАЛИЗАЦИЯ ВСЕХ ПАСХАЛОК =====
 function initEasterEggs() {
+  if (!auth.currentUser) return;
 
-  // ----- 1. Пятикратный клик по логотипу -----
+  // 1. Клик по логотипу (3 раза)
   let logoClicks = 0;
-  let logoClickTimer = null;
   const logo = document.querySelector('.logo');
   if (logo) {
     logo.addEventListener('click', () => {
       logoClicks++;
-      if (logoClickTimer) clearTimeout(logoClickTimer);
-      logoClickTimer = setTimeout(() => { logoClicks = 0; }, 1500);
-
-      if (logoClicks >= 5) {
-        EASTER_EGGS.award('logo_click_5', 10, '🥚 Лого-кликер! Вы нашли пасхалку: 5 кликов по логотипу.');
+      if (logoClicks >= 3) {
         logoClicks = 0;
+        activateEasterEgg('logo', 'Вы нашли пасхалку в логотипе!');
       }
     });
   }
 
-  // ----- 2. Невидимая кнопка в футере -----
+  // 2. Невидимая кнопка в футере
   const footer = document.querySelector('.footer');
   if (footer) {
-    const eggBtn = document.createElement('span');
-    eggBtn.className = 'footer-easter-egg';
-    eggBtn.textContent = '🥚';
-    eggBtn.title = 'Нажми меня';
-    eggBtn.addEventListener('click', () => {
-      EASTER_EGGS.award('footer_button', 15, '🥚 Тайная кнопка футера! Вы нашли пасхалку.');
+    const easterBtn = document.createElement('span');
+    easterBtn.className = 'footer-easter-egg';
+    easterBtn.textContent = '🥚';
+    easterBtn.title = 'Пасхалка';
+    footer.querySelector('.container').appendChild(easterBtn);
+    easterBtn.addEventListener('click', () => {
+      activateEasterEgg('footer', 'Вы нашли пасхалку в подвале!');
     });
-    const container = footer.querySelector('.container');
-    if (container) container.appendChild(eggBtn);
   }
 
-  // ----- 3. Секретный символ на Главной -----
+  // 3. Секретный символ на главной
   const secretSymbol = document.getElementById('secret-symbol');
   if (secretSymbol) {
     secretSymbol.addEventListener('click', () => {
-      EASTER_EGGS.award('secret_symbol', 15, '🥚 Секретный символ! Вы нашли скрытую пасхалку.');
+      activateEasterEgg('symbol', 'Вы нашли секретный символ!');
     });
   }
 
-  // ----- 4. Konami Code -----
-  const konamiSequence = [
-    'ArrowUp', 'ArrowUp',
-    'ArrowDown', 'ArrowDown',
-    'ArrowLeft', 'ArrowRight',
-    'ArrowLeft', 'ArrowRight',
-    'KeyB', 'KeyA'
-  ];
+  // 4. Konami Code
+  const konamiSequence = [38,38,40,40,37,39,37,39,66,65];
   let konamiIndex = 0;
   document.addEventListener('keydown', (e) => {
-    if (e.code === konamiSequence[konamiIndex]) {
+    if (e.keyCode === konamiSequence[konamiIndex]) {
       konamiIndex++;
       if (konamiIndex === konamiSequence.length) {
-        EASTER_EGGS.award('konami_code', 20, '🥚 Konami Code! Вы ввели легендарную комбинацию.');
         konamiIndex = 0;
+        activateEasterEgg('konami', 'Вы ввели Konami Code!');
       }
     } else {
       konamiIndex = 0;
     }
   });
 
-  // ----- 5. Секретное слово "бонус" -----
-  const secretWord = 'бонус';
-  let typedBuffer = '';
+  // 5. Секретное слово "бонус"
+  let typedWord = '';
   document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.key.length === 1) {
-      typedBuffer += e.key.toLowerCase();
-      if (typedBuffer.length > secretWord.length) {
-        typedBuffer = typedBuffer.slice(-secretWord.length);
-      }
-      if (typedBuffer === secretWord) {
-        EASTER_EGGS.award('secret_word_bonus', 15, '🥚 Секретное слово! Вы напечатали "бонус".');
-        typedBuffer = '';
+    if (e.key.length === 1 && e.key.match(/[a-zA-Zа-яА-Я]/)) {
+      typedWord += e.key.toLowerCase();
+      if (typedWord.length > 10) typedWord = typedWord.slice(-10);
+      if (typedWord.includes('бонус')) {
+        typedWord = '';
+        activateEasterEgg('word', 'Вы ввели секретное слово "бонус"!');
       }
     }
   });
+}
+
+async function activateEasterEgg(eggId, message) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const userRef = db.collection('users').doc(user.uid);
+    const doc = await userRef.get();
+    if (!doc.exists) return;
+
+    const data = doc.data();
+    const easterEggs = data.easterEggsFound || [];
+    if (easterEggs.includes(eggId)) {
+      showToast('Вы уже нашли эту пасхалку!', 'info');
+      return;
+    }
+
+    // Добавляем пасхалку
+    easterEggs.push(eggId);
+    await userRef.update({ easterEggsFound: easterEggs });
+
+    // Обновляем кэш
+    const current = getCurrentUser();
+    if (current) {
+      current.easterEggsFound = easterEggs;
+      setCurrentUser(current);
+    }
+
+    // Начисляем баллы и локоины (если реализовано)
+    if (typeof addPointsToCurrentUser === 'function') {
+      await addPointsToCurrentUser(5, null); // 5 баллов за пасхалку
+    }
+
+    // Отправляем уведомление с типом 'achievement'
+    if (typeof addNotification === 'function') {
+      await addNotification(user.uid, message, 'achievement', 'profile.html');
+    }
+
+    showToast(message + ' +5 баллов!', 'success');
+
+    // Проверяем достижения
+    if (typeof checkAndAwardAchievements === 'function') {
+      await checkAndAwardAchievements();
+    }
+
+  } catch (error) {
+    console.error('Ошибка активации пасхалки:', error);
+  }
 }
