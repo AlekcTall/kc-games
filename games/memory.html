@@ -383,50 +383,35 @@
     }
 
     // Обновление рейтингов
-    async function updateAllLeaderboards() {
-      try {
-        const snapshot = await db.collection('users').get();
-        const players = [];
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const stats = data.gameStats?.memory;
-          if (stats) {
-            if (stats.bestTime && stats.bestTime > 0) {
-              players.push({
-                uid: doc.id,
-                username: data.username || 'Аноним',
-                bestTime: stats.bestTime,
-                bestMoves: stats.bestMoves || 999
-              });
-            }
-          }
-        });
-
-        // Топ по времени
-        const timeTop = [...players].sort((a, b) => a.bestTime - b.bestTime).slice(0, 10);
-        const timeTbody = document.querySelector('#top-time-table tbody');
-        if (timeTbody) {
-          timeTbody.innerHTML = timeTop.map((p, i) => {
-            const isMe = (currentUid && p.uid === currentUid) ? ' class="me"' : '';
-            return `<tr${isMe}><td>${i+1}</td><td>${p.username}</td><td>${p.bestTime}</td></tr>`;
-          }).join('');
-          if (timeTop.length === 0) timeTbody.innerHTML = '<tr><td colspan="3">Нет данных</td></tr>';
-        }
-
-        // Топ по ходам
-        const movesTop = [...players].sort((a, b) => a.bestMoves - b.bestMoves).slice(0, 10);
-        const movesTbody = document.querySelector('#top-moves-table tbody');
-        if (movesTbody) {
-          movesTbody.innerHTML = movesTop.map((p, i) => {
-            const isMe = (currentUid && p.uid === currentUid) ? ' class="me"' : '';
-            return `<tr${isMe}><td>${i+1}</td><td>${p.username}</td><td>${p.bestMoves}</td></tr>`;
-          }).join('');
-          if (movesTop.length === 0) movesTbody.innerHTML = '<tr><td colspan="3">Нет данных</td></tr>';
-        }
-      } catch (err) {
-        console.error('Ошибка загрузки рейтингов:', err);
-      }
+  async function updateAllLeaderboards(){
+  try{
+    const snap=await db.collection('users').get(), players=[];
+    snap.forEach(doc=>{
+      const d=doc.data();
+      if(d.role === 'admin') return;
+      const s=d.gameStats?.memory;
+      if(s&&s.bestTime&&s.bestTime>0) players.push({uid:doc.id,username:d.username||'Аноним',bestTime:s.bestTime,bestMoves:s.bestMoves||999});
+    });
+    const timeTop=[...players].sort((a,b)=>a.bestTime-b.bestTime).slice(0,10);
+    const timeTbody=document.querySelector('#top-time-table tbody');
+    if(timeTbody){
+      timeTbody.innerHTML=timeTop.map((p,i)=>{
+        const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
+        return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.bestTime}</td></tr>`;
+      }).join('');
+      if(!timeTop.length) timeTbody.innerHTML='<tr><td colspan="3">Нет данных</td></tr>';
     }
+    const movesTop=[...players].sort((a,b)=>a.bestMoves-b.bestMoves).slice(0,10);
+    const movesTbody=document.querySelector('#top-moves-table tbody');
+    if(movesTbody){
+      movesTbody.innerHTML=movesTop.map((p,i)=>{
+        const me=(currentUid&&p.uid===currentUid)?' class="me"':'';
+        return`<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.bestMoves}</td></tr>`;
+      }).join('');
+      if(!movesTop.length) movesTbody.innerHTML='<tr><td colspan="3">Нет данных</td></tr>';
+    }
+  }catch(e){console.error(e);}
+}
 
     // Инициализация
     (function init() {
