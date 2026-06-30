@@ -37,6 +37,7 @@
     <div class="leaderboard-clicker" id="clicker-leaderboard">
       <h3>🏆 Лучшие кликеры</h3>
       <table id="top-table"><thead><tr><th>#</th><th>Игрок</th><th>Кликов</th></tr></thead><tbody></tbody></table>
+      <p id="auth-warning" style="text-align:center; display:none;">Войдите, чтобы увидеть рейтинг.</p>
     </div>
     <a href="../games.html" class="clicker-back">← Вернуться к играм</a>
   </div>
@@ -57,10 +58,23 @@
       if(cu?.gameStats?.clicker?.totalClicks) best=cu.gameStats.clicker.totalClicks;
       if(auth.currentUser){ try{const d=await db.collection('users').doc(auth.currentUser.uid).get(); if(d.exists&&d.data().gameStats?.clicker?.totalClicks){ best=d.data().gameStats.clicker.totalClicks; total=best; }}catch(e){} }
       else if(cu?.gameStats?.clicker?.totalClicks) total=cu.gameStats.clicker.totalClicks;
+      updateTopVisibility();
       updateTop();
+    }
+    function updateTopVisibility(){
+      const table = document.getElementById('top-table');
+      const warning = document.getElementById('auth-warning');
+      if (!auth.currentUser) {
+        if (table) table.style.display = 'none';
+        if (warning) warning.style.display = 'block';
+      } else {
+        if (table) table.style.display = '';
+        if (warning) warning.style.display = 'none';
+      }
     }
     async function updateTop(){
       const tbody=document.querySelector('#top-table tbody'); if(!tbody)return;
+      if (!auth.currentUser) return;
       try{
         const snap=await db.collection('users').get();
         const players=[];
