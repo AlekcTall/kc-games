@@ -196,7 +196,7 @@
 
         container.innerHTML=`<div class="profile-box">
           <div class="profile-header">${renderAvatarDiv(user)}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${user.department?`<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>`:''}<p><small>${user.email}</small></p></div></div>
-          ${!emailVerified ? '<div class="verify-warning">⚠️ Ваш email не подтверждён. Проверьте почту и перейдите по ссылке в письме.</div>' : ''}
+          ${!emailVerified ? '<div class="verify-warning">⚠️ Ваш email не подтверждён. <button class="btn" id="resend-verify-btn" style="margin-left:1rem;">Отправить письмо</button></div>' : ''}
           <div class="profile-details"><p><strong>Баллы:</strong> <span id="profile-points">${user.points||0}</span></p><p><strong>Локоины:</strong> <span id="profile-lokoin">${user.lokoin_balance||0}</span></p><p><strong>О себе:</strong> <span id="profile-desc-text">${user.description||'—'}</span></p></div>
           <h3 class="section-title">Достижения (<span id="ach-count">${(user.achievements||[]).length}</span>/${achCfg.length})</h3>
           <div class="achievements-grid">${achCfg.map(ach=>{const unl=(user.achievements||[]).includes(ach.id);const hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}" data-ach-id="${ach.id}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span>${!hid&&!unl?`<span class="ach-hint">${ach.description}</span>`:''}</div>`;}).join('')}</div>
@@ -270,6 +270,19 @@
               btn.classList.add('active');
               showToast(`Тема изменена на ${theme === 'dark' ? 'тёмную' : 'светлую'}`, 'info');
             });
+          });
+        }
+
+        // Обработчик кнопки повторной отправки подтверждения email
+        const resendBtn = document.getElementById('resend-verify-btn');
+        if (resendBtn) {
+          resendBtn.addEventListener('click', async () => {
+            try {
+              await auth.currentUser.sendEmailVerification();
+              showToast('Письмо для подтверждения отправлено. Проверьте почту!', 'success');
+            } catch (e) {
+              showToast('Ошибка: ' + e.message, 'error');
+            }
           });
         }
 
