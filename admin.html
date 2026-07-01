@@ -90,6 +90,53 @@
     </div>
   </div>
 
+  <!-- НОВОЕ: модальное окно для редактирования/создания новости -->
+  <div class="modal-overlay" id="news-modal" style="display:none;">
+    <div class="modal" style="max-width:600px;">
+      <span class="modal-close" id="news-modal-close">&times;</span>
+      <h3 id="news-modal-title">Новость</h3>
+      <div class="form-group">
+        <label for="news-title">Заголовок</label>
+        <input type="text" id="news-title" required>
+      </div>
+      <div class="form-group">
+        <label for="news-body">Текст</label>
+        <textarea id="news-body" rows="4"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="news-icon">Иконка (emoji)</label>
+        <input type="text" id="news-icon" placeholder="📢">
+      </div>
+      <div class="form-group">
+        <label for="news-image-url">Ссылка на изображение</label>
+        <input type="text" id="news-image-url" placeholder="img/photo.jpg или https://...">
+      </div>
+      <div class="form-group">
+        <label for="news-video-url">Ссылка на видео (YouTube embed URL)</label>
+        <input type="text" id="news-video-url" placeholder="https://www.youtube.com/embed/...">
+      </div>
+      <div class="form-group">
+        <label for="news-link">Кнопка «Подробнее» (URL)</label>
+        <input type="text" id="news-link">
+      </div>
+      <div class="form-group">
+        <label for="news-publish-at">Опубликовать с</label>
+        <input type="datetime-local" id="news-publish-at">
+      </div>
+      <div class="form-group">
+        <label for="news-expire-at">Скрыть после (опционально)</label>
+        <input type="datetime-local" id="news-expire-at">
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="news-notify-all"> Оповестить всех пользователей
+        </label>
+      </div>
+      <button class="btn" id="news-save-btn">Сохранить</button>
+      <p id="news-message" class="auth-message"></p>
+    </div>
+  </div>
+
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
   <!-- Firebase SDK -->
@@ -109,14 +156,12 @@
     // Глобальный кэш отделов
     let departmentsCache = [];
 
-    // Загрузка отделов из Firestore (с защитой от ошибок)
     async function loadDepartments() {
       try {
         const snap = await db.collection('departments').orderBy('name').get();
         departmentsCache = [];
         snap.forEach(doc => departmentsCache.push({ id: doc.id, name: doc.data().name }));
         if (departmentsCache.length === 0) {
-          // Инициализация дефолтными отделами
           const defaults = [
             'РБ (Физические лица)',
             'МСБ (Юридические лица)',
@@ -879,7 +924,7 @@
         }
       }
 
-      // ----- Новости / Баннеры -----
+      // ----- НОВОСТИ (расширенные) -----
       async function renderNewsTab() {
         const tabContent = document.getElementById('admin-tab-content');
         tabContent.innerHTML = '<p>Загрузка новостей...</p>';
@@ -889,31 +934,34 @@
           snap.forEach(doc => announcements.push({ id: doc.id, ...doc.data() }));
           let html = `<h3>Новости и объявления</h3><ul class="announcements-list">`;
           announcements.forEach(a => {
-            html += `<li><div><strong>${a.title}</strong> — ${a.body ? a.body.substring(0, 50) + '...' : ''} <br><small>${a.createdAt ? new Date(a.createdAt.seconds*1000).toLocaleString('ru-RU') : ''}</small></div> <button class="btn btn-small btn-danger delete-news-btn" data-news-id="${a.id}">Удалить</button></li>`;
+            const date = a.createdAt ? new Date(a.createdAt.seconds*1000).toLocaleString('ru-RU') : '';
+            html += `<li>
+              <div>
+                <strong>${a.title}</strong> — ${a.body ? a.body.substring(0, 50) + '...' : ''} <br>
+                <small>${date}</small>
+                ${a.publishAt ? '<br><small>Опубликована с: ' + new Date(a.publishAt.seconds*1000).toLocaleString('ru-RU') + '</small>' : ''}
+                ${a.expireAt ? '<br><small>Истекает: ' + new Date(a.expireAt.seconds*1000).toLocaleString('ru-RU') + '</small>' : ''}
+              </div>
+              <div>
+                <button class="btn btn-small edit-news-btn" data-news-id="${a.id}">✏️</button>
+                <button class="btn btn-small btn-danger delete-news-btn" data-news-id="${a.id}">Удалить</button>
+              </div>
+            </li>`;
           });
           html += `</ul>
             <div class="form-group" style="margin-top:1rem;">
-              <h4>Добавить новость</h4>
-              <input type="text" id="news-title" placeholder="Заголовок" required>
-              <textarea id="news-body" rows="3" placeholder="Текст новости"></textarea>
-              <input type="text" id="news-link" placeholder="Ссылка (необязательно)">
-              <button class="btn" id="add-news-btn">Опубликовать</button>
+              <button class="btn" id="add-news-btn">➕ Создать новость</button>
             </div>
           `;
           tabContent.innerHTML = html;
-          document.getElementById('add-news-btn').addEventListener('click', async () => {
-            const title = document.getElementById('news-title').value.trim();
-            const body = document.getElementById('news-body').value.trim();
-            const link = document.getElementById('news-link').value.trim();
-            if (!title) { showToast('Введите заголовок', 'error'); return; }
-            await db.collection('announcements').add({
-              title,
-              body,
-              link,
-              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+
+          document.getElementById('add-news-btn').addEventListener('click', () => openNewsModal());
+          document.querySelectorAll('.edit-news-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const id = e.target.dataset.newsId;
+              const news = announcements.find(a => a.id === id);
+              if (news) openNewsModal(news);
             });
-            showToast('Новость добавлена', 'success');
-            renderNewsTab();
           });
           document.querySelectorAll('.delete-news-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -929,6 +977,103 @@
           tabContent.innerHTML = '<p>Ошибка загрузки новостей.</p>';
         }
       }
+
+      // Модалка новости (создание/редактирование)
+      let currentNewsId = null;
+      function openNewsModal(news = null) {
+        const modal = document.getElementById('news-modal');
+        document.getElementById('news-message').textContent = '';
+        if (news) {
+          currentNewsId = news.id;
+          document.getElementById('news-modal-title').textContent = 'Редактировать новость';
+          document.getElementById('news-title').value = news.title || '';
+          document.getElementById('news-body').value = news.body || '';
+          document.getElementById('news-icon').value = news.icon || '📢';
+          document.getElementById('news-image-url').value = news.imageUrl || '';
+          document.getElementById('news-video-url').value = news.videoUrl || '';
+          document.getElementById('news-link').value = news.link || '';
+          // Даты
+          document.getElementById('news-publish-at').value = news.publishAt ? toDatetimeLocal(news.publishAt.toDate()) : '';
+          document.getElementById('news-expire-at').value = news.expireAt ? toDatetimeLocal(news.expireAt.toDate()) : '';
+          document.getElementById('news-notify-all').checked = false;
+        } else {
+          currentNewsId = null;
+          document.getElementById('news-modal-title').textContent = 'Создать новость';
+          document.getElementById('news-title').value = '';
+          document.getElementById('news-body').value = '';
+          document.getElementById('news-icon').value = '📢';
+          document.getElementById('news-image-url').value = '';
+          document.getElementById('news-video-url').value = '';
+          document.getElementById('news-link').value = '';
+          document.getElementById('news-publish-at').value = '';
+          document.getElementById('news-expire-at').value = '';
+          document.getElementById('news-notify-all').checked = false;
+        }
+        modal.style.display = 'flex';
+      }
+
+      function toDatetimeLocal(date) {
+        return date.toISOString().slice(0, 16);
+      }
+
+      document.getElementById('news-modal-close').addEventListener('click', () => {
+        document.getElementById('news-modal').style.display = 'none';
+      });
+      document.getElementById('news-save-btn').addEventListener('click', async () => {
+        const title = document.getElementById('news-title').value.trim();
+        if (!title) {
+          document.getElementById('news-message').textContent = 'Введите заголовок';
+          return;
+        }
+        const data = {
+          title,
+          body: document.getElementById('news-body').value.trim(),
+          icon: document.getElementById('news-icon').value.trim() || '📢',
+          imageUrl: document.getElementById('news-image-url').value.trim(),
+          videoUrl: document.getElementById('news-video-url').value.trim(),
+          link: document.getElementById('news-link').value.trim(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        // Даты публикации и истечения
+        const publishStr = document.getElementById('news-publish-at').value;
+        if (publishStr) {
+          data.publishAt = firebase.firestore.Timestamp.fromDate(new Date(publishStr));
+        } else {
+          data.publishAt = firebase.firestore.FieldValue.serverTimestamp(); // если не указано, то сразу
+        }
+        const expireStr = document.getElementById('news-expire-at').value;
+        if (expireStr) {
+          data.expireAt = firebase.firestore.Timestamp.fromDate(new Date(expireStr));
+        } else {
+          data.expireAt = null; // удалим поле, если пусто
+        }
+
+        try {
+          if (currentNewsId) {
+            await db.collection('announcements').doc(currentNewsId).update(data);
+          } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('announcements').add(data);
+          }
+
+          // Оповещение всех
+          if (document.getElementById('news-notify-all').checked) {
+            const snap = await db.collection('users').get();
+            const uids = [];
+            snap.forEach(doc => uids.push(doc.id));
+            for (const uid of uids) {
+              await addNotification(uid, `Новая новость: ${title}`, 'system', 'index.html');
+            }
+          }
+
+          showToast(currentNewsId ? 'Новость обновлена' : 'Новость создана', 'success');
+          document.getElementById('news-modal').style.display = 'none';
+          renderNewsTab();
+        } catch (err) {
+          document.getElementById('news-message').textContent = 'Ошибка: ' + err.message;
+        }
+      });
 
       // ----- Экспорт CSV -----
       function renderExportTab() {
