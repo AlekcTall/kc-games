@@ -122,17 +122,13 @@
         const cu=getCurrentUser();
         if(cu&&cu.uid&&auth.currentUser){
           addPointsToCurrentUser(POINTS*add,'clicker').then(async(success)=>{
-            if(success){ msgEl.textContent=`+${POINTS*add} балл(ов)! Личный рекорд: ${best} кликов`;  showToast(`+${POINTS*add} балл(ов)!`, 'success');  // ← вот здесь
+            if(success){ msgEl.textContent=`+${POINTS*add} балл(ов)! Личный рекорд: ${best} кликов`;  showToast(`+${POINTS*add} балл(ов)!`, 'success');
                         await syncGameStats('clicker',{totalClicks:total}); checkAndAwardAchievements(); updateTop(); }
           });
         } else msgEl.textContent='Войдите в профиль, чтобы получать баллы.';
       }
     });
     window.addEventListener('beforeunload',()=>{ if(auth.currentUser) syncGameStats('clicker',{totalClicks:total}); });
- <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    if (typeof initEasterEggs === 'function') initEasterEggs();
-  });
-</script>
+  </script>
 </body>
 </html>
