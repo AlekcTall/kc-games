@@ -160,7 +160,33 @@
 
       function renderLoginForm(){
         const opt=DEPARTMENTS.map(d=>`<option value="${d}">${d}</option>`).join('');
-        container.innerHTML=`<div class="auth-box"><h2>Вход или регистрация</h2><div class="auth-tabs"><button class="auth-tab active" data-tab="login">Войти</button><button class="auth-tab" data-tab="register">Регистрация</button></div><form id="auth-form" class="auth-form"><div class="form-group"><label for="email">Email</label><input type="email" id="email" required placeholder="example@mail.com"></div><div class="form-group"><label for="password">Пароль</label><input type="password" id="password" required placeholder="Введите пароль"></div><div class="form-group" id="reg-extra" style="display:none;"><label for="username">Фамилия Имя</label><input type="text" id="username" placeholder="Иванов Иван"></div><div class="form-group" id="department-group" style="display:none;"><label for="department">Отдел</label><select id="department"><option value="">-- Выберите отдел --</option>${opt}</select></div><button type="submit" class="btn" id="auth-submit-btn">Войти</button></form><p id="auth-message" class="auth-message"></p><div id="forgot-password-container" style="margin-top:0.5rem;text-align:right;"><a href="#" id="forgot-password-link" style="font-size:0.9rem;color:var(--color-primary);">Забыли пароль?</a></div><div id="reset-password-section" style="display:none;margin-top:1rem;"><div class="form-group"><label for="reset-email">Email для восстановления</label><input type="email" id="reset-email" placeholder="Введите ваш email"></div><button class="btn" id="send-reset-btn">Отправить инструкцию</button><button class="btn btn-cancel" id="cancel-reset-btn" style="margin-left:0.5rem;">Отмена</button><p id="reset-message" class="auth-message"></p></div></div>`;
+        container.innerHTML=`<div class="auth-box"><h2>Вход или регистрация</h2><div class="auth-tabs"><button class="auth-tab active" data-tab="login">Войти</button><button class="auth-tab" data-tab="register">Регистрация</button></div><form id="auth-form" class="auth-form"><div class="form-group"><label for="email">Email</label><input type="email" id="email" required placeholder="example@mail.com"></div><div class="form-group"><label for="password">Пароль</label><input type="password" id="password" required placeholder="Введите пароль"></div><div class="form-group" id="reg-extra" style="display:none;"><label for="username">Фамилия Имя</label><input type="text" id="username" placeholder="Иванов Иван"></div><div class="form-group" id="department-group" style="display:none;"><label for="department">Отдел</label><select id="department"><option value="">-- Выберите отдел --</option>${opt}</select></div><button type="submit" class="btn" id="auth-submit-btn">Войти</button></form><p id="auth-message" class="auth-message"></p><div id="forgot-password-container" style="margin-top:0.5rem;text-align:right;"><a href="#" id="forgot-password-link" style="font-size:0.9rem;color:var(--color-primary);">Забыли пароль?</a></div><div id="reset-password-section" style="display:none;margin-top:1rem;"><div class="form-group"><label for="reset-email">Email для восстановления</label><input type="email" id="reset-email" placeholder="Введите ваш email"></div><button class="btn" id="send-reset-btn">Отправить инструкцию</button><button class="btn btn-cancel" id="cancel-reset-btn" style="margin-left:0.5rem;">Отмена</button><p id="reset-message" class="auth-message"></p></div>
+        <div class="faq" style="margin-top:2rem;">
+          <h3>❓ Часто задаваемые вопросы</h3>
+          <div class="faq__list">
+            <div class="faq-item">
+              <button class="faq-item__question"><span>Как зарегистрироваться?</span><span class="faq-item__arrow">▼</span></button>
+              <div class="faq-item__answer"><p>Перейдите на вкладку «Регистрация», заполните email, пароль, фамилию и имя, выберите отдел и нажмите «Зарегистрироваться». На указанный email придёт письмо для подтверждения — перейдите по ссылке в письме.</p></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-item__question"><span>Как войти после регистрации?</span><span class="faq-item__arrow">▼</span></button>
+              <div class="faq-item__answer"><p>После подтверждения email вернитесь на эту страницу, перейдите на вкладку «Войти», введите email и пароль и нажмите «Войти».</p></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-item__question"><span>Что делать, если не приходит письмо?</span><span class="faq-item__arrow">▼</span></button>
+              <div class="faq-item__answer"><p>Проверьте папку «Спам». Если письма нет, нажмите кнопку «Отправить письмо» в профиле или повторите вход — система отправит письмо повторно.</p></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-item__question"><span>Как восстановить пароль?</span><span class="faq-item__arrow">▼</span></button>
+              <div class="faq-item__answer"><p>Нажмите «Забыли пароль?» под формой входа, введите email и следуйте инструкциям в письме.</p></div>
+            </div>
+            <div class="faq-item">
+              <button class="faq-item__question"><span>Какую почту использовать для регистрации?</span><span class="faq-item__arrow">▼</span></button>
+              <div class="faq-item__answer"><p>Используйте <strong>только личную</strong> почту. Рабочие адреса не принимаются.</p></div>
+            </div>
+          </div>
+        </div>
+        </div>`;
         const authForm=document.getElementById('auth-form'), authMsg=document.getElementById('auth-message'), tabs=document.querySelectorAll('.auth-tab'), submitBtn=document.getElementById('auth-submit-btn'), regExtra=document.getElementById('reg-extra'), depGroup=document.getElementById('department-group'), forgotLink=document.getElementById('forgot-password-link'), resetSec=document.getElementById('reset-password-section'), resetEmail=document.getElementById('reset-email'), sendResetBtn=document.getElementById('send-reset-btn'), cancelResetBtn=document.getElementById('cancel-reset-btn'), resetMsg=document.getElementById('reset-message'), forgotCont=document.getElementById('forgot-password-container');
         let currentTab='login';
         tabs.forEach(btn=>{ btn.addEventListener('click',()=>{ tabs.forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentTab=btn.dataset.tab; if(currentTab==='login'){submitBtn.textContent='Войти';regExtra.style.display='none';depGroup.style.display='none';forgotCont.style.display='block';resetSec.style.display='none';}else{submitBtn.textContent='Зарегистрироваться';regExtra.style.display='block';depGroup.style.display='block';forgotCont.style.display='none';resetSec.style.display='none';} authMsg.textContent='';resetMsg.textContent='';});});
@@ -185,6 +211,13 @@
               showToast('На ваш email отправлено письмо для подтверждения. Проверьте почту!', 'info');
             }
           } catch(err){authMsg.textContent=err.message;showToast(err.message,'error');}
+        });
+
+        // Активируем аккордеоны FAQ
+        document.querySelectorAll('.faq-item__question').forEach(btn => {
+          btn.addEventListener('click', () => {
+            btn.parentElement.classList.toggle('active');
+          });
         });
       }
 
