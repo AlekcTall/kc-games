@@ -165,10 +165,6 @@
       switch(e.key){ case'ArrowUp':if(dir.y===0)dir={x:0,y:-1};e.preventDefault();break; case'ArrowDown':if(dir.y===0)dir={x:0,y:1};e.preventDefault();break; case'ArrowLeft':if(dir.x===0)dir={x:-1,y:0};e.preventDefault();break; case'ArrowRight':if(dir.x===0)dir={x:1,y:0};e.preventDefault();break; }
     });
     document.querySelectorAll('.mobile-controls button').forEach(b=>{ b.addEventListener('click',()=>{ if(!gameRunning)return; if(b.classList.contains('up')&&dir.y===0)dir={x:0,y:-1}; if(b.classList.contains('down')&&dir.y===0)dir={x:0,y:1}; if(b.classList.contains('left')&&dir.x===0)dir={x:-1,y:0}; if(b.classList.contains('right')&&dir.x===0)dir={x:1,y:0}; }); });
- <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    if (typeof initEasterEggs === 'function') initEasterEggs();
-  });
-</script>
+  </script>
 </body>
 </html>
