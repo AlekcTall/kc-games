@@ -89,7 +89,33 @@
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
   <script>
-    const DEPARTMENTS = ['РБ (Физические лица)','МСБ (Юридические лица)','ТМ (Телемаркетинг)','Депозиты (группа привлечения некредитных продуктов)','ОКК (отдел контроля качества)','ООБП (отдел оптимизации бизнес процессов)','Боссы (начальники и руководители начальников)','Заблудшие души КЦ (в каком отделе КЦ я работаю?)'];
+    // Глобальный кэш отделов
+    let departmentsList = [];
+
+    async function loadDepartments() {
+      try {
+        const snap = await db.collection('departments').orderBy('name').get();
+        departmentsList = [];
+        snap.forEach(doc => departmentsList.push(doc.data().name));
+        if (departmentsList.length === 0) {
+          // fallback
+          departmentsList = [
+            'РБ (Физические лица)',
+            'МСБ (Юридические лица)',
+            'ТМ (Телемаркетинг)',
+            'Депозиты (группа привлечения некредитных продуктов)',
+            'ОКК (отдел контроля качества)',
+            'ООБП (отдел оптимизации бизнес процессов)',
+            'Боссы (начальники и руководители начальников)',
+            'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
+          ];
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки отделов', e);
+        departmentsList = ['Не удалось загрузить отделы'];
+      }
+    }
+
     function getInitials(fullName){if(!fullName)return'?';const p=fullName.trim().split(/\s+/);return p.length>1?(p[0][0]+p[p.length-1][0]).toUpperCase():fullName[0].toUpperCase();}
     function getColorFromUid(uid){let hash=0;for(let i=0;i<uid.length;i++)hash=uid.charCodeAt(i)+((hash<<5)-hash);const h=Math.abs(hash%360);return`hsl(${h},60%,70%)`;}
     function renderAvatarDiv(user){const initials=getInitials(user.username);const bgColor=getColorFromUid(user.uid);return`<div class="avatar-circle" style="background-color:${bgColor};" title="${user.username}">${initials}</div>`;}
@@ -117,7 +143,10 @@
       </div>`;
     }
 
-    document.addEventListener('DOMContentLoaded',()=>{
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Загружаем отделы до отрисовки
+      await loadDepartments();
+
       const container=document.getElementById('profile-container');
 
       // Модальное окно достижения
@@ -159,7 +188,7 @@
       });
 
       function renderLoginForm(){
-        const opt=DEPARTMENTS.map(d=>`<option value="${d}">${d}</option>`).join('');
+        const opt = departmentsList.map(d => `<option value="${d}">${d}</option>`).join('');
         container.innerHTML=`<div class="auth-box"><h2>Вход или регистрация</h2><div class="auth-tabs"><button class="auth-tab active" data-tab="login">Войти</button><button class="auth-tab" data-tab="register">Регистрация</button></div><form id="auth-form" class="auth-form"><div class="form-group"><label for="email">Email</label><input type="email" id="email" required placeholder="example@mail.com"></div><div class="form-group"><label for="password">Пароль</label><input type="password" id="password" required placeholder="Введите пароль"></div><div class="form-group" id="reg-extra" style="display:none;"><label for="username">Фамилия Имя</label><input type="text" id="username" placeholder="Иванов Иван"></div><div class="form-group" id="department-group" style="display:none;"><label for="department">Отдел</label><select id="department"><option value="">-- Выберите отдел --</option>${opt}</select></div><button type="submit" class="btn" id="auth-submit-btn">Войти</button></form><p id="auth-message" class="auth-message"></p><div id="forgot-password-container" style="margin-top:0.5rem;text-align:right;"><a href="#" id="forgot-password-link" style="font-size:0.9rem;color:var(--color-primary);">Забыли пароль?</a></div><div id="reset-password-section" style="display:none;margin-top:1rem;"><div class="form-group"><label for="reset-email">Email для восстановления</label><input type="email" id="reset-email" placeholder="Введите ваш email"></div><button class="btn" id="send-reset-btn">Отправить инструкцию</button><button class="btn btn-cancel" id="cancel-reset-btn" style="margin-left:0.5rem;">Отмена</button><p id="reset-message" class="auth-message"></p></div>
         <div class="faq" style="margin-top:2rem;">
           <h3>❓ Часто задаваемые вопросы</h3>
