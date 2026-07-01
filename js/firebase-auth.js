@@ -55,6 +55,16 @@ async function firebaseLogin(email, password) {
   try {
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
+    
+    // Проверяем подтверждение email
+    if (!user.emailVerified) {
+      // Отправляем письмо повторно
+      await user.sendEmailVerification();
+      // Выходим, чтобы не дать доступ
+      await auth.signOut();
+      throw new Error('Email не подтверждён. Новое письмо отправлено. Проверьте почту и перейдите по ссылке.');
+    }
+    
     const doc = await db.collection('users').doc(user.uid).get();
     if (doc.exists) {
       const data = doc.data();
