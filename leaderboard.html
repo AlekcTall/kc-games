@@ -46,8 +46,36 @@
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
   <script>
-    const DEPARTMENTS = ['РБ (Физические лица)','МСБ (Юридические лица)','ТМ (Телемаркетинг)','Депозиты (группа привлечения некредитных продуктов)','ОКК (отдел контроля качества)','ООБП (отдел оптимизации бизнес процессов)','Боссы (начальники и руководители начальников)','Заблудшие души КЦ (в каком отделе КЦ я работаю?)'];
-    document.addEventListener('DOMContentLoaded', () => {
+    // Глобальный кэш отделов
+    let departmentsList = [];
+
+    async function loadDepartments() {
+      try {
+        const snap = await db.collection('departments').orderBy('name').get();
+        departmentsList = [];
+        snap.forEach(doc => departmentsList.push(doc.data().name));
+        if (departmentsList.length === 0) {
+          // fallback
+          departmentsList = [
+            'РБ (Физические лица)',
+            'МСБ (Юридические лица)',
+            'ТМ (Телемаркетинг)',
+            'Депозиты (группа привлечения некредитных продуктов)',
+            'ОКК (отдел контроля качества)',
+            'ООБП (отдел оптимизации бизнес процессов)',
+            'Боссы (начальники и руководители начальников)',
+            'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
+          ];
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки отделов', e);
+        departmentsList = ['Не удалось загрузить отделы'];
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadDepartments();
+      
       const container = document.getElementById('leaderboard-container');
       
       auth.onAuthStateChanged(user => {
@@ -56,12 +84,10 @@
           return;
         }
         
-        // Пользователь авторизован – строим интерфейс
         buildUI();
       });
 
       function buildUI() {
-        // Очищаем контейнер и вставляем фильтры и таблицу
         container.innerHTML = `
           <div class="leaderboard-filters" id="filters-block">
             <button class="filters-toggle" id="filters-toggle" style="display:none;">Фильтры</button>
@@ -86,7 +112,8 @@
         const filtersToggle = document.getElementById('filters-toggle');
         const tableContainer = document.getElementById('leaderboard-table-container');
 
-        DEPARTMENTS.forEach(d => { let o = new Option(d,d); filterDept.add(o); });
+        // Заполняем фильтр отделов из загруженного списка
+        departmentsList.forEach(d => { let o = new Option(d,d); filterDept.add(o); });
 
         let allUsers = [];
 
