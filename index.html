@@ -233,7 +233,7 @@
         const user = auth.currentUser;
         const reactionsRef = db.collection(`announcements/${newsId}/reactions`);
         const snapshot = await reactionsRef.get();
-        const counts = { '👍': 0, '❤️': 0, '😮': 0, '😢': 0, '🔥': 0 };
+        const counts = { '👍': 0, '❤️': 0, '😄': 0, '🎉': 0, '🔥': 0 };
         let userReaction = null;
         snapshot.forEach(doc => {
           const type = doc.data().type;
