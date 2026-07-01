@@ -109,27 +109,41 @@
     // Глобальный кэш отделов
     let departmentsCache = [];
 
-    // Загрузка отделов из Firestore
+    // Загрузка отделов из Firestore (с защитой от ошибок)
     async function loadDepartments() {
-      const snap = await db.collection('departments').orderBy('name').get();
-      departmentsCache = [];
-      snap.forEach(doc => departmentsCache.push({ id: doc.id, name: doc.data().name }));
-      if (departmentsCache.length === 0) {
-        // Инициализация дефолтными отделами, если коллекция пуста
-        const defaults = [
-          'РБ (Физические лица)',
-          'МСБ (Юридические лица)',
-          'ТМ (Телемаркетинг)',
-          'Депозиты (группа привлечения некредитных продуктов)',
-          'ОКК (отдел контроля качества)',
-          'ООБП (отдел оптимизации бизнес процессов)',
-          'Боссы (начальники и руководители начальников)',
-          'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
-        ];
-        for (const name of defaults) {
-          await db.collection('departments').add({ name });
+      try {
+        const snap = await db.collection('departments').orderBy('name').get();
+        departmentsCache = [];
+        snap.forEach(doc => departmentsCache.push({ id: doc.id, name: doc.data().name }));
+        if (departmentsCache.length === 0) {
+          // Инициализация дефолтными отделами
+          const defaults = [
+            'РБ (Физические лица)',
+            'МСБ (Юридические лица)',
+            'ТМ (Телемаркетинг)',
+            'Депозиты (группа привлечения некредитных продуктов)',
+            'ОКК (отдел контроля качества)',
+            'ООБП (отдел оптимизации бизнес процессов)',
+            'Боссы (начальники и руководители начальников)',
+            'Заблудшие души КЦ (в каком отделе КЦ я работаю?)'
+          ];
+          for (const name of defaults) {
+            await db.collection('departments').add({ name });
+          }
+          return loadDepartments();
         }
-        return loadDepartments(); // рекурсивно перезагрузить
+      } catch (e) {
+        console.warn('Не удалось загрузить отделы, используется резервный список:', e);
+        departmentsCache = [
+          { id: 'fb1', name: 'РБ (Физические лица)' },
+          { id: 'fb2', name: 'МСБ (Юридические лица)' },
+          { id: 'fb3', name: 'ТМ (Телемаркетинг)' },
+          { id: 'fb4', name: 'Депозиты (группа привлечения некредитных продуктов)' },
+          { id: 'fb5', name: 'ОКК (отдел контроля качества)' },
+          { id: 'fb6', name: 'ООБП (отдел оптимизации бизнес процессов)' },
+          { id: 'fb7', name: 'Боссы (начальники и руководители начальников)' },
+          { id: 'fb8', name: 'Заблудшие души КЦ (в каком отделе КЦ я работаю?)' }
+        ];
       }
     }
 
@@ -140,10 +154,16 @@
         if (!firebaseUser) { container.innerHTML = '<p>Вы не авторизованы.</p>'; return; }
         try {
           const doc = await db.collection('users').doc(firebaseUser.uid).get();
-          if (!doc.exists || doc.data().role !== 'admin') { container.innerHTML = '<p>Доступ запрещён.</p>'; return; }
-          await loadDepartments(); // Загружаем отделы при старте
+          if (!doc.exists || doc.data().role !== 'admin') {
+            container.innerHTML = '<p>Доступ запрещён. Требуются права администратора.</p>';
+            return;
+          }
+          await loadDepartments();
           renderAdminPanel();
-        } catch (err) { container.innerHTML = '<p>Ошибка.</p>'; }
+        } catch (err) {
+          console.error('Ошибка загрузки админки:', err);
+          container.innerHTML = `<p>Ошибка: ${err.message}. Попробуйте обновить страницу.</p>`;
+        }
       });
 
       function renderAdminPanel() {
@@ -574,7 +594,6 @@
           `;
           tabContent.innerHTML = html;
 
-          // Удаление
           document.querySelectorAll('.delete-shop-item-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
               if (confirm('Удалить товар?')) {
@@ -584,7 +603,6 @@
               }
             });
           });
-          // Редактирование
           document.querySelectorAll('.edit-shop-item-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               const id = btn.dataset.id;
@@ -592,7 +610,6 @@
               if (item) openEditShopItemModal(item);
             });
           });
-          // Добавление
           document.getElementById('add-shop-item-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const customId = document.getElementById('shop-id').value.trim();
@@ -632,9 +649,7 @@
         }
       }
 
-      // ----- Модальное окно редактирования товара -----
       let currentEditShopItemId = null;
-
       function openEditShopItemModal(item) {
         currentEditShopItemId = item.id;
         document.getElementById('shop-item-title').value = item.title || '';
@@ -648,7 +663,6 @@
         document.getElementById('shop-item-id-display').innerHTML = `<strong>ID товара:</strong> <code>${item.id}</code>`;
         document.getElementById('shop-item-modal').style.display = 'flex';
       }
-
       document.getElementById('shop-item-modal-close').addEventListener('click', () => {
         document.getElementById('shop-item-modal').style.display = 'none';
       });
@@ -748,7 +762,6 @@
           progressBar.style.display = 'block';
           progressFill.style.width = '0%';
           statusMsg.textContent = 'Отправка...';
-
           try {
             let users = [];
             const target = targetSelect.value;
@@ -763,7 +776,6 @@
               snap.forEach(doc => users.push(doc.id));
             }
             if (users.length === 0) { statusMsg.textContent = 'Нет пользователей для рассылки.'; sendBtn.disabled = false; return; }
-
             let sent = 0;
             for (const uid of users) {
               await addNotification(uid, message, 'admin', link || '');
@@ -949,7 +961,6 @@
         });
       }
 
-      // Вспомогательные функции
       function getGames() { return JSON.parse(localStorage.getItem('krugames_games')) || []; }
       function saveGames(games) { localStorage.setItem('krugames_games', JSON.stringify(games)); }
     });
