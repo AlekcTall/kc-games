@@ -16,6 +16,11 @@
     }
     .feedback-item-header { margin-bottom: 0.5rem; }
     .feedback-item-header small { color: #999; }
+    /* Новые стили для модалки подарка */
+    #gift-modal .modal { max-width: 400px; }
+    .btn-gift { background: #9b59b6; color: white; border: none; padding: 0.3rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-left: 0.3rem; }
+    .btn-gift:hover { background: #8e44ad; }
+    .btn-small { padding: 0.25rem 0.5rem; font-size: 0.8rem; margin: 0 0.1rem; }
   </style>
 </head>
 <body>
@@ -99,6 +104,21 @@
       </div>
       <button class="btn" id="shop-item-save">Сохранить</button>
       <p id="shop-item-message" class="auth-message" style="margin-top:0.5rem;"></p>
+    </div>
+  </div>
+
+  <!-- НОВОЕ: Модальное окно для дарения товара -->
+  <div class="modal-overlay" id="gift-modal" style="display:none;">
+    <div class="modal">
+      <span class="modal-close" id="gift-modal-close">&times;</span>
+      <h3>Подарить товар</h3>
+      <p id="gift-user-name"></p>
+      <div class="form-group">
+        <label for="gift-item-select">Выберите товар</label>
+        <select id="gift-item-select"></select>
+      </div>
+      <button class="btn" id="gift-submit">Подарить</button>
+      <p id="gift-message" class="auth-message" style="margin-top:0.5rem;"></p>
     </div>
   </div>
 
@@ -256,11 +276,12 @@
               points: data.points || 0,
               lokoin_balance: data.lokoin_balance || 0,
               role: data.role || 'user',
-              achievements: data.achievements || []
+              achievements: data.achievements || [],
+              disabled: data.disabled || false
             });
           });
           users.sort((a, b) => b.points - a.points);
-          let html = '<h3>Пользователи</h3><table class="admin-users-table"><thead><tr><th>Игрок</th><th>Email</th><th>Отдел</th><th>Баллы</th><th>Локоины</th><th>Роль</th><th>Достижения</th><th>Действия</th></tr></thead><tbody>';
+          let html = '<h3>Пользователи</h3><table class="admin-users-table"><thead><tr><th>Игрок</th><th>Email</th><th>Отдел</th><th>Баллы</th><th>Локоины</th><th>Роль</th><th>Статус</th><th>Достижения</th><th>Действия</th></tr></thead><tbody>';
           users.forEach(user => {
             const avatarHtml = (typeof renderAvatarDiv === 'function')
               ? renderAvatarDiv(user)
@@ -273,12 +294,15 @@
                 <td class="editable" data-field="points">${user.points}</td>
                 <td><span class="lokoin-display">${user.lokoin_balance}</span></td>
                 <td class="editable" data-field="role">${user.role}</td>
+                <td>${user.disabled ? '🔒 Заблокирован' : '✅ Активен'}</td>
                 <td>${user.achievements.length}</td>
                 <td>
                   <button class="btn btn-small edit-user-btn">✏️</button>
                   <button class="btn btn-small save-user-btn" style="display:none;">💾</button>
                   <button class="btn btn-small cancel-user-btn" style="display:none;">❌</button>
                   <button class="btn btn-small adjust-lokoin-btn" title="Изменить локоины">💰</button>
+                  <button class="btn btn-small btn-gift gift-item-btn" title="Подарить товар">🎁</button>
+                  <button class="btn btn-small toggle-block-btn" title="Заблокировать/Разблокировать">🔓</button>
                 </td>
               </tr>
             `;
@@ -287,6 +311,8 @@
           tabContent.innerHTML = html;
           attachUserEditHandlers(users);
           attachLokoinHandlers(users);
+          attachGiftHandlers(users);
+          attachBlockHandlers(users);
         } catch (err) {
           console.error('Ошибка загрузки пользователей:', err);
           tabContent.innerHTML = '<p>Не удалось загрузить список пользователей.</p>';
@@ -409,6 +435,87 @@
           document.getElementById('lokoin-message').textContent = 'Ошибка: ' + err.message;
         }
       });
+
+      // ----- Дарение товаров -----
+      function attachGiftHandlers(users) {
+        const rows = document.querySelectorAll('.admin-users-table tbody tr');
+        rows.forEach((row, index) => {
+          const user = users[index];
+          const btn = row.querySelector('.gift-item-btn');
+          if (!btn) return;
+          btn.addEventListener('click', () => openGiftModal(user));
+        });
+      }
+
+      let currentGiftUser = null;
+
+      async function openGiftModal(user) {
+        currentGiftUser = user;
+        document.getElementById('gift-user-name').textContent = `Пользователь: ${user.username}`;
+        document.getElementById('gift-message').textContent = '';
+        const select = document.getElementById('gift-item-select');
+        select.innerHTML = '<option value="">Загрузка...</option>';
+        document.getElementById('gift-modal').style.display = 'flex';
+        try {
+          const snap = await db.collection('shopItems').get();
+          const items = [];
+          snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+          if (items.length === 0) {
+            select.innerHTML = '<option value="">Нет товаров</option>';
+            return;
+          }
+          select.innerHTML = items.map(item => `<option value="${item.id}">${item.icon || '🛒'} ${item.title} (${item.price} лок.)</option>`).join('');
+        } catch (err) {
+          console.error(err);
+          select.innerHTML = '<option value="">Ошибка загрузки</option>';
+        }
+      }
+
+      document.getElementById('gift-modal-close').addEventListener('click', () => {
+        document.getElementById('gift-modal').style.display = 'none';
+      });
+      document.getElementById('gift-submit').addEventListener('click', async () => {
+        const select = document.getElementById('gift-item-select');
+        const itemId = select.value;
+        if (!itemId || !currentGiftUser) return;
+        try {
+          await db.collection('users').doc(currentGiftUser.uid).update({
+            purchasedItems: firebase.firestore.FieldValue.arrayUnion(itemId)
+          });
+          // Отправляем уведомление с типом gift
+          if (typeof addNotification === 'function') {
+            const itemName = select.options[select.selectedIndex].text;
+            await addNotification(currentGiftUser.uid, `🎁 Вам подарен товар: ${itemName}`, 'gift', 'shop.html');
+          }
+          showToast('Товар подарен!', 'success');
+          document.getElementById('gift-modal').style.display = 'none';
+        } catch (err) {
+          document.getElementById('gift-message').textContent = 'Ошибка: ' + err.message;
+        }
+      });
+
+      // ----- Блокировка/разблокировка -----
+      function attachBlockHandlers(users) {
+        const rows = document.querySelectorAll('.admin-users-table tbody tr');
+        rows.forEach((row, index) => {
+          const user = users[index];
+          const btn = row.querySelector('.toggle-block-btn');
+          if (!btn) return;
+          btn.textContent = user.disabled ? '🔓' : '🔒';
+          btn.addEventListener('click', async () => {
+            const newDisabled = !user.disabled;
+            try {
+              await db.collection('users').doc(user.uid).update({ disabled: newDisabled });
+              user.disabled = newDisabled;
+              btn.textContent = newDisabled ? '🔓' : '🔒';
+              row.querySelector('td:nth-child(7)').textContent = newDisabled ? '🔒 Заблокирован' : '✅ Активен';
+              showToast(newDisabled ? 'Пользователь заблокирован' : 'Пользователь разблокирован', 'success');
+            } catch (err) {
+              showToast('Ошибка: ' + err.message, 'error');
+            }
+          });
+        });
+      }
 
       // ----- Обращения (Firestore) -----
       async function renderFeedbackTab() {
