@@ -464,7 +464,7 @@
         // ---------- Завершение игры и начисление очков ----------
         async function handleGameEnd() {
             if (gameWin) {
-                messageEl.textContent = '🎉 Победа! Все безопасные клетки открыты.';
+                messageEl.textContent = '🎉 Победа! Нажмите ПРОБЕЛ или на смайлик для новой игры.';
                 smileyBtn.textContent = '😎';
                 // Даём 1 балл за победу и синхронизируем maxScore
                 if (currentScore > bestScore) {
@@ -472,7 +472,7 @@
                 }
                 await awardWin();
             } else if (gameOver && !gameWin) {
-                messageEl.textContent = '💥 Вы подорвались! Игра окончена.';
+                messageEl.textContent = '💥 Вы подорвались! Нажмите ПРОБЕЛ или на смайлик для новой игры.';
                 smileyBtn.textContent = '💀';
                 // Сохраняем лучший результат (даже при проигрыше)
                 if (currentScore > bestScore) {
@@ -773,6 +773,10 @@
         // Первичная отрисовка
         board = createEmptyBoard();
         drawBoard();
+
+document.addEventListener (`keydown`, (e) =>{if (e.code === `space`) {e.preventDefault(); if (!gameActive || gameover) { restartGame(); drawBoard(); }}});
+    
+        
     </script>
 </body>
 </html>
