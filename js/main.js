@@ -131,7 +131,13 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAuthUI(null);
     document.body.classList.remove('dark-theme');
   }
-
+// Обновление lastActive при возвращении на вкладку
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
+    updateLastActive(auth.currentUser.uid);
+  }
+});
+  
   // Периодическое обновление lastActive для метрик онлайна
 setInterval(() => {
   if (typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
