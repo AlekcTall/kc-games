@@ -131,4 +131,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAuthUI(null);
     document.body.classList.remove('dark-theme');
   }
+
+  // Периодическое обновление lastActive для метрик онлайна
+  setInterval(() => {
+    if (typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
+      updateLastActive(auth.currentUser.uid);
+    }
+  }, 60000); // каждые 60 секунд
 });
