@@ -98,8 +98,8 @@
                 color: white;
             }
             .up { grid-area: up; }
-            .down grid-area: { grid-area: down; left }
-            .left {; }
+            .down { grid-area: down; }
+            .left { grid-area: left; }
             .right { grid-area: right; }
         }
 
@@ -291,7 +291,7 @@
 
     // ---------- Константы ----------
     const SIZE = 4;
-    const CELL_SIZE = canvas.width / SIZE; // 100px
+    const CELL_SIZE = canvas.width / SIZE;
     const COLORS = {
         0: '#cdc1b4',
         2: '#eee4da', 4: '#ede0c8', 8: '#f2b179', 16: '#f59563',
@@ -307,9 +307,10 @@
     let currentUid = null;
     let gameActive = false;
     let gameOverFlag = false;
-    let awardedLevel = 0;          // для выдачи баллов за пороги
+    let awardedLevel = 0;
+    // Новая переменная для отслеживания максимальной плитки
+    let maxTile = 0;
 
-    // ---------- Инициализация пустой сетки ----------
     function emptyGrid() {
         return Array(SIZE).fill().map(() => Array(SIZE).fill(0));
     }
@@ -333,6 +334,7 @@
         awardedLevel = 0;
         gameActive = true;
         gameOverFlag = false;
+        maxTile = 0;            // сбрасываем максимальную плитку
         addRandomTile();
         addRandomTile();
         updateScore();
@@ -340,7 +342,6 @@
         drawGrid();
     }
 
-    // ---------- Отрисовка ----------
     function drawGrid() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let r = 0; r < SIZE; r++) {
@@ -348,10 +349,8 @@
                 const value = grid[r][c];
                 const x = c * CELL_SIZE;
                 const y = r * CELL_SIZE;
-                // фон плитки
                 ctx.fillStyle = COLORS[value] || '#3c3a32';
                 ctx.fillRect(x + 4, y + 4, CELL_SIZE - 8, CELL_SIZE - 8);
-                // текст
                 if (value !== 0) {
                     ctx.font = 'bold 32px "Clear Sans", "Segoe UI", sans-serif';
                     ctx.textAlign = 'center';
@@ -361,7 +360,6 @@
                 }
             }
         }
-        // если игра окончена, отображаем затемнение
         if (gameOverFlag) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -376,7 +374,24 @@
         bestDisplay.textContent = bestScore;
     }
 
-    // ---------- Механика движения ----------
+    // Вспомогательная функция для проверки максимальной плитки на поле
+    function checkMaxTile() {
+        let currentMax = 0;
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                if (grid[r][c] > currentMax) currentMax = grid[r][c];
+            }
+        }
+        if (currentMax > maxTile) {
+            maxTile = currentMax;
+            // Синхронизируем новое достижение плитки
+            if (auth.currentUser) {
+                syncGameStats('2048', { maxTile: maxTile });
+                checkAndAwardAchievements();
+            }
+        }
+    }
+
     function slideRow(row) {
         let arr = row.filter(v => v !== 0);
         for (let i = 0; i < arr.length - 1; i++) {
@@ -440,13 +455,11 @@
     }
 
     function isGameOver() {
-        // есть ли пустые клетки?
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 if (grid[r][c] === 0) return false;
             }
         }
-        // есть ли возможные слияния по горизонтали/вертикали
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE - 1; c++) {
                 if (grid[r][c] === grid[r][c + 1]) return false;
@@ -466,8 +479,8 @@
         if (moved) {
             addRandomTile();
             updateScore();
+            checkMaxTile();   // проверяем плитку после каждого хода
             drawGrid();
-            // Проверка порогов для начисления баллов
             const threshold = 500;
             const newLevel = Math.floor(score / threshold);
             if (newLevel > awardedLevel) {
@@ -477,7 +490,6 @@
                     await awardPoint();
                 }
             }
-            // Проверка на конец игры
             if (isGameOver()) {
                 gameActive = false;
                 gameOverFlag = true;
@@ -503,7 +515,7 @@
             bestScore = score;
             bestDisplay.textContent = bestScore;
             if (auth.currentUser) {
-                await syncGameStats('2048', { maxScore: bestScore });
+                await syncGameStats('2048', { maxScore: bestScore, maxTile: maxTile });
                 checkAndAwardAchievements();
             }
             messageEl.textContent = `Новый рекорд: ${bestScore}!`;
@@ -530,7 +542,6 @@
         }
     });
 
-    // Мобильные кнопки
     document.querySelector('.mobile-arrows').addEventListener('click', (e) => {
         if (!gameActive || gameOverFlag) return;
         if (e.target.classList.contains('up')) performMove(moveUp);
@@ -539,7 +550,6 @@
         else if (e.target.classList.contains('right')) performMove(moveRight);
     });
 
-    // Свайпы
     let touchStartX = 0, touchStartY = 0;
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
@@ -552,7 +562,7 @@
         const dy = e.changedTouches[0].clientY - touchStartY;
         const absDx = Math.abs(dx);
         const absDy = Math.abs(dy);
-        if (Math.max(absDx, absDy) < 30) return; // минимальный свайп
+        if (Math.max(absDx, absDy) < 30) return;
         if (absDx > absDy) {
             if (dx > 0) performMove(moveRight);
             else performMove(moveLeft);
@@ -591,12 +601,16 @@
     async function loadBestAndTop() {
         const cu = getCurrentUser();
         if (cu) currentUid = cu.uid || cu.id;
+        // загружаем maxTile из Firestore, если есть
+        if (cu?.gameStats?.['2048']?.maxTile) maxTile = cu.gameStats['2048'].maxTile;
         if (cu?.gameStats?.['2048']?.maxScore) bestScore = cu.gameStats['2048'].maxScore;
         if (auth.currentUser) {
             try {
                 const docSnap = await db.collection('users').doc(auth.currentUser.uid).get();
-                if (docSnap.exists && docSnap.data().gameStats?.['2048']?.maxScore) {
-                    bestScore = docSnap.data().gameStats['2048'].maxScore;
+                if (docSnap.exists) {
+                    const stats = docSnap.data().gameStats?.['2048'] || {};
+                    if (stats.maxScore) bestScore = stats.maxScore;
+                    if (stats.maxTile) maxTile = stats.maxTile;
                 }
             } catch (e) { console.error(e); }
         }
@@ -641,7 +655,7 @@
         } catch (e) { console.error(e); }
     }
 
-    // Первичная отрисовка (пустое поле)
+    // Первичная отрисовка
     grid = emptyGrid();
     drawGrid();
 </script>
