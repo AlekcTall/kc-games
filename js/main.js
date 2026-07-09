@@ -100,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Пасхалки — будут инициализированы после авторизации (ниже)
   // Обратная связь
   if (typeof initFeedback === 'function') {
     initFeedback();
@@ -111,37 +110,49 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotifications();
   }
 
-  // Автоматическое обновление статуса авторизации и темы
+  // Автоматическое обновление статуса авторизации, темы и пинг онлайна
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
       updateAuthUI(user);
-      // Инициализируем пасхалки после авторизации
+
       if (user && typeof initEasterEggs === 'function') {
         initEasterEggs();
       }
-      // Применение тёмной темы, если пользователь авторизован и она выбрана
+
       const cu = getCurrentUser();
       if (cu && cu.activeTheme === 'dark') {
         document.body.classList.add('dark-theme');
       } else {
         document.body.classList.remove('dark-theme');
       }
+
+      // Пинг онлайна: интервал только для авторизованных
+      if (window._pingInterval) {
+        clearInterval(window._pingInterval);
+        window._pingInterval = null;
+      }
+
+      if (user && typeof updateLastActive === 'function') {
+        // Первое обновление сразу после входа
+        updateLastActive(user.uid);
+
+        // Запускаем периодическое обновление каждые 30 секунд
+        window._pingInterval = setInterval(() => {
+          if (auth.currentUser && typeof updateLastActive === 'function') {
+            updateLastActive(auth.currentUser.uid);
+          }
+        }, 30000);
+      }
     });
   } else {
     updateAuthUI(null);
     document.body.classList.remove('dark-theme');
   }
-// Обновление lastActive при возвращении на вкладку
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
-    updateLastActive(auth.currentUser.uid);
-  }
-});
-  
-  // Периодическое обновление lastActive для метрик онлайна
-setInterval(() => {
-  if (typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
-    updateLastActive(auth.currentUser.uid);
-  }
-}, 30000); // каждые 30 секунд
+
+  // Обновление lastActive при возвращении на вкладку
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
+      updateLastActive(auth.currentUser.uid);
+    }
+  });
 });
