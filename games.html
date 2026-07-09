@@ -54,89 +54,94 @@
   <script src="js/easter-eggs.js"></script>
   <script src="js/main.js"></script>
   <script>
-    // Предустановленные игры, если ничего нет
-  const DEFAULT_GAMES = [
-  {
-    id: 'clicker',
-    icon: '🖱️',
-    title: 'Кликер',
-    description: 'Набери 20 кликов и получи 1 балл.',
-    url: 'games/clicker.html'
-  },
-  {
-    id: 'memory',
-    icon: '🧠',
-    title: 'Найди пару',
-    description: 'Открой все пары и получи 5 баллов.',
-    url: 'games/memory.html'
-  },
-  {
-    id: 'snake',
-    icon: '🐍',
-    title: 'Змейка',
-    description: 'Съешь 5 яблок и получи 1 балл.',
-    url: 'games/snake.html'
-  }
-];
-
-    function getGames() {
-      const stored = JSON.parse(localStorage.getItem('krugames_games'));
-      return stored || [];
-    }
-
-    function saveGames(games) {
-      localStorage.setItem('krugames_games', JSON.stringify(games));
-    }
-
-    function initDefaultGames() {
-      const games = getGames();
-      if (games.length === 0) {
-        saveGames(DEFAULT_GAMES);
-        return DEFAULT_GAMES;
+    // Предустановленные игры, если коллекция пуста
+    const DEFAULT_GAMES = [
+      {
+        id: 'clicker',
+        icon: '🖱️',
+        title: 'Кликер',
+        description: 'Набери 20 кликов и получи 10 баллов.',
+        url: 'games/clicker.html'
+      },
+      {
+        id: 'memory',
+        icon: '🧠',
+        title: 'Найди пару',
+        description: 'Открой все пары и получи 15 баллов.',
+        url: 'games/memory.html'
+      },
+      {
+        id: 'snake',
+        icon: '🐍',
+        title: 'Змейка',
+        description: 'Съешь 5 яблок и получи 10 баллов.',
+        url: 'games/snake.html'
       }
-      return games;
-    }
+    ];
 
-    function renderGames() {
+    async function loadGames() {
       const grid = document.getElementById('games-grid');
       if (!grid) return;
 
-      const gamesData = initDefaultGames(); // автоматически добавит, если пусто
+      try {
+        const snap = await db.collection('games').get();
+        let games = [];
+        snap.forEach(doc => games.push({ id: doc.id, ...doc.data() }));
 
-      if (gamesData.length === 0) {
-        grid.innerHTML = '<p>Пока нет игр. Загляните позже!</p>';
-        return;
-      }
-
-      let html = '';
-      gamesData.forEach(game => {
-        html += `
-          <div class="game-card">
-            <div class="game-card__icon">${game.icon}</div>
-            <h3 class="game-card__title">${game.title}</h3>
-            <p class="game-card__desc">${game.description}</p>
-            <button class="btn game-card__btn" data-game-id="${game.id}">Играть</button>
-          </div>
-        `;
-      });
-      grid.innerHTML = html;
-
-      document.querySelectorAll('.game-card__btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const gameId = e.target.dataset.gameId;
-          const game = gamesData.find(g => g.id === gameId);
-          if (game) {
-            if (game.url) {
-              window.location.href = game.url;
-            } else {
-              showToast(`Игра "${game.title}" ещё не добавлена.`, 'info');
-            }
+        // Если коллекция пуста, инициализируем дефолтными
+        if (games.length === 0) {
+          for (const game of DEFAULT_GAMES) {
+            await db.collection('games').doc(game.id).set({
+              icon: game.icon,
+              title: game.title,
+              description: game.description,
+              url: game.url
+            });
           }
+          // Перезагружаем
+          const newSnap = await db.collection('games').get();
+          games = [];
+          newSnap.forEach(doc => games.push({ id: doc.id, ...doc.data() }));
+        }
+
+        if (games.length === 0) {
+          grid.innerHTML = '<p>Пока нет игр. Загляните позже!</p>';
+          return;
+        }
+
+        let html = '';
+        games.forEach(game => {
+          html += `
+            <div class="game-card">
+              <div class="game-card__icon">${game.icon || '🎮'}</div>
+              <h3 class="game-card__title">${game.title}</h3>
+              <p class="game-card__desc">${game.description || ''}</p>
+              <button class="btn game-card__btn" data-game-id="${game.id}">Играть</button>
+            </div>
+          `;
         });
-      });
+        grid.innerHTML = html;
+
+        document.querySelectorAll('.game-card__btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const gameId = e.target.dataset.gameId;
+            const game = games.find(g => g.id === gameId);
+            if (game) {
+              if (game.url) {
+                window.location.href = game.url;
+              } else {
+                showToast(`Игра "${game.title}" ещё не добавлена.`, 'info');
+              }
+            }
+          });
+        });
+      } catch (e) {
+        console.error(e);
+        grid.innerHTML = '<p>Не удалось загрузить игры.</p>';
+      }
     }
 
-    document.addEventListener('DOMContentLoaded', renderGames);
+    document.addEventListener('DOMContentLoaded', loadGames);
   </script>
 </body>
 </html>
