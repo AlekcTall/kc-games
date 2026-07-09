@@ -23,6 +23,7 @@
     .summary-item { text-align: center; padding: 1rem; background: #f9fafb; border-radius: 12px; }
     .summary-value { font-size: 2rem; font-weight: 700; }
     .summary-label { font-size: 0.8rem; color: #6b7280; }
+    .auto-refresh-note { font-size: 0.8rem; color: #888; margin-top: 0.5rem; }
   </style>
 </head>
 <body>
@@ -67,6 +68,7 @@
 
   <script>
     const ONLINE_THRESHOLD = 15 * 60 * 1000; // 15 минут
+    let autoRefreshInterval = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
       const container = document.getElementById('metrics-container');
@@ -83,9 +85,10 @@
         await updateLastActive(user.uid);
 
         buildMetricsPage();
+        startAutoRefresh();
       });
 
-      async function buildMetricsPage() {
+      function buildMetricsPage() {
         container.innerHTML = `
           <h2>📊 Подробные метрики</h2>
           <div class="metrics-filters">
@@ -94,6 +97,7 @@
             <button class="btn" id="apply-filter">Применить</button>
             <button class="btn btn-cancel" id="reset-filter">Сбросить</button>
           </div>
+          <p class="auto-refresh-note">Данные автоматически обновляются каждые 30 секунд</p>
           <div id="metrics-content"></div>
         `;
 
@@ -107,14 +111,33 @@
         loadMetrics();
       }
 
+      function startAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        autoRefreshInterval = setInterval(() => {
+          if (auth.currentUser) {
+            loadMetrics();
+          } else {
+            stopAutoRefresh();
+          }
+        }, 30000);
+      }
+
+      function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+        }
+      }
+
       async function loadMetrics() {
-        const startStr = document.getElementById('filter-start').value;
-        const endStr = document.getElementById('filter-end').value;
+        const startStr = document.getElementById('filter-start')?.value;
+        const endStr = document.getElementById('filter-end')?.value;
         let start = null, end = null;
         if (startStr) start = new Date(startStr).getTime();
         if (endStr) end = new Date(endStr).getTime();
 
         const content = document.getElementById('metrics-content');
+        if (!content) return;
         content.innerHTML = '<p>Загрузка...</p>';
 
         try {
