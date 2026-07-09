@@ -506,17 +506,19 @@
             updateTop();
         }
 
-        async function syncWin() {
-            if (!auth.currentUser) return;
-            try {
-                // Синхронизируем время (лучшее) и факт завершения
-                await syncGameStats('minesweeper', { bestTime: elapsedMs / 1000, completed: true });
-                await checkAndAwardAchievements();
-                showToast('Поздравляем с победой!', 'success');
-            } catch (e) {
-                console.error(e);
-            }
-        }
+      async function syncWin() {
+    if (!auth.currentUser) return;
+    try {
+        // Начисляем 3 балла за успешное завершение
+        await addPointsToCurrentUser(3, 'minesweeper');
+        // Синхронизируем лучшее время и факт завершения
+        await syncGameStats('minesweeper', { bestTime: elapsedMs / 1000, completed: true });
+        await checkAndAwardAchievements();
+        showToast('Поздравляем с победой! +3 балла', 'success');
+    } catch (e) {
+        console.error(e);
+    }
+}
 
         async function syncLoss() {
             if (!auth.currentUser) return;
