@@ -923,8 +923,7 @@ async function renderGamesTab() {
       }
 
       // ----- Статистика -----
-      <a href="metrics.html" class="btn" style="margin-left:1rem;">📊 Подробные метрики</a>
-      async function renderStatsTab() {
+          async function renderStatsTab() {
         const tabContent = document.getElementById('admin-tab-content');
         tabContent.innerHTML = '<p>Загрузка статистики...</p>';
         try {
@@ -955,7 +954,7 @@ async function renderGamesTab() {
           const topGameCount = topGame ? topGame[1] : 0;
 
           tabContent.innerHTML = `
-            <h3>Статистика</h3>
+            <h3>Статистика <a href="metrics.html" class="btn" style="margin-left:1rem;">📊 Подробные метрики</a></h3>
             <div class="stats-grid">
               <div class="stat-card"><div class="stat-value">${totalUsers}</div><div>Пользователей</div></div>
               <div class="stat-card"><div class="stat-value">${activeToday}</div><div>Активных сегодня</div></div>
