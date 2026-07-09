@@ -237,6 +237,7 @@ async function syncGameStats(gameId, stats) {
     const gameStats = data.gameStats || {};
     const currentStats = gameStats[gameId] || {};
     const merged = { ...currentStats };
+
     if (stats.totalClicks !== undefined) {
       merged.totalClicks = Math.max(currentStats.totalClicks || 0, stats.totalClicks);
     }
@@ -244,17 +245,29 @@ async function syncGameStats(gameId, stats) {
       merged.maxScore = Math.max(currentStats.maxScore || 0, stats.maxScore);
     }
     if (stats.bestMoves !== undefined) {
-      merged.bestMoves = currentStats.bestMoves ? Math.min(currentStats.bestMoves, stats.bestMoves) : stats.bestMoves;
+      merged.bestMoves = currentStats.bestMoves
+        ? Math.min(currentStats.bestMoves, stats.bestMoves)
+        : stats.bestMoves;
     }
     if (stats.bestTime !== undefined) {
-      merged.bestTime = currentStats.bestTime ? Math.min(currentStats.bestTime, stats.bestTime) : stats.bestTime;
+      merged.bestTime = currentStats.bestTime
+        ? Math.min(currentStats.bestTime, stats.bestTime)
+        : stats.bestTime;
     }
+    // Для 2048 – максимальная собранная плитка
+    if (stats.maxTile !== undefined) {
+      merged.maxTile = Math.max(currentStats.maxTile || 0, stats.maxTile);
+    }
+    // Булевы флаги
     if (stats.selfEaten) merged.selfEaten = true;
     if (stats.wallCrash) merged.wallCrash = true;
     if (stats.openedFirst) merged.openedFirst = true;
     if (stats.completed) merged.completed = true;
+    if (stats.loss) merged.loss = true;
+
     gameStats[gameId] = merged;
     await userRef.update({ gameStats });
+
     const current = getCurrentUser();
     if (current) {
       if (!current.gameStats) current.gameStats = {};
