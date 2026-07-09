@@ -324,7 +324,7 @@ async function updateLastActive(uid) {
   if (!uid) return;
   try {
     await db.collection('users').doc(uid).update({
-      lastActive: firebase.firestore.FieldValue.serverTimestamp()
+      lastActive: Date.now()   // обычное число, миллисекунды
     });
   } catch (e) {
     console.error('Ошибка обновления lastActive:', e);
