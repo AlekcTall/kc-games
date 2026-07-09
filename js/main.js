@@ -133,9 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Периодическое обновление lastActive для метрик онлайна
-  setInterval(() => {
-    if (typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
-      updateLastActive(auth.currentUser.uid);
-    }
-  }, 60000); // каждые 60 секунд
+setInterval(() => {
+  if (typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
+    updateLastActive(auth.currentUser.uid);
+  }
+}, 30000); // каждые 30 секунд
 });
