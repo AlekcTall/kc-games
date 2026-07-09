@@ -493,7 +493,7 @@
         if (cu && cu.uid && auth.currentUser) {
             try {
                 const ok = await addPointsToCurrentUser(1, '2048');
-                if (ok) showToast('+1 балл за достижение!', 'success');
+                if (ok) showToast('+1 балл!', 'success');
             } catch (e) { console.error(e); }
         }
     }
