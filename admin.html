@@ -250,57 +250,102 @@
         }
       }
 
-      // ----- Игры (localStorage) -----
-      function renderGamesTab() {
-        const tabContent = document.getElementById('admin-tab-content');
-        let games = getGames();
-        let html = `
-          <h3>Управление играми</h3>
-          <div class="admin-game-list">
-            ${games.length === 0 ? '<p>Список игр пуст.</p>' : ''}
-            <ul>
-              ${games.map(game => `
-                <li>
-                  <span>${game.icon} ${game.title} (${game.id})</span>
-                  <button class="btn btn-small btn-danger remove-game-btn" data-game-id="${game.id}">Удалить</button>
-                </li>
-              `).join('')}
-            </ul>
-          </div>
-          <div class="admin-add-game">
-            <h4>Добавить игру</h4>
-            <form id="add-game-form">
-              <div class="form-group"><label for="game-title">Название</label><input type="text" id="game-title" required></div>
-              <div class="form-group"><label for="game-desc">Описание</label><input type="text" id="game-desc" required></div>
-              <div class="form-group"><label for="game-icon">Иконка (emoji)</label><input type="text" id="game-icon" value="🎮"></div>
-              <div class="form-group"><label for="game-url">URL игры</label><input type="text" id="game-url" placeholder="games/my-game.html"></div>
-              <button type="submit" class="btn">Добавить</button>
-            </form>
-          </div>
-        `;
-        tabContent.innerHTML = html;
-        document.querySelectorAll('.remove-game-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const gameId = e.target.dataset.gameId;
-            games = games.filter(g => g.id !== gameId);
-            saveGames(games);
-            showToast('Игра удалена', 'success');
-            renderGamesTab();
-          });
-        });
-        document.getElementById('add-game-form').addEventListener('submit', (e) => {
-          e.preventDefault();
-          const title = document.getElementById('game-title').value.trim();
-          const desc = document.getElementById('game-desc').value.trim();
-          const icon = document.getElementById('game-icon').value.trim() || '🎮';
-          const url = document.getElementById('game-url').value.trim();
-          if (!title || !desc) { showToast('Заполните название и описание', 'error'); return; }
-          games.push({ id: 'game_' + Date.now(), title, description: desc, icon, url: url || '#' });
-          saveGames(games);
-          showToast('Игра добавлена', 'success');
+    // ----- Игры (Firestore) -----
+async function renderGamesTab() {
+  const tabContent = document.getElementById('admin-tab-content');
+  tabContent.innerHTML = '<p>Загрузка игр...</p>';
+  try {
+    const snap = await db.collection('games').get();
+    const games = [];
+    snap.forEach(doc => games.push({ id: doc.id, ...doc.data() }));
+
+    let html = '<h3>Управление играми</h3>';
+    if (games.length === 0) {
+      html += '<p>Список игр пуст.</p>';
+    } else {
+      html += '<ul>';
+      games.forEach(game => {
+        html += `<li style="display:flex; align-items:center; gap:1rem; margin-bottom:0.5rem;">
+          <span>${game.icon || '🎮'} <strong>${game.title}</strong> (${game.id})</span>
+          <button class="btn btn-small btn-danger remove-game-btn" data-game-id="${game.id}">Удалить</button>
+        </li>`;
+      });
+      html += '</ul>';
+    }
+
+    html += `
+      <div class="admin-add-game" style="margin-top:1.5rem;">
+        <h4>Добавить / Редактировать игру</h4>
+        <form id="add-game-form">
+          <div class="form-group"><label>ID игры (латиница, без пробелов)</label><input type="text" id="game-id" placeholder="clicker" required></div>
+          <div class="form-group"><label>Название</label><input type="text" id="game-title" required></div>
+          <div class="form-group"><label>Описание</label><input type="text" id="game-desc" required></div>
+          <div class="form-group"><label>Иконка (emoji)</label><input type="text" id="game-icon" value="🎮"></div>
+          <div class="form-group"><label>URL игры</label><input type="text" id="game-url" placeholder="games/clicker.html" required></div>
+          <button type="submit" class="btn" id="game-save-btn">Сохранить</button>
+        </form>
+        <p id="game-form-message" class="auth-message"></p>
+      </div>
+    `;
+    tabContent.innerHTML = html;
+
+    // Заполним поля при клике на существующую игру (редактирование)
+    document.querySelectorAll('.remove-game-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        if (confirm('Удалить игру? Это не затронет файлы игры.')) {
+          await db.collection('games').doc(e.target.dataset.gameId).delete();
+          showToast('Игра удалена', 'success');
           renderGamesTab();
-        });
+        }
+      });
+    });
+
+    // Обработчик формы (добавление / обновление)
+    document.getElementById('add-game-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('game-id').value.trim().toLowerCase();
+      const title = document.getElementById('game-title').value.trim();
+      const desc = document.getElementById('game-desc').value.trim();
+      const icon = document.getElementById('game-icon').value.trim() || '🎮';
+      const url = document.getElementById('game-url').value.trim();
+      if (!id || !title || !desc || !url) {
+        showToast('Заполните все поля', 'error');
+        return;
       }
+      try {
+        await db.collection('games').doc(id).set({
+          title,
+          description: desc,
+          icon,
+          url
+        });
+        showToast('Игра сохранена', 'success');
+        renderGamesTab();
+      } catch (err) {
+        showToast('Ошибка: ' + err.message, 'error');
+      }
+    });
+
+    // Возможность выбрать существующую игру для редактирования (клик по названию)
+    document.querySelectorAll('li span').forEach(span => {
+      span.style.cursor = 'pointer';
+      span.addEventListener('click', () => {
+        const gameId = span.parentElement.querySelector('.remove-game-btn').dataset.gameId;
+        const game = games.find(g => g.id === gameId);
+        if (game) {
+          document.getElementById('game-id').value = game.id;
+          document.getElementById('game-title').value = game.title;
+          document.getElementById('game-desc').value = game.description || '';
+          document.getElementById('game-icon').value = game.icon || '🎮';
+          document.getElementById('game-url').value = game.url || '';
+        }
+      });
+    });
+  } catch (err) {
+    tabContent.innerHTML = '<p>Ошибка загрузки игр.</p>';
+    console.error(err);
+  }
+}
 
       // ----- Пользователи (Firestore) -----
       async function renderUsersTab() {
@@ -1106,9 +1151,7 @@
         });
       }
 
-      function getGames() { return JSON.parse(localStorage.getItem('krugames_games')) || []; }
-      function saveGames(games) { localStorage.setItem('krugames_games', JSON.stringify(games)); }
-    });
+         });
   </script>
 </body>
 </html>
