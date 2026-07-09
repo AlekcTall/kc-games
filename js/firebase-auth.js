@@ -26,6 +26,8 @@ async function firebaseRegister(email, password, username, department) {
       achievements: [],
       easterEggsFound: [],
       completedGames: [],
+      disabled: false,
+      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     const userData = {
@@ -40,7 +42,8 @@ async function firebaseRegister(email, password, username, department) {
       description: '',
       achievements: [],
       easterEggsFound: [],
-      completedGames: []
+      completedGames: [],
+      disabled: false
     };
     setCurrentUser(userData);
     updateAuthUI(user);
@@ -58,9 +61,7 @@ async function firebaseLogin(email, password) {
     
     // Проверяем подтверждение email
     if (!user.emailVerified) {
-      // Отправляем письмо повторно
       await user.sendEmailVerification();
-      // Выходим, чтобы не дать доступ
       await auth.signOut();
       throw new Error('Email не подтверждён. Новое письмо отправлено. Проверьте почту и перейдите по ссылке.');
     }
@@ -68,6 +69,13 @@ async function firebaseLogin(email, password) {
     const doc = await db.collection('users').doc(user.uid).get();
     if (doc.exists) {
       const data = doc.data();
+      
+      // Проверяем, не заблокирован ли пользователь
+      if (data.disabled) {
+        await auth.signOut();
+        throw new Error('Ваша учётная запись заблокирована. Обратитесь к администратору.');
+      }
+      
       const userData = {
         uid: user.uid,
         email: user.email,
@@ -80,10 +88,15 @@ async function firebaseLogin(email, password) {
         description: data.description || '',
         achievements: data.achievements || [],
         easterEggsFound: data.easterEggsFound || [],
-        completedGames: data.completedGames || []
+        completedGames: data.completedGames || [],
+        disabled: data.disabled || false
       };
       setCurrentUser(userData);
       updateAuthUI(user);
+      
+      // Обновляем время последней активности
+      await updateLastActive(user.uid);
+      
       return userData;
     } else {
       throw new Error('Документ пользователя не найден');
@@ -162,6 +175,9 @@ async function addPointsToCurrentUser(points, gameId = null) {
     if (delta > 0) {
       updateData.lokoin_balance = newLokoinBalance;
     }
+
+    // Всегда обновляем lastActive при начислении баллов
+    updateData.lastActive = firebase.firestore.FieldValue.serverTimestamp();
 
     await userRef.update(updateData);
 
@@ -301,4 +317,16 @@ function updateAuthUI(firebaseUser) {
 
 function syncUserToLocal(userData) {
   setCurrentUser(userData);
+}
+
+// Обновление времени последней активности пользователя
+async function updateLastActive(uid) {
+  if (!uid) return;
+  try {
+    await db.collection('users').doc(uid).update({
+      lastActive: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) {
+    console.error('Ошибка обновления lastActive:', e);
+  }
 }
