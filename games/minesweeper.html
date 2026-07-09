@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .minesweeper-game {
-            max-width: 550px;
+            max-width: 480px;
             margin: 2rem auto;
             text-align: center;
             background: white;
@@ -233,7 +233,7 @@
         <a href="../games.html" class="ms-back">← Вернуться к играм</a>
     </div>
 
-    <!-- Firebase & общие скрипты -->
+    <!-- Firebase и общие скрипты -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -245,7 +245,7 @@
     <script src="../js/easter-eggs.js"></script>
 
     <script>
-        // ---------- Инициализация пасхалок ----------
+        // ---------- Пасхалки ----------
         document.addEventListener('DOMContentLoaded', () => {
             if (typeof initEasterEggs === 'function') initEasterEggs();
         });
@@ -262,9 +262,7 @@
             t.className = `toast toast--${type}`;
             t.textContent = msg;
             c.appendChild(t);
-            requestAnimationFrame(() => {
-                t.classList.add('toast--visible');
-            });
+            requestAnimationFrame(() => t.classList.add('toast--visible'));
             setTimeout(() => {
                 t.classList.remove('toast--visible');
                 t.addEventListener('transitionend', () => {
@@ -285,33 +283,30 @@
         const messageEl = document.getElementById('message');
         const smileyBtn = document.getElementById('smileyBtn');
 
-        // ---------- Константы игрового поля ----------
+        // ---------- Константы ----------
         const COLS = 9;
         const ROWS = 9;
         const MINES_TOTAL = 10;
         const CELL_SIZE = canvas.width / COLS; // 40px
+        const SAFE_CELLS = COLS * ROWS - MINES_TOTAL; // 71
 
-        // ---------- Переменные состояния игры ----------
-        let board = [];                // двумерный массив клеток
+        // ---------- Состояние игры ----------
+        let board = [];
         let minesPlanted = false;
-        let gameActive = false;
+        let gameActive = false;   // false до первого клика
         let gameWin = false;
         let gameOver = false;
         let flagsPlaced = 0;
-        let safeRevealed = 0;         // открыто безопасных клеток
-        const SAFE_CELLS = COLS * ROWS - MINES_TOTAL;
-
-        // Счёт (очки): количество открытых безопасных клеток в текущей партии
+        let safeRevealed = 0;
         let currentScore = 0;
-        // Максимальный счёт пользователя (из Firestore или local)
         let bestScore = 0;
         let currentUid = null;
 
-        // Таймер долгого нажатия для мобильных
+        // Таймер долгого нажатия для флага
         let longPressTimer = null;
         const LONG_PRESS_DURATION = 400;
 
-        // ---------- Структура клетки ----------
+        // ---------- Класс клетки ----------
         class Cell {
             constructor(row, col) {
                 this.row = row;
@@ -323,7 +318,7 @@
             }
         }
 
-        // ---------- Инициализация поля (без мин) ----------
+        // ---------- Создание пустого поля ----------
         function createEmptyBoard() {
             const newBoard = [];
             for (let r = 0; r < ROWS; r++) {
@@ -336,9 +331,8 @@
             return newBoard;
         }
 
-        // ---------- Расстановка мин (после первого клика) ----------
+        // ---------- Расстановка мин (исключая зону первого клика) ----------
         function plantMines(excludeRow, excludeCol) {
-            // Собираем все возможные позиции, кроме исключённой и соседних
             const forbidden = new Set();
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
@@ -357,7 +351,7 @@
                     }
                 }
             }
-            // Перемешиваем и берём нужное количество мин
+            // Перемешиваем и выбираем первые MINES_TOTAL
             for (let i = candidates.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
@@ -367,7 +361,7 @@
                 const { r, c } = candidates[i];
                 board[r][c].mine = true;
             }
-            // Считаем соседей
+            // Считаем соседей для всех клеток
             for (let r = 0; r < ROWS; r++) {
                 for (let c = 0; c < COLS; c++) {
                     if (board[r][c].mine) continue;
@@ -375,6 +369,7 @@
                 }
             }
             minesPlanted = true;
+            gameActive = true;   // теперь можно ходить
         }
 
         function countAdjacentMines(row, col) {
@@ -397,7 +392,7 @@
             if (!cell || cell.revealed || cell.flagged || !gameActive) return;
             cell.revealed = true;
             if (cell.mine) {
-                // Подрыв
+                // Подрыв — конец игры
                 gameActive = false;
                 gameOver = true;
                 gameWin = false;
@@ -406,6 +401,7 @@
                 handleGameEnd();
                 return;
             }
+            // Безопасная клетка
             safeRevealed++;
             currentScore = safeRevealed;
             scoreDisplay.textContent = currentScore;
@@ -426,7 +422,7 @@
                 gameActive = false;
                 gameWin = true;
                 gameOver = true;
-                // Автоматически ставим флаги на все мины (для красоты)
+                // Автоматически ставим флаги на все мины
                 for (let r = 0; r < ROWS; r++) {
                     for (let c = 0; c < COLS; c++) {
                         if (board[r][c].mine && !board[r][c].flagged) {
@@ -451,6 +447,7 @@
             }
         }
 
+        // ---------- Флаг ----------
         function toggleFlag(row, col) {
             if (!gameActive) return;
             const cell = board[row][col];
@@ -461,20 +458,18 @@
             drawBoard();
         }
 
-        // ---------- Завершение игры и начисление очков ----------
+        // ---------- Завершение партии и синхронизация с Firestore ----------
         async function handleGameEnd() {
             if (gameWin) {
-                messageEl.textContent = '🎉 Победа! Нажмите ПРОБЕЛ или на смайлик для новой игры.';
+                messageEl.textContent = '🎉 Победа! Нажмите ПРОБЕЛ или 😊 для новой игры.';
                 smileyBtn.textContent = '😎';
-                // Даём 1 балл за победу и синхронизируем maxScore
                 if (currentScore > bestScore) {
                     bestScore = currentScore;
                 }
                 await awardWin();
-            } else if (gameOver && !gameWin) {
-                messageEl.textContent = '💥 Вы подорвались! Нажмите ПРОБЕЛ или на смайлик для новой игры.';
+            } else {
+                messageEl.textContent = '💥 Вы подорвались! Нажмите ПРОБЕЛ или 😊 для новой игры.';
                 smileyBtn.textContent = '💀';
-                // Сохраняем лучший результат (даже при проигрыше)
                 if (currentScore > bestScore) {
                     bestScore = currentScore;
                 }
@@ -488,9 +483,7 @@
             if (cu && cu.uid && auth.currentUser) {
                 try {
                     const ok = await addPointsToCurrentUser(1, 'minesweeper');
-                    if (ok) {
-                        showToast('+1 балл за победу в сапёре!', 'success');
-                    }
+                    if (ok) showToast('+1 балл за победу в сапёре!', 'success');
                     await syncGameStats('minesweeper', { maxScore: bestScore });
                     checkAndAwardAchievements();
                 } catch (e) {
@@ -510,9 +503,10 @@
             }
         }
 
+        // ---------- Перезапуск игры ----------
         function restartGame() {
-            // Останавливаем игру
-            gameActive = false;
+            // Сброс всех параметров
+            gameActive = false;   // ждём первого клика
             gameOver = false;
             gameWin = false;
             minesPlanted = false;
@@ -527,7 +521,7 @@
             drawBoard();
         }
 
-        // ---------- Отрисовка поля ----------
+        // ---------- Отрисовка ----------
         function drawBoard() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             for (let r = 0; r < ROWS; r++) {
@@ -544,7 +538,7 @@
                     }
                     ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
 
-                    // Эффект объёма для неоткрытых
+                    // Эффект объёма для неоткрытых клеток
                     if (!cell.revealed) {
                         ctx.fillStyle = '#ffffff';
                         ctx.fillRect(x + 1, y + 1, CELL_SIZE - 3, 2);
@@ -577,7 +571,7 @@
                     }
                 }
             }
-            // Сетка поверх
+            // Сетка
             ctx.strokeStyle = '#9e9e9e';
             ctx.lineWidth = 0.5;
             for (let i = 0; i <= COLS; i++) {
@@ -594,10 +588,10 @@
             }
         }
 
-        // ---------- Обработчики событий мыши и касаний ----------
+        // ---------- Управление мышью и касаниями ----------
         function getCellFromEvent(e) {
             const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;   // canvas физический / CSS
+            const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -613,13 +607,20 @@
 
         canvas.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            if (!gameActive && !gameOver) return; // ещё не начали
+            if (gameOver) return;  // если игра уже завершена, только перезапуск
             const cell = getCellFromEvent(e);
             if (!cell) return;
             if (e.button === 0) { // левая кнопка
-                handleLeftClick(cell.row, cell.col);
-            } else if (e.button === 2) { // правая кнопка
-                handleRightClick(cell.row, cell.col);
+                if (!minesPlanted) {
+                    // Первый клик — расставляем мины и сразу открываем эту клетку
+                    plantMines(cell.row, cell.col);
+                    revealCell(cell.row, cell.col);
+                } else {
+                    if (gameActive) revealCell(cell.row, cell.col);
+                }
+                drawBoard();
+            } else if (e.button === 2) { // правая кнопка — флаг
+                if (gameActive) toggleFlag(cell.row, cell.col);
             }
         });
 
@@ -627,14 +628,12 @@
 
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (!gameActive && !gameOver) return;
+            if (gameOver) return;
             const cell = getCellFromEvent(e);
             if (!cell) return;
-            // Стартуем таймер долгого нажатия
             longPressTimer = setTimeout(() => {
-                handleRightClick(cell.row, cell.col);
+                if (gameActive) toggleFlag(cell.row, cell.col);
                 longPressTimer = null;
-                // Небольшая вибрация (если доступно)
                 if (navigator.vibrate) navigator.vibrate(20);
             }, LONG_PRESS_DURATION);
         });
@@ -643,11 +642,17 @@
             e.preventDefault();
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
+                longPressTimer = null;
                 const cell = getCellFromEvent(e);
                 if (cell) {
-                    handleLeftClick(cell.row, cell.col);
+                    if (!minesPlanted) {
+                        plantMines(cell.row, cell.col);
+                        revealCell(cell.row, cell.col);
+                    } else {
+                        if (gameActive) revealCell(cell.row, cell.col);
+                    }
+                    drawBoard();
                 }
-                longPressTimer = null;
             }
         });
 
@@ -658,56 +663,36 @@
             }
         });
 
-        function handleLeftClick(row, col) {
-            if (!gameActive && !gameOver) {
-                // Первый клик — расставляем мины и начинаем игру
-                if (!minesPlanted) {
-                    plantMines(row, col);
-                    gameActive = true;
-                } else {
-                    // игра уже активна? (на всякий случай)
-                    gameActive = true;
+        // ---------- Кнопка-смайлик ----------
+        smileyBtn.addEventListener('click', restartGame);
+
+        // ---------- Клавиатура ----------
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameOver || !gameActive) {
+                    restartGame();
                 }
             }
-            if (!gameActive) return;
-            const cell = board[row][col];
-            if (cell.flagged || cell.revealed) return;
-            revealCell(row, col);
-            drawBoard();
-        }
-
-        function handleRightClick(row, col) {
-            if (!gameActive) return;
-            toggleFlag(row, col);
-        }
-
-        // Смайлик перезапуска
-        smileyBtn.addEventListener('click', restartGame);
-        smileyBtn.addEventListener('mousedown', (e) => {
-            if (gameActive || gameOver) smileyBtn.textContent = '😮';
-        });
-        smileyBtn.addEventListener('mouseup', () => {
-            if (gameActive) smileyBtn.textContent = '😊';
-            else if (gameWin) smileyBtn.textContent = '😎';
-            else if (gameOver && !gameWin) smileyBtn.textContent = '💀';
         });
 
         // ---------- Модальное окно ----------
-        function startGame() {
+        btnPlay.addEventListener('click', () => {
             startModal.style.display = 'none';
             restartGame();
             drawBoard();
-        }
-        btnPlay.addEventListener('click', startGame);
+        });
         btnBack.addEventListener('click', () => window.location.href = '../games.html');
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && startModal.style.display !== 'none') {
                 e.preventDefault();
-                startGame();
+                startModal.style.display = 'none';
+                restartGame();
+                drawBoard();
             }
         });
 
-        // ---------- Интеграция с Firebase и лидерборд ----------
+        // ---------- Firebase: лидерборд и рекорды ----------
         auth.onAuthStateChanged(user => {
             if (user) {
                 loadBestAndTop();
@@ -770,13 +755,10 @@
             }
         }
 
-        // Первичная отрисовка
+        // ---------- Стартовая отрисовка ----------
         board = createEmptyBoard();
         drawBoard();
-
-document.addEventListener (`keydown`, (e) =>{if (e.code === `space`) {e.preventDefault(); if (!gameActive || gameover) { restartGame(); drawBoard(); }}});
-    
-        
+        messageEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} очков` : '';
     </script>
 </body>
 </html>
