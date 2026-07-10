@@ -151,6 +151,7 @@
     let userActions = {};
     let unsubscribeEvent = null;
     let unsubscribeAdminEvents = null;
+    let unsubscribeActivity = null;
     let activityLog = [];
 
     // ---------- Действия ----------
@@ -183,6 +184,7 @@
       }
       eventData = { id: doc.id, ...doc.data() };
       
+      // Если завершён — показываем итоговую статистику
       if (eventData.status === 'finished') {
         renderFinishedState();
         return;
@@ -245,25 +247,37 @@
     }
 
     function setupRealtime() {
+      if (unsubscribeEvent) unsubscribeEvent();
+      
       unsubscribeEvent = db.collection('events').doc(eventId).onSnapshot(doc => {
         if (!doc.exists) return;
-        eventData = { id: doc.id, ...doc.data() };
-        if (eventData.status === 'finished') {
+        const data = doc.data();
+        eventData = { id: doc.id, ...data };
+        
+        // Если ивент завершился — показываем итоги
+        if (data.status === 'finished') {
+          if (unsubscribeAdminEvents) unsubscribeAdminEvents();
+          if (unsubscribeActivity) unsubscribeActivity();
           renderFinishedState();
           return;
         }
-        participantsData = eventData.participants || {};
-        const userId = auth.currentUser.uid;
-        const userData = participantsData[userId] || { actions: {}, lastResetDate: '' };
-        userActions = userData.actions || {};
+        
+        participantsData = data.participants || {};
+        const userId = auth.currentUser ? auth.currentUser.uid : null;
+        if (userId) {
+          const userData = participantsData[userId] || { actions: {}, lastResetDate: '' };
+          userActions = userData.actions || {};
+        }
         updateUI();
       });
 
+      if (unsubscribeAdminEvents) unsubscribeAdminEvents();
       unsubscribeAdminEvents = db.collection('events').doc(eventId).collection('events')
         .orderBy('timestamp', 'desc').limit(10)
         .onSnapshot(snapshot => { renderAdminEvents(snapshot); });
 
-      db.collection('events').doc(eventId).collection('activity')
+      if (unsubscribeActivity) unsubscribeActivity();
+      unsubscribeActivity = db.collection('events').doc(eventId).collection('activity')
         .orderBy('timestamp', 'desc').limit(30)
         .onSnapshot(snapshot => {
           activityLog = [];
@@ -533,6 +547,7 @@
     window.addEventListener('beforeunload', () => {
       if (unsubscribeEvent) unsubscribeEvent();
       if (unsubscribeAdminEvents) unsubscribeAdminEvents();
+      if (unsubscribeActivity) unsubscribeActivity();
     });
 
     init();
