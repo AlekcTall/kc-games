@@ -22,6 +22,7 @@
     .btn-success { background: #27ae60; color: white; }
     .btn-warning { background: #f39c12; color: white; }
     .btn-danger { background: #e74c3c; color: white; }
+    .btn-restart { background: #3498db; color: white; }
     .monitor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
     .monitor-card { background: #f9fafb; border-radius: 12px; padding: 1.2rem; text-align: center; }
     .monitor-card .value { font-size: 2rem; font-weight: 700; }
@@ -148,6 +149,7 @@
                   <button class="btn btn-small edit-event-btn" data-event-id="${ev.id}">✏️</button>
                   ${ev.status === 'draft' ? `<button class="btn btn-small btn-success start-event-btn" data-event-id="${ev.id}">▶️ Запустить</button>` : ''}
                   ${ev.status === 'active' ? `<button class="btn btn-small btn-warning stop-event-btn" data-event-id="${ev.id}">⏹️ Завершить</button>` : ''}
+                  ${ev.status === 'finished' ? `<button class="btn btn-small btn-restart restart-event-btn" data-event-id="${ev.id}">🔄 Перезапустить</button>` : ''}
                   <button class="btn btn-small btn-danger delete-event-btn" data-event-id="${ev.id}">🗑️</button>
                 </div>
               </li>`;
@@ -174,9 +176,55 @@
           });
           document.querySelectorAll('.stop-event-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-              if (confirm('Завершить ивент досрочно?')) {
-                await db.collection('events').doc(e.target.dataset.eventId).update({ status: 'finished' });
-                showToast('Ивент завершён', 'success');
+              if (confirm('Завершить ивент досрочно? Будут сохранены финальные результаты.')) {
+                const eventId = e.target.dataset.eventId;
+                const eventRef = db.collection('events').doc(eventId);
+                const doc = await eventRef.get();
+                const data = doc.data();
+                
+                const participants = data.participants || {};
+                const ranked = [];
+                for (const [uid, pdata] of Object.entries(participants)) {
+                  if (uid === '_lastDecay') continue;
+                  const userDoc = await db.collection('users').doc(uid).get();
+                  const userData = userDoc.data() || {};
+                  ranked.push({
+                    uid,
+                    username: userData.username || 'Аноним',
+                    total: Object.values(pdata.actions || {}).reduce((a, b) => a + b, 0)
+                  });
+                }
+                ranked.sort((a, b) => b.total - a.total);
+                
+                const finalStats = {
+                  uniqueParticipants: Object.keys(participants).filter(k => k !== '_lastDecay').length,
+                  totalActions: data.statistics?.totalActions || 0,
+                  totalPoints: data.statistics?.totalPoints || 0,
+                  topParticipants: ranked.slice(0, 5)
+                };
+                
+                await eventRef.update({
+                  status: 'finished',
+                  health: data.health,
+                  finalStats
+                });
+                
+                showToast('Ивент завершён, статистика сохранена', 'success');
+                renderEventsList();
+              }
+            });
+          });
+          document.querySelectorAll('.restart-event-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              if (confirm('Перезапустить ивент? Все данные участников будут сброшены.')) {
+                const eventId = e.target.dataset.eventId;
+                await db.collection('events').doc(eventId).update({
+                  status: 'active',
+                  health: 1000,
+                  participants: { _lastDecay: Date.now() },
+                  statistics: { totalActions: 0, uniqueParticipants: 0 }
+                });
+                showToast('Ивент перезапущен', 'success');
                 renderEventsList();
               }
             });
@@ -244,12 +292,12 @@
             <textarea id="event-settings" rows="6">${JSON.stringify({
               difficulty: settings.difficulty || 'medium',
               decayPerHour: settings.decayPerHour || null,
-              minHealth: settings.minHealth || 5,
+              minHealth: settings.minHealth || 50,
               adaptiveMode: settings.adaptiveMode !== false,
-              maxHealth: settings.maxHealth || 100,
-              dailyActionLimits: settings.dailyActionLimits || { water: 3, bugs: 2, birds: 2, fertilize: 1, sing: 5 },
-              lokoinActionCost: settings.lokoinActionCost || 3,
-              lokoinActionBoost: settings.lokoinActionBoost || 10
+              maxHealth: settings.maxHealth || 1000,
+              dailyActionLimits: settings.dailyActionLimits || { water: 5, bugs: 3, birds: 3, fertilize: 2, tie: 10, sing: 10 },
+              lokoinActionCost: settings.lokoinActionCost || 5,
+              lokoinActionBoost: settings.lokoinActionBoost || 20
             }, null, 2)}</textarea>
             <h4>Награды</h4>
             <div class="row">
@@ -340,14 +388,14 @@
           const eventDoc = activeSnap.docs[0];
           const event = { id: eventDoc.id, ...eventDoc.data() };
           const participants = event.participants || {};
-          const uniqueParticipants = Object.keys(participants).length;
-          const totalActions = Object.values(participants).reduce((s, p) => s + Object.values(p.actions || {}).reduce((a, b) => a + b, 0), 0);
+          const uniqueParticipants = Object.keys(participants).filter(k => k !== '_lastDecay').length;
+          const totalActions = Object.values(participants).reduce((s, p) => s + (p.actions ? Object.values(p.actions).reduce((a, b) => a + b, 0) : 0), 0);
 
           let html = `<h3>Мониторинг: ${event.icon} ${event.title}</h3>`;
           html += '<div class="monitor-grid">';
           html += `<div class="monitor-card"><div class="value">${uniqueParticipants}</div><div class="label">Участников</div></div>`;
           html += `<div class="monitor-card"><div class="value">${totalActions}</div><div class="label">Действий</div></div>`;
-          html += `<div class="monitor-card"><div class="value">${event.settings?.maxHealth || 100}</div><div class="label">Макс. здоровье</div></div>`;
+          html += `<div class="monitor-card"><div class="value">${event.settings?.maxHealth || 1000}</div><div class="label">Макс. здоровье</div></div>`;
           html += `<div class="monitor-card"><div class="value">${event.status === 'active' ? 'Активен' : event.status}</div><div class="label">Статус</div></div>`;
           html += '</div>';
 
@@ -358,12 +406,10 @@
           });
           html += '</div>';
 
-          // История админских событий
           html += '<div id="admin-events-history"><p>Загрузка истории...</p></div>';
 
           content.innerHTML = html;
 
-          // Загружаем историю
           const historySnap = await db.collection('events').doc(event.id).collection('events').orderBy('timestamp', 'desc').limit(20).get();
           const historyEl = document.getElementById('admin-events-history');
           if (historySnap.empty) {
