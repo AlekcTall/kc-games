@@ -39,7 +39,24 @@
     .ach-modal-status { font-size: 0.9rem; font-weight: 500; }
     .ach-unlocked-status { color: #27ae60; }
     .ach-locked-status { color: #e67e22; }
-    @media (max-width:480px) { .profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } }
+    /* Награды */
+    .awards-section { margin-top: 1.5rem; }
+    .awards-grid { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 0.5rem; }
+    .award-card { background: linear-gradient(135deg, #fff9e6, #fff3cc); border: 2px solid #f0c040; border-radius: 12px; padding: 0.8rem 1rem; display: flex; align-items: center; gap: 0.8rem; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; max-width: 300px; }
+    .award-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(240, 192, 64, 0.3); }
+    .award-card-icon { width: 40px; height: 40px; flex-shrink: 0; }
+    .award-card-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .award-card-info { flex: 1; }
+    .award-card-name { font-weight: 700; color: #b8860b; font-size: 0.95rem; }
+    .award-card-comment { font-size: 0.8rem; color: #666; margin-top: 0.2rem; }
+    /* Модалка награды */
+    .award-modal-content { text-align: center; max-width: 400px; }
+    .award-modal-icon { width: 80px; height: 80px; margin: 0 auto 1rem; }
+    .award-modal-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .award-modal-title { font-size: 1.4rem; font-weight: 700; color: #b8860b; margin-bottom: 0.3rem; }
+    .award-modal-desc { font-size: 0.95rem; color: #555; margin-bottom: 0.5rem; line-height: 1.5; }
+    .award-modal-comment { font-size: 0.9rem; color: #888; font-style: italic; margin-top: 0.5rem; }
+    @media (max-width:480px) { .profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } .award-card { max-width: 100%; } }
   </style>
 </head>
 <body>
@@ -72,6 +89,17 @@
       <div class="ach-modal-title" id="ach-modal-title"></div>
       <div class="ach-modal-desc" id="ach-modal-desc"></div>
       <div class="ach-modal-status" id="ach-modal-status"></div>
+    </div>
+  </div>
+
+  <!-- Модальное окно награды -->
+  <div class="modal-overlay" id="award-detail-modal" style="display:none;">
+    <div class="modal award-modal-content">
+      <span class="modal-close" id="award-detail-close">&times;</span>
+      <div class="award-modal-icon" id="award-detail-icon"></div>
+      <div class="award-modal-title" id="award-detail-title"></div>
+      <div class="award-modal-desc" id="award-detail-desc"></div>
+      <div class="award-modal-comment" id="award-detail-comment"></div>
     </div>
   </div>
 
@@ -174,6 +202,19 @@
       achModalClose.addEventListener('click', () => { achModal.style.display = 'none'; });
       window.addEventListener('click', (e) => { if (e.target === achModal) achModal.style.display = 'none'; });
 
+      // Модалка награды
+      const awardDetailModal = document.getElementById('award-detail-modal');
+      document.getElementById('award-detail-close').addEventListener('click', () => { awardDetailModal.style.display = 'none'; });
+      window.addEventListener('click', (e) => { if (e.target === awardDetailModal) awardDetailModal.style.display = 'none'; });
+
+      function showAwardDetailModal(award) {
+        document.getElementById('award-detail-icon').innerHTML = `<img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'">`;
+        document.getElementById('award-detail-title').textContent = award.name;
+        document.getElementById('award-detail-desc').textContent = award.description || '';
+        document.getElementById('award-detail-comment').textContent = award.comment ? `«${award.comment}»` : '';
+        awardDetailModal.style.display = 'flex';
+      }
+
       auth.onAuthStateChanged(async(firebaseUser)=>{
         if(firebaseUser){
           const doc=await db.collection('users').doc(firebaseUser.uid).get();
@@ -253,16 +294,60 @@
         });
       }
 
-      function renderProfile(user){
+      async function loadUserAwards(userId) {
+        try {
+          const awardedSnap = await db.collection('users').doc(userId).collection('awarded').get();
+          if (awardedSnap.empty) return [];
+          const awards = [];
+          for (const doc of awardedSnap.docs) {
+            const awardedData = doc.data();
+            const awardDoc = await db.collection('awards').doc(awardedData.awardId).get();
+            if (awardDoc.exists) {
+              awards.push({
+                ...awardDoc.data(),
+                id: awardDoc.id,
+                comment: awardedData.comment,
+                awardedAt: awardedData.awardedAt
+              });
+            }
+          }
+          awards.sort((a, b) => (b.awardedAt?.seconds || 0) - (a.awardedAt?.seconds || 0));
+          return awards;
+        } catch (e) {
+          console.error('Ошибка загрузки наград:', e);
+          return [];
+        }
+      }
+
+      async function renderProfile(user){
         const achCfg=getAchievementsConfig(); const gh=user.gameHistory||[];
         const purchased = user.purchasedItems || [];
         const hasTheme = purchased.includes('dark_theme');
         const emailVerified = auth.currentUser ? auth.currentUser.emailVerified : false;
 
+        // Загружаем награды пользователя
+        const userAwards = await loadUserAwards(user.uid);
+
         container.innerHTML=`<div class="profile-box">
           <div class="profile-header">${renderAvatarDiv(user)}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${user.department?`<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>`:''}<p><small>${user.email}</small></p></div></div>
           ${!emailVerified ? '<div class="verify-warning">⚠️ Ваш email не подтверждён. <button class="btn" id="resend-verify-btn" style="margin-left:1rem;">Отправить письмо</button></div>' : ''}
           <div class="profile-details"><p><strong>Баллы:</strong> <span id="profile-points">${user.points||0}</span></p><p><strong>Локоины:</strong> <span id="profile-lokoin">${user.lokoin_balance||0}</span></p><p><strong>О себе:</strong> <span id="profile-desc-text">${user.description||'—'}</span></p></div>
+          ${userAwards.length > 0 ? `
+          <div class="awards-section">
+            <h3 class="section-title">🎖️ Награды</h3>
+            <div class="awards-grid">
+              ${userAwards.map(award => `
+                <div class="award-card" data-award-id="${award.id}" data-comment="${award.comment || ''}">
+                  <div class="award-card-icon"><img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'"></div>
+                  <div class="award-card-info">
+                    <div class="award-card-name">${award.name}</div>
+                    ${award.comment ? `<div class="award-card-comment">${award.comment}</div>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
           <h3 class="section-title">Достижения (<span id="ach-count">${(user.achievements||[]).length}</span>/${achCfg.length})</h3>
           <div class="achievements-grid">${achCfg.map(ach=>{const unl=(user.achievements||[]).includes(ach.id);const hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}" data-ach-id="${ach.id}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span>${!hid&&!unl?`<span class="ach-hint">${ach.description}</span>`:''}</div>`;}).join('')}</div>
           <h3 class="section-title">История игр</h3><div id="history-container">${gh.length===0?'<p class="no-data">Пока не сыграно ни одной игры.</p>':`<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container" style="text-align:center;"></div>`}</div>
@@ -287,6 +372,15 @@
           <div class="accordion"><button class="accordion-header" data-target="password-section"><span>🔒 Сменить пароль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content" id="password-section"><div class="profile-password-change"><div class="form-group"><label for="old-password">Старый пароль</label><input type="password" id="old-password" placeholder="Введите старый пароль"></div><div class="form-group"><label for="new-password">Новый пароль</label><input type="password" id="new-password" placeholder="Введите новый пароль"></div><button class="btn" id="change-password-btn">Сменить пароль</button><p id="password-change-message" class="auth-message"></p></div></div></div>
           <button class="btn btn-logout" id="logout-btn">Выйти</button>
         </div>`;
+
+        // Обработчики клика по наградам
+        document.querySelectorAll('.award-card').forEach(card => {
+          card.addEventListener('click', () => {
+            const awardId = card.dataset.awardId;
+            const award = userAwards.find(a => a.id === awardId);
+            if (award) showAwardDetailModal(award);
+          });
+        });
 
         document.querySelectorAll('.achievement-item').forEach(item => {
           item.addEventListener('click', async () => {
