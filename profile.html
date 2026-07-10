@@ -98,7 +98,6 @@
         departmentsList = [];
         snap.forEach(doc => departmentsList.push(doc.data().name));
         if (departmentsList.length === 0) {
-          // fallback
           departmentsList = [
             'РБ (Физические лица)',
             'МСБ (Юридические лица)',
@@ -144,12 +143,10 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // Загружаем отделы до отрисовки
       await loadDepartments();
 
       const container=document.getElementById('profile-container');
 
-      // Модальное окно достижения
       const achModal = document.getElementById('ach-modal');
       const achModalClose = document.getElementById('ach-modal-close');
       const achModalIcon = document.getElementById('ach-modal-icon');
@@ -157,13 +154,20 @@
       const achModalDesc = document.getElementById('ach-modal-desc');
       const achModalStatus = document.getElementById('ach-modal-status');
 
-      function showAchievementModal(ach, unlocked) {
+      async function showAchievementModal(ach, unlocked) {
         achModalIcon.textContent = ach.hidden && !unlocked ? '❓' : ach.icon;
         achModalTitle.textContent = ach.hidden && !unlocked ? '???' : ach.name;
         achModalDesc.textContent = ach.hidden && !unlocked ? 'Откройте, чтобы узнать' : ach.description;
+        
+        let statsText = '';
+        if (!ach.hidden || unlocked) {
+          const percent = typeof getAchievementStats === 'function' ? await getAchievementStats(ach.id) : 0;
+          statsText = `<br><small style="color:#888;">Получили ${percent}% пользователей</small>`;
+        }
+        
         achModalStatus.innerHTML = unlocked
-          ? '<span class="ach-unlocked-status">✅ Получено</span>'
-          : '<span class="ach-locked-status">🔒 Ещё не получено</span>';
+          ? '<span class="ach-unlocked-status">✅ Получено</span>' + statsText
+          : '<span class="ach-locked-status">🔒 Ещё не получено</span>' + statsText;
         achModal.style.display = 'flex';
       }
 
@@ -242,7 +246,6 @@
           } catch(err){authMsg.textContent=err.message;showToast(err.message,'error');}
         });
 
-        // Активируем аккордеоны FAQ
         document.querySelectorAll('.faq-item__question').forEach(btn => {
           btn.addEventListener('click', () => {
             btn.parentElement.classList.toggle('active');
@@ -285,14 +288,13 @@
           <button class="btn btn-logout" id="logout-btn">Выйти</button>
         </div>`;
 
-        // Навешиваем обработчики клика по достижениям
         document.querySelectorAll('.achievement-item').forEach(item => {
-          item.addEventListener('click', () => {
+          item.addEventListener('click', async () => {
             const achId = item.dataset.achId;
             const ach = achCfg.find(a => a.id === achId);
             if (ach) {
               const unlocked = (user.achievements || []).includes(achId);
-              showAchievementModal(ach, unlocked);
+              await showAchievementModal(ach, unlocked);
             }
           });
         });
@@ -335,7 +337,6 @@
           });
         }
 
-        // Обработчик кнопки повторной отправки подтверждения email
         const resendBtn = document.getElementById('resend-verify-btn');
         if (resendBtn) {
           resendBtn.addEventListener('click', async () => {
