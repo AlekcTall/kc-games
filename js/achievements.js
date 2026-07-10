@@ -1,34 +1,7 @@
 // js/achievements.js
 
-// Кэш достижений
-let achievementsCache = [];
-
-// Загрузка достижений из Firestore
-async function loadAchievements() {
-  try {
-    const snap = await db.collection('achievements').get();
-    const achievements = [];
-    snap.forEach(doc => achievements.push({ id: doc.id, ...doc.data() }));
-    if (achievements.length === 0) {
-      // Инициализируем дефолтными, если коллекция пуста
-      const defaults = getDefaultAchievements();
-      for (const ach of defaults) {
-        await db.collection('achievements').doc(ach.id).set(ach);
-      }
-      achievementsCache = defaults;
-    } else {
-      achievementsCache = achievements;
-    }
-    return achievementsCache;
-  } catch (e) {
-    console.error('Ошибка загрузки достижений:', e);
-    achievementsCache = getDefaultAchievements();
-    return achievementsCache;
-  }
-}
-
-// Дефолтные достижения
-function getDefaultAchievements() {
+// Конфигурация достижений
+function getAchievementsConfig() {
   return [
     { id: 'first_game', name: 'Первый блин', description: 'Сыграйте в любую игру', icon: '🎮', hidden: false },
     { id: 'clicker_100', name: 'Кликоман', description: 'Наберите 100 кликов в кликере', icon: '🖱️', hidden: false },
@@ -44,33 +17,28 @@ function getDefaultAchievements() {
     { id: 'memory_30sec', name: 'Спидран', description: 'Найдите все пары за ≤30 секунд', icon: '🧠', hidden: false },
     { id: 'memory_8moves', name: 'Невозможно!', description: 'Найдите все пары ровно за 8 ходов', icon: '🧠', hidden: true },
     { id: 'profile_bio', name: 'О себе', description: 'Заполните поле «О себе» (минимум 10 символов)', icon: '✏️', hidden: true },
+    // Динамические достижения (проверяются отдельно)
     { id: 'top10', name: 'В десятке', description: 'Попадите в топ‑10 общего рейтинга', icon: '🏆', hidden: false },
     { id: 'top3', name: 'Пьедестал', description: 'Займите 1, 2 или 3 место в рейтинге', icon: '🥇', hidden: false },
+    // Пасхалки
     { id: 'easter_logo', name: 'Лого‑кликер', description: 'Найдите пасхалку в логотипе', icon: '🥚', hidden: true },
     { id: 'easter_footer', name: 'Подвал', description: 'Найдите пасхалку в футере', icon: '🥚', hidden: true },
     { id: 'easter_symbol', name: 'Секретный символ', description: 'Найдите секретный символ на главной', icon: '🥚', hidden: true },
     { id: 'easter_konami', name: 'Konami', description: 'Введите Konami Code', icon: '🥚', hidden: true },
     { id: 'easter_word', name: 'Бонус', description: 'Введите секретное слово "бонус"', icon: '🥚', hidden: true },
+    // 2048
     { id: '2048_512', name: 'Это только начало', description: 'Соберите плитку 512 в 2048', icon: '🔢', hidden: false },
     { id: '2048_2048', name: 'Вот почему она так называется', description: 'Соберите плитку 2048 в 2048', icon: '🔢', hidden: false },
     { id: '2048_4096', name: 'Прошел?', description: 'Соберите плитку 4096 в 2048', icon: '🔢', hidden: false },
     { id: '2048_8192', name: 'Х4', description: 'Соберите плитку 8192 в 2048', icon: '🔢', hidden: true },
+    // Сапёр
     { id: 'minesweeper_loss', name: 'Одна нога тут, другая там', description: 'Подорвитесь на мине в сапёре', icon: '💣', hidden: false },
     { id: 'minesweeper_win', name: 'Без права на ошибку', description: 'Успешно завершите игру в сапёре', icon: '💣', hidden: false },
     { id: 'minesweeper_speed', name: 'Я скорость', description: 'Завершите сапёра за ≤10 секунд', icon: '💣', hidden: true }
   ];
 }
 
-// Конфигурация достижений (кеш)
-function getAchievementsConfig() {
-  if (!achievementsCache.length) {
-    // Синхронный fallback, пока не загружены из Firestore
-    return getDefaultAchievements();
-  }
-  return achievementsCache;
-}
-
-// Получение глобальной статистики достижения
+// Получение глобальной статистики достижения (процент игроков)
 async function getAchievementStats(achievementId) {
   try {
     const snap = await db.collection('users').get();
@@ -90,7 +58,7 @@ async function getAchievementStats(achievementId) {
   }
 }
 
-// Асинхронная проверка достижений (без изменений)
+// Асинхронная проверка достижений
 async function checkAndAwardAchievements() {
   const user = auth.currentUser;
   if (!user) return;
@@ -155,11 +123,13 @@ async function checkAndAwardAchievements() {
       case 'easter_konami': earned = easterEggs.includes('konami'); break;
       case 'easter_word': earned = easterEggs.includes('word'); break;
 
+      // 2048
       case '2048_512': earned = (gameStats['2048']?.maxTile || 0) >= 512; break;
       case '2048_2048': earned = (gameStats['2048']?.maxTile || 0) >= 2048; break;
       case '2048_4096': earned = (gameStats['2048']?.maxTile || 0) >= 4096; break;
       case '2048_8192': earned = (gameStats['2048']?.maxTile || 0) >= 8192; break;
 
+      // Сапёр
       case 'minesweeper_loss': earned = gameStats.minesweeper?.loss === true; break;
       case 'minesweeper_win': earned = gameStats.minesweeper?.completed === true; break;
       case 'minesweeper_speed': earned = gameStats.minesweeper?.completed && (gameStats.minesweeper.bestTime || 999) <= 10; break;
