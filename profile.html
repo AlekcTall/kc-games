@@ -356,6 +356,9 @@
 
       auth.onAuthStateChanged(async(firebaseUser)=>{
         if(firebaseUser){
+          // Проверяем ежедневный вход (даже если уже авторизован)
+          const loginResult = await processDailyLogin(firebaseUser.uid);
+          
           const doc=await db.collection('users').doc(firebaseUser.uid).get();
           if(doc.exists){
             const u=doc.data(); const user={uid:firebaseUser.uid,email:firebaseUser.email,...u};
@@ -366,12 +369,9 @@
               document.body.classList.remove('dark-theme');
             }
             
-            // Проверяем, есть ли несобранная ежедневная награда
-            const dailyReward = user._dailyReward;
-            if (dailyReward) {
-              setTimeout(() => showDailyRewardModal(dailyReward), 500);
-              delete user._dailyReward;
-              setCurrentUser(user);
+            // Показываем модалку, если сегодня первый вход
+            if (loginResult) {
+              setTimeout(() => showDailyRewardModal(loginResult), 500);
             }
             
             renderProfile(user);
