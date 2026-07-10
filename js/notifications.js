@@ -13,7 +13,8 @@ const TYPE_ICONS = {
   purchase: '🛒',
   admin: '⚙️',
   system: 'ℹ️',
-  gift: '🎁'
+  gift: '🎁',
+  award: '🎖️'
 };
 // Склонение слова "локоин"
 function pluralizeLokoin(n) {
