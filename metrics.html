@@ -218,7 +218,7 @@
             <div class="metrics-card">
               <h3>По отделам</h3>
               <table class="metrics-table" id="dept-table">
-                <thead><tr><th>Отдел</th><th>Пользователей</th><th>Топ игра</th><th>Топ пользователь</th></tr></thead>
+                <thead><tr><th>Отдел</th><th>Пользователей</th><th>Всего баллов</th><th>Топ игра</th><th>Топ пользователь</th></tr></thead>
                 <tbody>${buildDeptRows(users)}</tbody>
               </table>
               <button class="btn export-btn" id="export-dept-csv">Экспорт CSV</button>
@@ -234,12 +234,13 @@
             exportCSV(rows, 'users.csv');
           });
           document.getElementById('export-dept-csv').addEventListener('click', () => {
-            const rows = [['Отдел','Пользователей','Топ игра','Топ пользователь']];
+            const rows = [['Отдел','Пользователей','Всего баллов','Топ игра','Топ пользователь']];
             const deptMap = groupBy(users, 'department');
             for (const [dept, members] of Object.entries(deptMap)) {
+              const totalPoints = members.reduce((s, u) => s + u.points, 0);
               const topGame = getTopGame(members.flatMap(u => u.gameHistory));
               const topUser = members.sort((a,b) => b.points - a.points)[0];
-              rows.push([dept, members.length, topGame || '—', topUser ? topUser.username : '—']);
+              rows.push([dept, members.length, totalPoints, topGame || '—', topUser ? topUser.username : '—']);
             }
             exportCSV(rows, 'departments.csv');
           });
@@ -273,9 +274,16 @@
         const deptMap = groupBy(users, 'department');
         let rows = '';
         for (const [dept, members] of Object.entries(deptMap)) {
+          const totalPoints = members.reduce((s, u) => s + u.points, 0);
           const topGame = getTopGame(members.flatMap(u => u.gameHistory));
           const topUser = members.sort((a,b) => b.points - a.points)[0];
-          rows += `<tr><td>${dept}</td><td>${members.length}</td><td>${topGame || '—'}</td><td>${topUser ? topUser.username : '—'}</td></tr>`;
+          rows += `<tr>
+            <td>${dept}</td>
+            <td>${members.length}</td>
+            <td>${totalPoints}</td>
+            <td>${topGame || '—'}</td>
+            <td>${topUser ? topUser.username : '—'}</td>
+          </tr>`;
         }
         return rows;
       }
