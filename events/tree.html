@@ -34,6 +34,12 @@
     .top-participants table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
     .top-participants th, .top-participants td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #eee; }
     .top-participants th { background: #f5f5f5; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .stat-card { background: #f9f9fb; border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 0.8rem; }
+    .stat-icon { font-size: 1.8rem; }
+    .stat-detail { display: flex; flex-direction: column; }
+    .stat-value { font-size: 1.2rem; font-weight: 700; color: var(--color-header); }
+    .stat-label { font-size: 0.75rem; color: #888; }
     /* Toast */
     #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
     .toast { padding: 0.75rem 1.2rem; border-radius: 8px; color: #fff; font-weight: 500; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; transform: translateX(100%); transition: opacity 0.3s, transform 0.3s; pointer-events: auto; max-width: 350px; word-wrap: break-word; }
@@ -147,7 +153,7 @@
     let unsubscribeAdminEvents = null;
     let activityLog = [];
 
-    // ---------- Действия (сбалансированы под 20-50 человек) ----------
+    // ---------- Действия ----------
     const ACTIONS = {
       water: { icon: '💧', name: 'Полить', healthBoost: 8, pointsReward: 1, limit: 5, effect: '+8% ❤️ +1 ⭐' },
       bugs: { icon: '🐛', name: 'Снять жуков', healthBoost: 5, pointsReward: 2, limit: 3, effect: '+5% ❤️ +2 ⭐' },
@@ -166,7 +172,6 @@
           return;
         }
         await loadEvent();
-        setupRealtime();
       });
     }
 
@@ -177,6 +182,11 @@
         return;
       }
       eventData = { id: doc.id, ...doc.data() };
+      
+      if (eventData.status === 'finished') {
+        renderFinishedState();
+        return;
+      }
       
       if (eventData.status !== 'active') {
         document.body.innerHTML = '<p>Ивент не активен.</p>';
@@ -225,19 +235,23 @@
       });
       currentHealth = Math.min(maxHealth, Math.max(settings.minHealth || 50, currentHealth + adminEventEffect));
       
-      // Загружаем ленту активности
       const activitySnap = await db.collection('events').doc(eventId).collection('activity')
         .orderBy('timestamp', 'desc').limit(30).get();
       activityLog = [];
       activitySnap.forEach(doc => activityLog.push(doc.data()));
       
       updateUI();
+      setupRealtime();
     }
 
     function setupRealtime() {
       unsubscribeEvent = db.collection('events').doc(eventId).onSnapshot(doc => {
         if (!doc.exists) return;
         eventData = { id: doc.id, ...doc.data() };
+        if (eventData.status === 'finished') {
+          renderFinishedState();
+          return;
+        }
         participantsData = eventData.participants || {};
         const userId = auth.currentUser.uid;
         const userData = participantsData[userId] || { actions: {}, lastResetDate: '' };
@@ -249,7 +263,6 @@
         .orderBy('timestamp', 'desc').limit(10)
         .onSnapshot(snapshot => { renderAdminEvents(snapshot); });
 
-      // Подписка на ленту активности
       db.collection('events').doc(eventId).collection('activity')
         .orderBy('timestamp', 'desc').limit(30)
         .onSnapshot(snapshot => {
@@ -257,6 +270,40 @@
           snapshot.forEach(doc => activityLog.push(doc.data()));
           renderActivityFeed();
         });
+    }
+
+    function renderFinishedState() {
+      const settings = eventData.settings || {};
+      const maxHealth = settings.maxHealth || 1000;
+      const finalHealth = eventData.health || 0;
+      const healthPercent = Math.round((finalHealth / maxHealth) * 100);
+      const finalStats = eventData.finalStats || {};
+      const stats = eventData.statistics || {};
+      
+      document.querySelector('.tree-page').innerHTML = `
+        <h2>🌳 Ивент завершён!</h2>
+        <div class="tree-icon">${healthPercent > 50 ? '🍎' : '🌱'}</div>
+        <h3>${eventData.title}</h3>
+        <div class="tree-health-bar">
+          <div class="tree-health-fill" style="width: ${healthPercent}%;"></div>
+        </div>
+        <p>Финальное здоровье: <strong>${Math.round(finalHealth)}/${maxHealth}</strong> (${healthPercent}%)</p>
+        <div class="stats-grid" style="margin-top:1rem;">
+          <div class="stat-card"><span class="stat-icon">👥</span><div class="stat-detail"><div class="stat-value">${finalStats.uniqueParticipants || stats.uniqueParticipants || 0}</div><div class="stat-label">Участников</div></div></div>
+          <div class="stat-card"><span class="stat-icon">🎯</span><div class="stat-detail"><div class="stat-value">${finalStats.totalActions || stats.totalActions || 0}</div><div class="stat-label">Действий</div></div></div>
+          <div class="stat-card"><span class="stat-icon">⭐</span><div class="stat-detail"><div class="stat-value">${finalStats.totalPoints || 0}</div><div class="stat-label">Баллов выдано</div></div></div>
+        </div>
+        ${finalStats.topParticipants ? `
+        <div class="top-participants" style="margin-top:1rem;">
+          <h4>🏆 Топ участников</h4>
+          <table>
+            <tr><th>#</th><th>Игрок</th><th>Действий</th></tr>
+            ${finalStats.topParticipants.map((p, i) => `<tr><td>${i+1}</td><td>${p.username}</td><td>${p.total}</td></tr>`).join('')}
+          </table>
+        </div>
+        ` : ''}
+        <a href="../index.html" class="tree-back">← На главную</a>
+      `;
     }
 
     function updateUI() {
@@ -386,7 +433,6 @@
       statistics.totalActions++;
       if (!eventData.participants?.[userId]) statistics.uniqueParticipants++;
       
-      // Добавляем в ленту активности
       await db.collection('events').doc(eventId).collection('activity').add({
         userId,
         username,
@@ -399,7 +445,6 @@
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
       
-      // Сохраняем в Firestore
       await db.collection('events').doc(eventId).update({
         health: currentHealth,
         participants: participantsData,
@@ -413,14 +458,12 @@
       const today = new Date();
       const moscowToday = new Date(today.getTime() + (3 * 60 * 60 * 1000)).toISOString().slice(0, 10);
       
-      // Собираем пользователей с их именами и ролью
       const ranked = [];
       for (const [uid, data] of Object.entries(participantsData)) {
         if (uid === '_lastDecay') continue;
-        // Загружаем имя и роль из Firestore
         const userDoc = await db.collection('users').doc(uid).get();
         const userData = userDoc.data() || {};
-        if (userData.role === 'admin') continue; // исключаем админов
+        if (userData.role === 'admin') continue;
         ranked.push({
           uid,
           username: userData.username || 'Аноним',
@@ -450,7 +493,6 @@
         return;
       }
       
-      // Загружаем имена для всех userId в ленте
       const nameMap = {};
       for (const a of activityLog) {
         if (!nameMap[a.userId]) {
