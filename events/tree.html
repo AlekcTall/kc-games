@@ -106,13 +106,13 @@
     let unsubscribeEvent = null;
     let unsubscribeAdminEvents = null;
 
-    // ---------- Действия ----------
+    // ---------- Действия (исправлены баллы и лимиты) ----------
     const ACTIONS = {
       water: { icon: '💧', name: 'Полить', healthBoost: 5, pointsReward: 1, limit: 3 },
       bugs: { icon: '🐛', name: 'Снять жуков', healthBoost: 3, pointsReward: 2, limit: 2 },
       birds: { icon: '🦅', name: 'Отогнать птиц', healthBoost: 4, pointsReward: 2, limit: 2 },
       fertilize: { icon: '🌿', name: 'Удобрить', healthBoost: 8, pointsReward: 3, limit: 1 },
-      tie: { icon: '🪴', name: 'Подвязать ветки', healthBoost: 2, pointsReward: 1, limit: 999 },
+      tie: { icon: '🪴', name: 'Подвязать ветки', healthBoost: 2, pointsReward: 1, limit: 5 },
       sing: { icon: '🎵', name: 'Спеть песню', healthBoost: 1, pointsReward: 1, limit: 5 },
       lokoin: { icon: '🌞', name: 'Подарить свет', healthBoost: 10, pointsReward: 0, limit: 999, costLokoin: 3 }
     };
@@ -146,7 +146,18 @@
       // Загружаем участников
       participantsData = eventData.participants || {};
       const userId = auth.currentUser.uid;
-      userActions = participantsData[userId]?.actions || {};
+      
+      // Сбрасываем лимиты, если новый день
+      const d = new Date();
+      const moscowTime = new Date(d.getTime() + (3 * 60 * 60 * 1000));
+      const today = moscowTime.toISOString().slice(0, 10);
+      const userData = participantsData[userId] || { actions: {}, lastResetDate: '' };
+      if (userData.lastResetDate !== today) {
+        userData.actions = {};
+        userData.lastResetDate = today;
+        participantsData[userId] = userData;
+      }
+      userActions = userData.actions || {};
       
       // Вычисляем текущее здоровье с учётом увядания
       const settings = eventData.settings || {};
@@ -160,9 +171,6 @@
       let actualDecay = decayPerHour;
       if (settings.adaptiveMode !== false) {
         const totalActionsToday = Object.values(participantsData).reduce((s, p) => {
-          const d = new Date();
-          const moscowTime = new Date(d.getTime() + (3 * 60 * 60 * 1000));
-          const today = moscowTime.toISOString().slice(0, 10);
           return s + (p.lastResetDate === today ? Object.values(p.actions || {}).reduce((a, b) => a + b, 0) : 0);
         }, 0);
         if (totalActionsToday > 50) actualDecay *= 0.9;
@@ -192,7 +200,9 @@
         eventData = { id: doc.id, ...doc.data() };
         participantsData = eventData.participants || {};
         const userId = auth.currentUser.uid;
-        userActions = participantsData[userId]?.actions || {};
+        const userData = participantsData[userId] || { actions: {}, lastResetDate: '' };
+        userActions = userData.actions || {};
+        // Не обновляем здоровье из снапшота, чтобы не перезаписывать локальные изменения
         updateUI();
       });
 
@@ -250,11 +260,11 @@
     }
 
     function renderActions() {
-      const limits = eventData.settings?.dailyActionLimits || { water: 3, bugs: 2, birds: 2, fertilize: 1, sing: 5 };
+      const limits = eventData.settings?.dailyActionLimits || { water: 3, bugs: 2, birds: 2, fertilize: 1, tie: 5, sing: 5 };
       
       let html = '';
       for (const [key, action] of Object.entries(ACTIONS)) {
-        const limit = limits[key] || action.limit;
+        const limit = limits[key] !== undefined ? limits[key] : action.limit;
         const used = userActions[key] || 0;
         const remaining = Math.max(0, limit - used);
         const disabled = remaining === 0 && limit !== 999;
@@ -292,7 +302,7 @@
         });
       }
       
-      // Обновляем счётчик действий пользователя
+      // Обновляем счётчик действий пользователя локально
       const userId = auth.currentUser.uid;
       const d = new Date();
       const moscowTime = new Date(d.getTime() + (3 * 60 * 60 * 1000));
@@ -305,11 +315,14 @@
       }
       userData.actions[actionKey] = (userData.actions[actionKey] || 0) + 1;
       participantsData[userId] = userData;
+      userActions = userData.actions; // Локальное обновление для мгновенного отображения
       
       // Начисляем баллы
       if (action.pointsReward > 0) {
         await addPointsToCurrentUser(action.pointsReward, 'event_tree');
         showToast(`+${action.pointsReward} баллов!`, 'success');
+      } else if (action.costLokoin) {
+        showToast(`-${action.costLokoin} локоинов`, 'info');
       }
       
       // Обновляем здоровье
