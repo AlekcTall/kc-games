@@ -110,6 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initNotifications();
   }
 
+  // Загружаем достижения из Firestore при старте
+  if (typeof loadAchievements === 'function') {
+    loadAchievements();
+  }
+
   // Автоматическое обновление статуса авторизации, темы и пинг онлайна
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
