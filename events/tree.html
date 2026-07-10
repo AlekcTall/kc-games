@@ -324,7 +324,6 @@
         btn.addEventListener('click', () => {
           const actionKey = btn.dataset.action;
           if (actionKey === 'lokoin') {
-            // Показать подтверждение
             const action = ACTIONS[actionKey];
             confirmLokoinText.textContent = `Потратить ${action.costLokoin} локоинов на +${action.healthBoost}% здоровья?`;
             confirmLokoinModal.style.display = 'flex';
@@ -410,44 +409,63 @@
       updateUI();
     }
 
-    function renderTopParticipants() {
+    async function renderTopParticipants() {
       const today = new Date();
       const moscowToday = new Date(today.getTime() + (3 * 60 * 60 * 1000)).toISOString().slice(0, 10);
       
-      const ranked = Object.entries(participantsData)
-        .filter(([uid]) => uid !== '_lastDecay')
-        .map(([uid, data]) => ({
+      // Собираем пользователей с их именами и ролью
+      const ranked = [];
+      for (const [uid, data] of Object.entries(participantsData)) {
+        if (uid === '_lastDecay') continue;
+        // Загружаем имя и роль из Firestore
+        const userDoc = await db.collection('users').doc(uid).get();
+        const userData = userDoc.data() || {};
+        if (userData.role === 'admin') continue; // исключаем админов
+        ranked.push({
           uid,
-          username: data.username || uid.substring(0, 6),
+          username: userData.username || 'Аноним',
           total: Object.values(data.actions || {}).reduce((a, b) => a + b, 0)
-        }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
+        });
+      }
       
-      if (ranked.length === 0) {
+      ranked.sort((a, b) => b.total - a.total);
+      const top5 = ranked.slice(0, 5);
+      
+      if (top5.length === 0) {
         topParticipants.innerHTML = '';
         return;
       }
       
       let html = '<h4>🏆 Топ сегодня</h4><table><tr><th>#</th><th>Игрок</th><th>Действий</th></tr>';
-      ranked.forEach((p, i) => {
+      top5.forEach((p, i) => {
         html += `<tr><td>${i+1}</td><td>${p.username}</td><td>${p.total}</td></tr>`;
       });
       html += '</table>';
       topParticipants.innerHTML = html;
     }
 
-    function renderActivityFeed() {
+    async function renderActivityFeed() {
       if (activityLog.length === 0) {
         activityFeed.innerHTML = '<h4>📜 Последние действия</h4><p style="text-align:center;color:#888;">Пока нет действий</p>';
         return;
       }
+      
+      // Загружаем имена для всех userId в ленте
+      const nameMap = {};
+      for (const a of activityLog) {
+        if (!nameMap[a.userId]) {
+          const userDoc = await db.collection('users').doc(a.userId).get();
+          nameMap[a.userId] = userDoc.data()?.username || 'Аноним';
+        }
+      }
+      
       let html = '<h4>📜 Последние действия</h4>';
       activityLog.slice(0, 15).forEach(a => {
         const time = a.timestamp ? new Date(a.timestamp.seconds * 1000).toLocaleTimeString('ru-RU') : '';
+        const username = nameMap[a.userId] || 'Аноним';
         html += `<div class="activity-item">
           <span class="act-icon">${a.actionIcon || '🎯'}</span>
-          <span><strong>${a.username || 'Аноним'}</strong> ${a.actionName || ''} ${a.healthBoost ? '+' + a.healthBoost + '%' : ''}</span>
+          <span><strong>${username}</strong> ${a.actionName || ''} ${a.healthBoost ? '+' + a.healthBoost + '%' : ''}</span>
           <span style="margin-left:auto;color:#888;font-size:0.75rem;">${time}</span>
         </div>`;
       });
