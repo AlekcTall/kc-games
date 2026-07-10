@@ -38,6 +38,26 @@ function getAchievementsConfig() {
   ];
 }
 
+// Получение глобальной статистики достижения (процент игроков)
+async function getAchievementStats(achievementId) {
+  try {
+    const snap = await db.collection('users').get();
+    let total = 0;
+    let unlocked = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.role === 'admin') return;
+      total++;
+      if ((d.achievements || []).includes(achievementId)) unlocked++;
+    });
+    if (total === 0) return 0;
+    return Math.round((unlocked / total) * 100);
+  } catch (e) {
+    console.error('Ошибка получения статистики достижения:', e);
+    return 0;
+  }
+}
+
 // Асинхронная проверка достижений
 async function checkAndAwardAchievements() {
   const user = auth.currentUser;
