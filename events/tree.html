@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Живое дерево – КЦ Игры</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .tree-page { max-width: 600px; margin: 2rem auto; text-align: center; background: white; padding: 2rem; border-radius: var(--border-radius); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .tree-health-bar { width: 100%; height: 24px; background: #eee; border-radius: 12px; overflow: hidden; margin: 1rem 0; }
+    .tree-health-fill { height: 100%; background: linear-gradient(90deg, #e74c3c, #f39c12, #27ae60); transition: width 0.5s ease; }
+    .tree-icon { font-size: 5rem; margin: 1rem 0; transition: all 0.5s ease; }
+    .tree-stats { display: flex; justify-content: space-around; margin: 1rem 0; font-weight: 600; }
+    .tree-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; margin: 1.5rem 0; }
+    .tree-action-btn { background: #f0f4f8; border: 2px solid #d0d8e0; border-radius: 12px; padding: 0.8rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .tree-action-btn:hover:not(:disabled) { background: #e6f0ff; border-color: #3498db; transform: translateY(-2px); }
+    .tree-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tree-action-btn .action-icon { font-size: 2rem; display: block; margin-bottom: 0.3rem; }
+    .tree-action-btn .action-name { font-weight: 600; font-size: 0.9rem; }
+    .tree-action-btn .action-limit { font-size: 0.75rem; color: #888; }
+    .tree-message { font-weight: bold; min-height: 1.5rem; margin: 0.5rem 0; }
+    .tree-back { display: inline-block; margin-top: 1rem; color: var(--color-primary); text-decoration: none; }
+    .admin-events-log { margin-top: 2rem; text-align: left; }
+    .admin-events-log h4 { text-align: center; }
+    .admin-event-item { background: #fffbe6; border: 1px solid #f0c040; border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 0.4rem; font-size: 0.9rem; }
+    .timer-bar { font-size: 0.9rem; color: #888; margin-bottom: 0.5rem; }
+    /* Toast */
+    #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+    .toast { padding: 0.75rem 1.2rem; border-radius: 8px; color: #fff; font-weight: 500; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; transform: translateX(100%); transition: opacity 0.3s, transform 0.3s; pointer-events: auto; max-width: 350px; word-wrap: break-word; }
+    .toast--visible { opacity: 1; transform: translateX(0); }
+    .toast--success { background: #27ae60; } .toast--info { background: #3498db; } .toast--error { background: #e74c3c; }
+    @media (max-width: 480px) { .tree-actions { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="tree-page">
+    <h2>🌳 Живое дерево</h2>
+    <div class="timer-bar" id="timer-bar">Загрузка...</div>
+    <div class="tree-icon" id="tree-icon">🌱</div>
+    <div class="tree-health-bar">
+      <div class="tree-health-fill" id="health-fill" style="width: 100%;"></div>
+    </div>
+    <div class="tree-stats">
+      <span>❤️ <span id="health-text">100</span>%</span>
+      <span>📉 <span id="decay-rate">-0.5</span>%/ч</span>
+    </div>
+    <p class="tree-message" id="tree-message"></p>
+    <div class="tree-actions" id="tree-actions"></div>
+    <div class="admin-events-log" id="admin-events-log"></div>
+    <a href="../index.html" class="tree-back">← На главную</a>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/firebase-auth.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/achievements.js"></script>
+  <script src="../js/notifications.js"></script>
+  <script src="../js/easter-eggs.js"></script>
+
+  <script>
+    // ---------- Пасхалки ----------
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof initEasterEggs === 'function') initEasterEggs();
+    });
+
+    // ---------- Toast ----------
+    function showToast(msg, type = 'info') {
+      let c = document.getElementById('toast-container');
+      if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); }
+      const t = document.createElement('div');
+      t.className = `toast toast--${type}`; t.textContent = msg;
+      c.appendChild(t);
+      requestAnimationFrame(() => t.classList.add('toast--visible'));
+      setTimeout(() => {
+        t.classList.remove('toast--visible');
+        t.addEventListener('transitionend', () => { if (t.parentNode) t.remove(); if (!c.children.length && c.parentNode) c.remove(); });
+      }, 3500);
+    }
+
+    // ---------- Параметры из URL ----------
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('id');
+    if (!eventId) {
+      document.body.innerHTML = '<p>Ивент не указан. Вернитесь на главную.</p>';
+      throw new Error('eventId missing');
+    }
+
+    // ---------- DOM ----------
+    const healthFill = document.getElementById('health-fill');
+    const healthText = document.getElementById('health-text');
+    const decayRateEl = document.getElementById('decay-rate');
+    const treeIcon = document.getElementById('tree-icon');
+    const treeMessage = document.getElementById('tree-message');
+    const treeActions = document.getElementById('tree-actions');
+    const timerBar = document.getElementById('timer-bar');
+    const adminEventsLog = document.getElementById('admin-events-log');
+
+    // ---------- Глобальные переменные ----------
+    let eventData = null;
+    let currentHealth = 100;
+    let participantsData = {};
+    let userActions = {};
+    let unsubscribeEvent = null;
+    let unsubscribeAdminEvents = null;
+
+    // ---------- Действия ----------
+    const ACTIONS = {
+      water: { icon: '💧', name: 'Полить', healthBoost: 5, pointsReward: 1, limit: 3 },
+      bugs: { icon: '🐛', name: 'Снять жуков', healthBoost: 3, pointsReward: 2, limit: 2 },
+      birds: { icon: '🦅', name: 'Отогнать птиц', healthBoost: 4, pointsReward: 2, limit: 2 },
+      fertilize: { icon: '🌿', name: 'Удобрить', healthBoost: 8, pointsReward: 3, limit: 1 },
+      tie: { icon: '🪴', name: 'Подвязать ветки', healthBoost: 2, pointsReward: 1, limit: 999 },
+      sing: { icon: '🎵', name: 'Спеть песню', healthBoost: 1, pointsReward: 1, limit: 5 },
+      lokoin: { icon: '🌞', name: 'Подарить свет', healthBoost: 10, pointsReward: 0, limit: 999, costLokoin: 3 }
+    };
+
+    // ---------- Инициализация ----------
+    async function init() {
+      auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+          document.body.innerHTML = '<p>Войдите, чтобы участвовать в ивенте.</p>';
+          return;
+        }
+        await loadEvent();
+        setupRealtime();
+      });
+    }
+
+    async function loadEvent() {
+      const doc = await db.collection('events').doc(eventId).get();
+      if (!doc.exists) {
+        document.body.innerHTML = '<p>Ивент не найден.</p>';
+        return;
+      }
+      eventData = { id: doc.id, ...doc.data() };
+      
+      // Проверяем статус
+      if (eventData.status !== 'active') {
+        document.body.innerHTML = '<p>Ивент не активен.</p>';
+        return;
+      }
+
+      // Загружаем участников
+      participantsData = eventData.participants || {};
+      const userId = auth.currentUser.uid;
+      userActions = participantsData[userId]?.actions || {};
+      
+      // Вычисляем текущее здоровье с учётом увядания
+      const settings = eventData.settings || {};
+      const maxHealth = settings.maxHealth || 100;
+      const decayPerHour = settings.decayPerHour || (settings.difficulty === 'easy' ? 0.3 : settings.difficulty === 'hard' ? 0.8 : 0.54);
+      
+      const lastDecay = participantsData._lastDecay || (eventData.startTime?.seconds * 1000) || Date.now();
+      const hoursPassed = (Date.now() - lastDecay) / 3600000;
+      
+      // Применяем адаптивную сложность
+      let actualDecay = decayPerHour;
+      if (settings.adaptiveMode !== false) {
+        const totalActionsToday = Object.values(participantsData).reduce((s, p) => {
+          const d = new Date();
+          const moscowTime = new Date(d.getTime() + (3 * 60 * 60 * 1000));
+          const today = moscowTime.toISOString().slice(0, 10);
+          return s + (p.lastResetDate === today ? Object.values(p.actions || {}).reduce((a, b) => a + b, 0) : 0);
+        }, 0);
+        if (totalActionsToday > 50) actualDecay *= 0.9;
+        else if (totalActionsToday < 10) actualDecay *= 1.1;
+      }
+      
+      const decayAmount = hoursPassed * actualDecay;
+      const storedHealth = eventData.health !== undefined ? eventData.health : maxHealth;
+      currentHealth = Math.max(settings.minHealth || 5, storedHealth - decayAmount);
+      
+      // Учитываем админские события
+      const adminEventsSnap = await db.collection('events').doc(eventId).collection('events').get();
+      let adminEventEffect = 0;
+      adminEventsSnap.forEach(doc => {
+        const ae = doc.data();
+        if (ae.healthChange) adminEventEffect += ae.healthChange;
+      });
+      currentHealth = Math.min(maxHealth, Math.max(settings.minHealth || 1, currentHealth + adminEventEffect));
+      
+      updateUI();
+    }
+
+    function setupRealtime() {
+      // Подписка на изменения ивента
+      unsubscribeEvent = db.collection('events').doc(eventId).onSnapshot(doc => {
+        if (!doc.exists) return;
+        eventData = { id: doc.id, ...doc.data() };
+        participantsData = eventData.participants || {};
+        const userId = auth.currentUser.uid;
+        userActions = participantsData[userId]?.actions || {};
+        updateUI();
+      });
+
+      // Подписка на админские события
+      unsubscribeAdminEvents = db.collection('events').doc(eventId).collection('events')
+        .orderBy('timestamp', 'desc')
+        .limit(10)
+        .onSnapshot(snapshot => {
+          renderAdminEvents(snapshot);
+        });
+    }
+
+    function updateUI() {
+      const settings = eventData.settings || {};
+      const maxHealth = settings.maxHealth || 100;
+      const decayPerHour = settings.decayPerHour || 0.54;
+      
+      // Здоровье
+      const healthPercent = Math.round((currentHealth / maxHealth) * 100);
+      healthFill.style.width = healthPercent + '%';
+      healthText.textContent = Math.round(currentHealth);
+      decayRateEl.textContent = '-' + decayPerHour.toFixed(1);
+      
+      // Иконка дерева в зависимости от здоровья
+      if (healthPercent <= 20) treeIcon.textContent = '🌱';
+      else if (healthPercent <= 40) treeIcon.textContent = '🌿';
+      else if (healthPercent <= 60) treeIcon.textContent = '🌳';
+      else if (healthPercent <= 80) treeIcon.textContent = '🌸';
+      else treeIcon.textContent = '🍎';
+      
+      // Таймер
+      if (eventData.endTime) {
+        const diff = eventData.endTime.seconds * 1000 - Date.now();
+        if (diff > 0) {
+          const days = Math.floor(diff / 86400000);
+          const hours = Math.floor((diff % 86400000) / 3600000);
+          const minutes = Math.floor((diff % 3600000) / 60000);
+          timerBar.textContent = `До конца: ${days} дн. ${hours} ч. ${minutes} мин.`;
+        } else {
+          timerBar.textContent = 'Ивент завершён';
+        }
+      }
+
+      // Сообщение
+      if (currentHealth <= (settings.minHealth || 5)) {
+        treeMessage.textContent = '⚠️ Дерево при смерти! Нужна срочная помощь!';
+      } else if (currentHealth >= maxHealth * 0.8) {
+        treeMessage.textContent = '😊 Дерево прекрасно себя чувствует!';
+      } else {
+        treeMessage.textContent = '';
+      }
+
+      // Кнопки действий
+      renderActions();
+    }
+
+    function renderActions() {
+      const limits = eventData.settings?.dailyActionLimits || { water: 3, bugs: 2, birds: 2, fertilize: 1, sing: 5 };
+      
+      let html = '';
+      for (const [key, action] of Object.entries(ACTIONS)) {
+        const limit = limits[key] || action.limit;
+        const used = userActions[key] || 0;
+        const remaining = Math.max(0, limit - used);
+        const disabled = remaining === 0 && limit !== 999;
+        
+        html += `<button class="tree-action-btn" data-action="${key}" ${disabled ? 'disabled' : ''}>
+          <span class="action-icon">${action.icon}</span>
+          <span class="action-name">${action.name}</span>
+          <span class="action-limit">${limit === 999 ? '∞' : remaining + '/' + limit}</span>
+        </button>`;
+      }
+      treeActions.innerHTML = html;
+
+      document.querySelectorAll('.tree-action-btn:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', () => performAction(btn.dataset.action));
+      });
+    }
+
+    async function performAction(actionKey) {
+      if (!auth.currentUser) return;
+      
+      const action = ACTIONS[actionKey];
+      if (!action) return;
+      
+      // Проверка на платное действие
+      if (action.costLokoin) {
+        const userDoc = await db.collection('users').doc(auth.currentUser.uid).get();
+        const balance = userDoc.data().lokoin_balance || 0;
+        if (balance < action.costLokoin) {
+          showToast(`Недостаточно локоинов. Нужно ${action.costLokoin}.`, 'error');
+          return;
+        }
+        // Списываем локоины
+        await db.collection('users').doc(auth.currentUser.uid).update({
+          lokoin_balance: firebase.firestore.FieldValue.increment(-action.costLokoin)
+        });
+      }
+      
+      // Обновляем счётчик действий пользователя
+      const userId = auth.currentUser.uid;
+      const d = new Date();
+      const moscowTime = new Date(d.getTime() + (3 * 60 * 60 * 1000));
+      const today = moscowTime.toISOString().slice(0, 10);
+      
+      const userData = participantsData[userId] || { actions: {}, lastResetDate: '' };
+      if (userData.lastResetDate !== today) {
+        userData.actions = {};
+        userData.lastResetDate = today;
+      }
+      userData.actions[actionKey] = (userData.actions[actionKey] || 0) + 1;
+      participantsData[userId] = userData;
+      
+      // Начисляем баллы
+      if (action.pointsReward > 0) {
+        await addPointsToCurrentUser(action.pointsReward, 'event_tree');
+        showToast(`+${action.pointsReward} баллов!`, 'success');
+      }
+      
+      // Обновляем здоровье
+      const settings = eventData.settings || {};
+      const maxHealth = settings.maxHealth || 100;
+      currentHealth = Math.min(maxHealth, currentHealth + action.healthBoost);
+      participantsData._lastDecay = Date.now();
+      
+      // Статистика
+      const statistics = eventData.statistics || { totalActions: 0, uniqueParticipants: 0 };
+      statistics.totalActions++;
+      if (!eventData.participants?.[userId]) statistics.uniqueParticipants++;
+      
+      // Сохраняем в Firestore
+      await db.collection('events').doc(eventId).update({
+        health: currentHealth,
+        participants: participantsData,
+        statistics
+      });
+      
+      updateUI();
+    }
+
+    function renderAdminEvents(snapshot) {
+      if (snapshot.empty) {
+        adminEventsLog.innerHTML = '';
+        return;
+      }
+      let html = '<h4>⚡ События администратора</h4>';
+      snapshot.forEach(doc => {
+        const ae = doc.data();
+        html += `<div class="admin-event-item">
+          ${ae.icon || '⚡'} ${ae.name} ${ae.description ? `(${ae.description})` : ''}
+          <br><small>${ae.timestamp ? new Date(ae.timestamp.seconds*1000).toLocaleString('ru-RU') : ''}</small>
+        </div>`;
+      });
+      adminEventsLog.innerHTML = html;
+    }
+
+    // Очистка подписок при уходе
+    window.addEventListener('beforeunload', () => {
+      if (unsubscribeEvent) unsubscribeEvent();
+      if (unsubscribeAdminEvents) unsubscribeAdminEvents();
+    });
+
+    // Старт
+    init();
+  </script>
+</body>
+</html>
