@@ -56,7 +56,30 @@
     .award-modal-title { font-size: 1.4rem; font-weight: 700; color: #b8860b; margin-bottom: 0.3rem; }
     .award-modal-desc { font-size: 0.95rem; color: #555; margin-bottom: 0.5rem; line-height: 1.5; }
     .award-modal-comment { font-size: 0.9rem; color: #888; font-style: italic; margin-top: 0.5rem; }
-    @media (max-width:480px) { .profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } .award-card { max-width: 100%; } }
+    /* Календарь Daily Login */
+    .daily-calendar { margin-top: 1.5rem; }
+    .daily-calendar-grid { display: flex; gap: 0.5rem; margin-top: 0.8rem; flex-wrap: wrap; }
+    .daily-day { width: 48px; height: 64px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; background: #f0f0f0; color: #999; border: 2px solid #e0e0e0; position: relative; transition: all 0.2s; }
+    .daily-day.completed { background: #e6f7e6; border-color: #27ae60; color: #27ae60; }
+    .daily-day.today { background: #fff9e6; border-color: #f0c040; color: #b8860b; animation: pulse 2s infinite; }
+    .daily-day.missed { background: #fff0f0; border-color: #e74c3c; color: #e74c3c; }
+    .daily-day .day-num { font-size: 1rem; }
+    .daily-day .day-reward { font-size: 0.65rem; margin-top: 2px; }
+    .daily-streak-info { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.9rem; }
+    .daily-streak-info span { font-weight: 600; }
+    /* Модалка Daily Reward */
+    .daily-reward-modal { text-align: center; max-width: 380px; }
+    .daily-reward-icon { font-size: 4rem; margin-bottom: 0.5rem; animation: bounce 1s ease; }
+    .daily-reward-title { font-size: 1.3rem; font-weight: 700; color: var(--color-header); margin-bottom: 0.3rem; }
+    .daily-reward-streak { font-size: 1rem; color: #b8860b; margin-bottom: 0.5rem; font-weight: 600; }
+    .daily-reward-items { display: flex; gap: 1rem; justify-content: center; margin: 1rem 0; }
+    .daily-reward-item { background: #f9fafb; border-radius: 10px; padding: 0.8rem 1.2rem; text-align: center; }
+    .daily-reward-item .item-icon { font-size: 1.5rem; }
+    .daily-reward-item .item-value { font-size: 1.2rem; font-weight: 700; color: var(--color-header); }
+    .daily-reward-item .item-label { font-size: 0.75rem; color: #888; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240, 192, 64, 0.4); } 50% { box-shadow: 0 0 0 6px rgba(240, 192, 64, 0); } }
+    @media (max-width:480px) { .profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } .award-card { max-width: 100%; } .daily-day { width: 40px; height: 56px; } }
   </style>
 </head>
 <body>
@@ -100,6 +123,29 @@
       <div class="award-modal-title" id="award-detail-title"></div>
       <div class="award-modal-desc" id="award-detail-desc"></div>
       <div class="award-modal-comment" id="award-detail-comment"></div>
+    </div>
+  </div>
+
+  <!-- Модальное окно ежедневной награды -->
+  <div class="modal-overlay" id="daily-reward-modal" style="display:none;">
+    <div class="modal daily-reward-modal">
+      <span class="modal-close" id="daily-reward-close">&times;</span>
+      <div class="daily-reward-icon">🎁</div>
+      <div class="daily-reward-title">Ежедневная награда!</div>
+      <div class="daily-reward-streak" id="daily-reward-streak"></div>
+      <div class="daily-reward-items">
+        <div class="daily-reward-item">
+          <div class="item-icon">⭐</div>
+          <div class="item-value" id="daily-reward-points">0</div>
+          <div class="item-label">баллов</div>
+        </div>
+        <div class="daily-reward-item">
+          <div class="item-icon">💰</div>
+          <div class="item-value" id="daily-reward-lokoin">0</div>
+          <div class="item-label">локоинов</div>
+        </div>
+      </div>
+      <button class="btn" id="daily-reward-claim-btn">Забрать</button>
     </div>
   </div>
 
@@ -170,6 +216,86 @@
       </div>`;
     }
 
+    // Генерация календаря ежедневного входа
+    function buildDailyCalendar(dailyLogin) {
+      const loginHistory = dailyLogin?.loginHistory || [];
+      const streak = dailyLogin?.streak || 0;
+      const longestStreak = dailyLogin?.longestStreak || 0;
+      const totalLogins = dailyLogin?.totalLogins || 0;
+      
+      // Получаем последние 7 дней по Москве
+      const days = [];
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        const isCompleted = loginHistory.includes(dateStr);
+        const isToday = dateStr === getMoscowDate();
+        const dayNum = d.getDate();
+        const reward = getDailyReward(streak > 0 && isCompleted ? Math.min(streak, 7) : 1);
+        
+        days.push({
+          dateStr,
+          isCompleted,
+          isToday,
+          dayNum,
+          reward: isCompleted ? reward : null
+        });
+      }
+      
+      let html = '<div class="daily-calendar">';
+      html += '<h3 class="section-title">📅 Ежедневный вход</h3>';
+      html += '<div class="daily-streak-info">';
+      html += `<span>🔥 Серия: ${streak} дн.</span>`;
+      html += `<span>🏆 Рекорд: ${longestStreak} дн.</span>`;
+      html += `<span>📊 Всего: ${totalLogins} вх.</span>`;
+      html += '</div>';
+      html += '<div class="daily-calendar-grid">';
+      
+      const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      days.forEach((day, idx) => {
+        const d = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+        d.setDate(d.getDate() - (6 - idx));
+        const dayName = dayNames[d.getDay() === 0 ? 6 : d.getDay() - 1];
+        
+        let cssClass = '';
+        if (day.isToday && day.isCompleted) cssClass = 'completed today';
+        else if (day.isToday) cssClass = 'today';
+        else if (day.isCompleted) cssClass = 'completed';
+        else cssClass = 'missed';
+        
+        html += `<div class="daily-day ${cssClass}" title="${day.dateStr}">
+          <div>${dayName}</div>
+          <div class="day-num">${day.dayNum}</div>
+          ${day.reward ? `<div class="day-reward">+${day.reward.points}</div>` : ''}
+        </div>`;
+      });
+      
+      html += '</div></div>';
+      return html;
+    }
+
+    function getMoscowDate() {
+      const now = new Date();
+      const moscowTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+      return moscowTime.toISOString().slice(0, 10);
+    }
+
+    function getDailyReward(day) {
+      const rewards = {
+        1: { points: 2, lokoin: 1, label: 'День 1' },
+        2: { points: 3, lokoin: 1, label: 'День 2' },
+        3: { points: 5, lokoin: 2, label: 'День 3' },
+        4: { points: 5, lokoin: 2, label: 'День 4' },
+        5: { points: 8, lokoin: 3, label: 'День 5' },
+        6: { points: 8, lokoin: 3, label: 'День 6' },
+        7: { points: 12, lokoin: 5, label: 'День 7' }
+      };
+      if (day > 7) return rewards[7];
+      return rewards[day] || rewards[1];
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       await loadDepartments();
 
@@ -215,6 +341,19 @@
         awardDetailModal.style.display = 'flex';
       }
 
+      // Модалка ежедневной награды
+      const dailyRewardModal = document.getElementById('daily-reward-modal');
+      document.getElementById('daily-reward-close').addEventListener('click', () => { dailyRewardModal.style.display = 'none'; });
+      document.getElementById('daily-reward-claim-btn').addEventListener('click', () => { dailyRewardModal.style.display = 'none'; });
+      window.addEventListener('click', (e) => { if (e.target === dailyRewardModal) dailyRewardModal.style.display = 'none'; });
+
+      function showDailyRewardModal(rewardData) {
+        document.getElementById('daily-reward-streak').textContent = `День ${rewardData.streak} подряд`;
+        document.getElementById('daily-reward-points').textContent = `+${rewardData.points}`;
+        document.getElementById('daily-reward-lokoin').textContent = `+${rewardData.lokoin}`;
+        dailyRewardModal.style.display = 'flex';
+      }
+
       auth.onAuthStateChanged(async(firebaseUser)=>{
         if(firebaseUser){
           const doc=await db.collection('users').doc(firebaseUser.uid).get();
@@ -226,6 +365,15 @@
             } else {
               document.body.classList.remove('dark-theme');
             }
+            
+            // Проверяем, есть ли несобранная ежедневная награда
+            const dailyReward = user._dailyReward;
+            if (dailyReward) {
+              setTimeout(() => showDailyRewardModal(dailyReward), 500);
+              delete user._dailyReward;
+              setCurrentUser(user);
+            }
+            
             renderProfile(user);
           }
           else renderLoginForm();
@@ -276,6 +424,12 @@
               const user=await firebaseLogin(email,pass);
               syncUserToLocal(user);
               if(window.updateAuthUI)updateAuthUI();
+              // Показываем модалку ежедневной награды, если есть
+              if (user._dailyReward) {
+                setTimeout(() => showDailyRewardModal(user._dailyReward), 500);
+                delete user._dailyReward;
+                setCurrentUser(user);
+              }
             } else {
               const uname=document.getElementById('username').value.trim(), dep=document.getElementById('department').value; 
               if(!uname||!dep){authMsg.textContent='Введите Фамилию Имя и выберите отдел.';showToast('Заполните все поля','error');return;} 
@@ -324,6 +478,7 @@
         const purchased = user.purchasedItems || [];
         const hasTheme = purchased.includes('dark_theme');
         const emailVerified = auth.currentUser ? auth.currentUser.emailVerified : false;
+        const dailyLogin = user.dailyLogin || {};
 
         // Загружаем награды пользователя
         const userAwards = await loadUserAwards(user.uid);
@@ -332,6 +487,10 @@
           <div class="profile-header">${renderAvatarDiv(user)}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${user.department?`<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>`:''}<p><small>${user.email}</small></p></div></div>
           ${!emailVerified ? '<div class="verify-warning">⚠️ Ваш email не подтверждён. <button class="btn" id="resend-verify-btn" style="margin-left:1rem;">Отправить письмо</button></div>' : ''}
           <div class="profile-details"><p><strong>Баллы:</strong> <span id="profile-points">${user.points||0}</span></p><p><strong>Локоины:</strong> <span id="profile-lokoin">${user.lokoin_balance||0}</span></p><p><strong>О себе:</strong> <span id="profile-desc-text">${user.description||'—'}</span></p></div>
+          
+          <!-- Календарь ежедневного входа -->
+          ${buildDailyCalendar(dailyLogin)}
+          
           ${userAwards.length > 0 ? `
           <div class="awards-section">
             <h3 class="section-title">🎖️ Награды</h3>
