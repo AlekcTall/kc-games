@@ -28,7 +28,14 @@ async function firebaseRegister(email, password, username, department) {
       completedGames: [],
       disabled: false,
       lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      dailyLogin: {
+        lastLoginDate: null,
+        streak: 0,
+        longestStreak: 0,
+        totalLogins: 0,
+        loginHistory: []
+      }
     });
     const userData = {
       uid: user.uid,
@@ -43,7 +50,14 @@ async function firebaseRegister(email, password, username, department) {
       achievements: [],
       easterEggsFound: [],
       completedGames: [],
-      disabled: false
+      disabled: false,
+      dailyLogin: {
+        lastLoginDate: null,
+        streak: 0,
+        longestStreak: 0,
+        totalLogins: 0,
+        loginHistory: []
+      }
     };
     setCurrentUser(userData);
     updateAuthUI(user);
@@ -89,13 +103,27 @@ async function firebaseLogin(email, password) {
         achievements: data.achievements || [],
         easterEggsFound: data.easterEggsFound || [],
         completedGames: data.completedGames || [],
-        disabled: data.disabled || false
+        disabled: data.disabled || false,
+        dailyLogin: data.dailyLogin || {
+          lastLoginDate: null,
+          streak: 0,
+          longestStreak: 0,
+          totalLogins: 0,
+          loginHistory: []
+        }
       };
       setCurrentUser(userData);
       updateAuthUI(user);
       
       // Обновляем время последней активности
       await updateLastActive(user.uid);
+      
+      // Обрабатываем ежедневный вход
+      const loginResult = await processDailyLogin(user.uid);
+      if (loginResult) {
+        userData._dailyReward = loginResult;
+        setCurrentUser(userData);
+      }
       
       return userData;
     } else {
@@ -115,6 +143,140 @@ function firebaseLogout() {
   }).catch(error => {
     console.error('Ошибка выхода:', error);
   });
+}
+
+// ================== ЕЖЕДНЕВНЫЙ ВХОД ==================
+
+// Прогрессивные награды по дням
+function getDailyReward(day) {
+  const rewards = {
+    1: { points: 2, lokoin: 1, label: 'День 1' },
+    2: { points: 3, lokoin: 1, label: 'День 2' },
+    3: { points: 5, lokoin: 2, label: 'День 3' },
+    4: { points: 5, lokoin: 2, label: 'День 4' },
+    5: { points: 8, lokoin: 3, label: 'День 5' },
+    6: { points: 8, lokoin: 3, label: 'День 6' },
+    7: { points: 12, lokoin: 5, label: 'День 7' }
+  };
+  // После 7 дней награда повторяется как в 7-й день
+  if (day > 7) return { points: 12, lokoin: 5, label: `День ${day}` };
+  return rewards[day] || rewards[1];
+}
+
+// Получение текущей даты по московскому времени (UTC+3)
+function getMoscowDate() {
+  const now = new Date();
+  const moscowTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+  return moscowTime.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+// Получение вчерашней даты по московскому времени
+function getYesterdayMoscow() {
+  const now = new Date();
+  const moscowTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+  moscowTime.setDate(moscowTime.getDate() - 1);
+  return moscowTime.toISOString().slice(0, 10);
+}
+
+async function processDailyLogin(uid) {
+  if (!uid) return null;
+  
+  try {
+    const userRef = db.collection('users').doc(uid);
+    const doc = await userRef.get();
+    if (!doc.exists) return null;
+    
+    const data = doc.data();
+    const dailyLogin = data.dailyLogin || {
+      lastLoginDate: null,
+      streak: 0,
+      longestStreak: 0,
+      totalLogins: 0,
+      loginHistory: []
+    };
+    
+    const today = getMoscowDate();
+    const yesterday = getYesterdayMoscow();
+    
+    // Если уже заходили сегодня — ничего не делаем
+    if (dailyLogin.lastLoginDate === today) {
+      return null;
+    }
+    
+    let newStreak = dailyLogin.streak || 0;
+    
+    // Проверяем, была ли активность вчера
+    if (dailyLogin.lastLoginDate === yesterday) {
+      // Серия продолжается
+      newStreak += 1;
+    } else {
+      // Серия прервалась — начинаем заново
+      newStreak = 1;
+    }
+    
+    const reward = getDailyReward(newStreak);
+    
+    // Обновляем данные
+    const loginHistory = dailyLogin.loginHistory || [];
+    loginHistory.push(today);
+    
+    // Оставляем только последние 60 дней в истории
+    const trimmedHistory = loginHistory.slice(-60);
+    
+    const newDailyLogin = {
+      lastLoginDate: today,
+      streak: newStreak,
+      longestStreak: Math.max(dailyLogin.longestStreak || 0, newStreak),
+      totalLogins: (dailyLogin.totalLogins || 0) + 1,
+      loginHistory: trimmedHistory
+    };
+    
+    // Начисляем баллы и локоины
+    const oldPoints = data.points || 0;
+    const newPoints = oldPoints + reward.points;
+    const oldLokoin = data.lokoin_balance || 0;
+    const newLokoin = oldLokoin + reward.lokoin;
+    
+    await userRef.update({
+      dailyLogin: newDailyLogin,
+      points: newPoints,
+      lokoin_balance: newLokoin
+    });
+    
+    // Отправляем уведомление
+    if (typeof addNotification === 'function') {
+      await addNotification(
+        uid,
+        `Ежедневный вход (${reward.label}): +${reward.points} баллов, +${reward.lokoin} локоинов`,
+        'game',
+        'profile.html'
+      );
+    }
+    
+    // Проверяем достижения для ежедневного входа
+    if (typeof checkAndAwardAchievements === 'function') {
+      await checkAndAwardAchievements();
+    }
+    
+    // Обновляем кэш
+    const current = getCurrentUser();
+    if (current) {
+      current.points = newPoints;
+      current.lokoin_balance = newLokoin;
+      current.dailyLogin = newDailyLogin;
+      setCurrentUser(current);
+    }
+    
+    return {
+      streak: newStreak,
+      points: reward.points,
+      lokoin: reward.lokoin,
+      label: reward.label
+    };
+  } catch (e) {
+    console.error('Ошибка ежедневного входа:', e);
+    return null;
+  }
 }
 
 // ================== ОБНОВЛЕНИЕ ПРОФИЛЯ ==================
@@ -324,7 +486,7 @@ async function updateLastActive(uid) {
   if (!uid) return;
   try {
     await db.collection('users').doc(uid).update({
-      lastActive: Date.now()   // обычное число, миллисекунды
+      lastActive: Date.now()
     });
   } catch (e) {
     console.error('Ошибка обновления lastActive:', e);
