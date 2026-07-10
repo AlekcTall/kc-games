@@ -90,13 +90,20 @@
       const achModalDesc = document.getElementById('ach-modal-desc');
       const achModalStatus = document.getElementById('ach-modal-status');
 
-      function showAchievementModal(ach, unlocked) {
+      async function showAchievementModal(ach, unlocked) {
         achModalIcon.textContent = ach.hidden && !unlocked ? '❓' : ach.icon;
         achModalTitle.textContent = ach.hidden && !unlocked ? '???' : ach.name;
         achModalDesc.textContent = ach.hidden && !unlocked ? 'Откройте, чтобы узнать' : ach.description;
+        
+        let statsText = '';
+        if (!ach.hidden || unlocked) {
+          const percent = typeof getAchievementStats === 'function' ? await getAchievementStats(ach.id) : 0;
+          statsText = `<br><small style="color:#888;">Получили ${percent}% пользователей</small>`;
+        }
+        
         achModalStatus.innerHTML = unlocked
-          ? '<span class="ach-unlocked-status">✅ Получено</span>'
-          : '<span class="ach-locked-status">🔒 Ещё не получено</span>';
+          ? '<span class="ach-unlocked-status">✅ Получено</span>' + statsText
+          : '<span class="ach-locked-status">🔒 Ещё не получено</span>' + statsText;
         achModal.style.display = 'flex';
       }
 
@@ -133,12 +140,12 @@
 
           // Навешиваем обработчики клика по достижениям
           document.querySelectorAll('.achievement-item').forEach(item => {
-            item.addEventListener('click', () => {
+            item.addEventListener('click', async () => {
               const achId = item.dataset.achId;
               const ach = achCfg.find(a => a.id === achId);
               if (ach) {
                 const unlocked = unlockedAch.includes(achId);
-                showAchievementModal(ach, unlocked);
+                await showAchievementModal(ach, unlocked);
               }
             });
           });
