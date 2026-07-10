@@ -17,16 +17,14 @@
     .mass-notif-form select, .mass-notif-form input, .mass-notif-form textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 6px; }
     .progress-bar { width: 100%; background: #eee; border-radius: 8px; height: 20px; margin: 1rem 0; overflow: hidden; display: none; }
     .progress-fill { height: 100%; background: #27ae60; width: 0%; transition: width 0.2s; }
-    .dept-list, .announcements-list { list-style: none; padding: 0; }
-    .dept-list li, .announcements-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
-    .dept-list li button, .announcements-list li button { margin-left: 1rem; }
+    .dept-list, .announcements-list, .awards-list { list-style: none; padding: 0; }
+    .dept-list li, .announcements-list li, .awards-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
+    .dept-list li button, .announcements-list li button, .awards-list li button { margin-left: 1rem; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
     .stat-card { background: #f9f9fb; border-radius: 12px; padding: 1rem; text-align: center; }
     .stat-card .stat-value { font-size: 2rem; font-weight: bold; }
     .export-btn { margin-top: 1rem; }
-    .placeholder-card { background: #fffbe6; border: 2px dashed #f0c040; border-radius: 12px; padding: 2rem; text-align: center; margin-top: 1rem; }
-    .placeholder-card h3 { color: #b8860b; margin-bottom: 0.5rem; }
-    .placeholder-card p { color: #666; }
+    .award-icon-preview { width: 32px; height: 32px; vertical-align: middle; margin-right: 0.5rem; }
   </style>
 </head>
 <body>
@@ -109,6 +107,56 @@
       <div class="form-group"><label><input type="checkbox" id="news-notify-all"> Оповестить всех пользователей</label></div>
       <button class="btn" id="news-save-btn">Сохранить</button>
       <p id="news-message" class="auth-message"></p>
+    </div>
+  </div>
+
+  <!-- Модальное окно награды (создание/редактирование) -->
+  <div class="modal-overlay" id="award-modal" style="display:none;">
+    <div class="modal" style="max-width:500px;">
+      <span class="modal-close" id="award-modal-close">&times;</span>
+      <h3 id="award-modal-title">Награда</h3>
+      <div class="form-group">
+        <label for="award-id">ID (латиница, без пробелов)</label>
+        <input type="text" id="award-id" required>
+      </div>
+      <div class="form-group">
+        <label for="award-name">Название</label>
+        <input type="text" id="award-name" required>
+      </div>
+      <div class="form-group">
+        <label for="award-desc">Описание (за что выдаётся)</label>
+        <textarea id="award-desc" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="award-icon-file">Имя SVG-файла (из папки img/awards/)</label>
+        <input type="text" id="award-icon-file" placeholder="gold-star.svg" required>
+        <small style="color:#888;">Файл должен быть загружен в репозиторий в папку img/awards/</small>
+      </div>
+      <div class="form-group">
+        <label for="award-lokoin">Награда локоинами (0 — без награды)</label>
+        <input type="number" id="award-lokoin" value="0" min="0">
+      </div>
+      <button class="btn" id="award-save-btn">Сохранить</button>
+      <p id="award-message" class="auth-message"></p>
+    </div>
+  </div>
+
+  <!-- Модальное окно выдачи награды пользователю -->
+  <div class="modal-overlay" id="award-user-modal" style="display:none;">
+    <div class="modal" style="max-width:450px;">
+      <span class="modal-close" id="award-user-modal-close">&times;</span>
+      <h3>Выдать награду</h3>
+      <p id="award-user-name"></p>
+      <div class="form-group">
+        <label for="award-select">Награда</label>
+        <select id="award-select"></select>
+      </div>
+      <div class="form-group">
+        <label for="award-comment">Комментарий (будет виден пользователю)</label>
+        <textarea id="award-comment" rows="2"></textarea>
+      </div>
+      <button class="btn" id="award-user-submit">Выдать</button>
+      <p id="award-user-message" class="auth-message"></p>
     </div>
   </div>
 
@@ -345,6 +393,7 @@
                   <button class="btn btn-small adjust-lokoin-btn" title="Изменить локоины">💰</button>
                   <button class="btn btn-small btn-gift gift-item-btn" title="Подарить товар">🎁</button>
                   <button class="btn btn-small toggle-block-btn" title="Заблокировать/Разблокировать">🔓</button>
+                  <button class="btn btn-small award-user-btn" title="Выдать награду">🎖️</button>
                 </td>
               </tr>
             `;
@@ -355,6 +404,7 @@
           attachLokoinHandlers(users);
           attachGiftHandlers(users);
           attachBlockHandlers(users);
+          attachAwardUserHandlers(users);
         } catch (err) { console.error('Ошибка загрузки пользователей:', err); tabContent.innerHTML = '<p>Не удалось загрузить список пользователей.</p>'; }
       }
 
@@ -498,6 +548,74 @@
           });
         });
       }
+
+      // ----- Выдача наград пользователям -----
+      function attachAwardUserHandlers(users) {
+        const rows = document.querySelectorAll('.admin-users-table tbody tr');
+        rows.forEach((row, index) => {
+          const user = users[index];
+          const btn = row.querySelector('.award-user-btn');
+          if (!btn) return;
+          btn.addEventListener('click', () => openAwardUserModal(user));
+        });
+      }
+
+      let currentAwardUser = null;
+      async function openAwardUserModal(user) {
+        currentAwardUser = user;
+        document.getElementById('award-user-name').textContent = `Пользователь: ${user.username}`;
+        document.getElementById('award-comment').value = '';
+        document.getElementById('award-user-message').textContent = '';
+        const select = document.getElementById('award-select');
+        select.innerHTML = '<option value="">Загрузка...</option>';
+        document.getElementById('award-user-modal').style.display = 'flex';
+        try {
+          const snap = await db.collection('awards').get();
+          const awards = [];
+          snap.forEach(doc => awards.push({ id: doc.id, ...doc.data() }));
+          if (awards.length === 0) { select.innerHTML = '<option value="">Нет доступных наград</option>'; return; }
+          select.innerHTML = awards.map(a => `<option value="${a.id}">${a.icon ? `<img src="img/awards/${a.icon}" class="award-icon-preview" onerror="this.style.display='none'">` : ''} ${a.name}</option>`).join('');
+        } catch (err) { console.error(err); select.innerHTML = '<option value="">Ошибка загрузки</option>'; }
+      }
+
+      document.getElementById('award-user-modal-close').addEventListener('click', () => { document.getElementById('award-user-modal').style.display = 'none'; });
+      document.getElementById('award-user-submit').addEventListener('click', async () => {
+        const awardId = document.getElementById('award-select').value;
+        const comment = document.getElementById('award-comment').value.trim();
+        if (!awardId || !currentAwardUser) { document.getElementById('award-user-message').textContent = 'Выберите награду.'; return; }
+        try {
+          const awardDoc = await db.collection('awards').doc(awardId).get();
+          if (!awardDoc.exists) throw new Error('Награда не найдена');
+          const award = awardDoc.data();
+
+          // Сохраняем в подколлекцию awarded
+          await db.collection('users').doc(currentAwardUser.uid).collection('awarded').add({
+            awardId,
+            awardedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            awardedBy: auth.currentUser.uid,
+            comment
+          });
+
+          // Начисляем локоины, если указаны
+          if (award.lokoinReward && award.lokoinReward > 0) {
+            const userRef = db.collection('users').doc(currentAwardUser.uid);
+            await userRef.update({
+              lokoin_balance: firebase.firestore.FieldValue.increment(award.lokoinReward)
+            });
+          }
+
+          // Уведомление пользователю
+          let notifMsg = `Вы получили награду «${award.name}»!`;
+          if (comment) notifMsg += ` Комментарий: ${comment}`;
+          if (award.lokoinReward > 0) notifMsg += ` (+${award.lokoinReward} лок.)`;
+          if (typeof addNotification === 'function') {
+            await addNotification(currentAwardUser.uid, notifMsg, 'award', 'profile.html');
+          }
+
+          showToast('Награда выдана!', 'success');
+          document.getElementById('award-user-modal').style.display = 'none';
+        } catch (err) { document.getElementById('award-user-message').textContent = 'Ошибка: ' + err.message; }
+      });
 
       // ----- Обращения (Firestore) -----
       async function renderFeedbackTab() {
@@ -689,18 +807,83 @@
         });
       }
 
-      // ----- Награды (заглушка) -----
-      function renderAwardsTab() {
+      // ----- Награды -----
+      async function renderAwardsTab() {
         const tabContent = document.getElementById('admin-tab-content');
-        tabContent.innerHTML = `
-          <h3>🎖️ Уникальные награды</h3>
-          <div class="placeholder-card">
-            <h3>🚧 В разработке</h3>
-            <p>Здесь будет управление уникальными наградами: создание, выдача пользователям, начисление локоинов.</p>
-            <p>Вернёмся к этому позже, брат 🤝</p>
-          </div>
-        `;
+        tabContent.innerHTML = '<p>Загрузка наград...</p>';
+        try {
+          const snap = await db.collection('awards').get();
+          const awards = [];
+          snap.forEach(doc => awards.push({ id: doc.id, ...doc.data() }));
+          let html = `<h3>🎖️ Управление наградами (${awards.length})</h3>`;
+          if (awards.length > 0) {
+            html += `<ul class="awards-list">`;
+            awards.forEach(a => {
+              html += `<li>
+                <span><img src="img/awards/${a.icon}" class="award-icon-preview" onerror="this.style.display='none'"> <strong>${a.name}</strong> (${a.id})${a.lokoinReward > 0 ? ` — +${a.lokoinReward} лок.` : ''}</span>
+                <div><button class="btn btn-small edit-award-btn" data-award-id="${a.id}">✏️</button><button class="btn btn-small btn-danger delete-award-btn" data-award-id="${a.id}">Удалить</button></div>
+              </li>`;
+            });
+            html += `</ul>`;
+          } else { html += '<p>Наград пока нет. Создайте первую!</p>'; }
+          html += `<button class="btn" id="add-award-btn" style="margin-top:1rem;">➕ Создать награду</button>`;
+          tabContent.innerHTML = html;
+          document.getElementById('add-award-btn').addEventListener('click', () => openAwardModal());
+          document.querySelectorAll('.edit-award-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const id = e.target.dataset.awardId;
+              const award = awards.find(a => a.id === id);
+              if (award) openAwardModal(award);
+            });
+          });
+          document.querySelectorAll('.delete-award-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => { if (confirm('Удалить награду?')) { await db.collection('awards').doc(e.target.dataset.awardId).delete(); showToast('Награда удалена', 'success'); renderAwardsTab(); } });
+          });
+        } catch (err) { console.error(err); tabContent.innerHTML = '<p>Ошибка загрузки наград.</p>'; }
       }
+
+      let currentEditAwardId = null;
+      function openAwardModal(award = null) {
+        const modal = document.getElementById('award-modal');
+        document.getElementById('award-message').textContent = '';
+        if (award) {
+          currentEditAwardId = award.id;
+          document.getElementById('award-modal-title').textContent = 'Редактировать награду';
+          document.getElementById('award-id').value = award.id; document.getElementById('award-id').disabled = true;
+          document.getElementById('award-name').value = award.name || '';
+          document.getElementById('award-desc').value = award.description || '';
+          document.getElementById('award-icon-file').value = award.icon || '';
+          document.getElementById('award-lokoin').value = award.lokoinReward || 0;
+        } else {
+          currentEditAwardId = null;
+          document.getElementById('award-modal-title').textContent = 'Создать награду';
+          document.getElementById('award-id').value = ''; document.getElementById('award-id').disabled = false;
+          document.getElementById('award-name').value = '';
+          document.getElementById('award-desc').value = '';
+          document.getElementById('award-icon-file').value = '';
+          document.getElementById('award-lokoin').value = 0;
+        }
+        modal.style.display = 'flex';
+      }
+      document.getElementById('award-modal-close').addEventListener('click', () => { document.getElementById('award-modal').style.display = 'none'; });
+      document.getElementById('award-save-btn').addEventListener('click', async () => {
+        const id = document.getElementById('award-id').value.trim();
+        const name = document.getElementById('award-name').value.trim();
+        const icon = document.getElementById('award-icon-file').value.trim();
+        if (!id || !name || !icon) { document.getElementById('award-message').textContent = 'ID, название и файл иконки обязательны.'; return; }
+        const data = {
+          name,
+          description: document.getElementById('award-desc').value.trim(),
+          icon,
+          lokoinReward: parseInt(document.getElementById('award-lokoin').value, 10) || 0
+        };
+        try {
+          await db.collection('awards').doc(id).set(data);
+          showToast('Награда сохранена', 'success');
+          document.getElementById('award-modal').style.display = 'none';
+          renderAwardsTab();
+        } catch (err) { document.getElementById('award-message').textContent = 'Ошибка: ' + err.message; }
+      });
 
       // ----- Статистика -----
       async function renderStatsTab() {
