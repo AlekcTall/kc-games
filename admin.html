@@ -17,13 +17,16 @@
     .mass-notif-form select, .mass-notif-form input, .mass-notif-form textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 6px; }
     .progress-bar { width: 100%; background: #eee; border-radius: 8px; height: 20px; margin: 1rem 0; overflow: hidden; display: none; }
     .progress-fill { height: 100%; background: #27ae60; width: 0%; transition: width 0.2s; }
-    .dept-list, .announcements-list, .achievements-list { list-style: none; padding: 0; }
-    .dept-list li, .announcements-list li, .achievements-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
-    .dept-list li button, .announcements-list li button, .achievements-list li button { margin-left: 1rem; }
+    .dept-list, .announcements-list { list-style: none; padding: 0; }
+    .dept-list li, .announcements-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
+    .dept-list li button, .announcements-list li button { margin-left: 1rem; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
     .stat-card { background: #f9f9fb; border-radius: 12px; padding: 1rem; text-align: center; }
     .stat-card .stat-value { font-size: 2rem; font-weight: bold; }
     .export-btn { margin-top: 1rem; }
+    .placeholder-card { background: #fffbe6; border: 2px dashed #f0c040; border-radius: 12px; padding: 2rem; text-align: center; margin-top: 1rem; }
+    .placeholder-card h3 { color: #b8860b; margin-bottom: 0.5rem; }
+    .placeholder-card p { color: #666; }
   </style>
 </head>
 <body>
@@ -87,39 +90,6 @@
       <div class="form-group"><label for="gift-item-select">Товар</label><select id="gift-item-select"></select></div>
       <button class="btn" id="gift-submit">Подарить</button>
       <p id="gift-message" class="auth-message"></p>
-    </div>
-  </div>
-
-  <!-- Модальное окно для достижений -->
-  <div class="modal-overlay" id="achievement-modal" style="display:none;">
-    <div class="modal" style="max-width:500px;">
-      <span class="modal-close" id="achievement-modal-close">&times;</span>
-      <h3 id="achievement-modal-title">Достижение</h3>
-      <div class="form-group">
-        <label for="ach-id">ID (латиница, без пробелов)</label>
-        <input type="text" id="ach-id" required>
-      </div>
-      <div class="form-group">
-        <label for="ach-name">Название</label>
-        <input type="text" id="ach-name" required>
-      </div>
-      <div class="form-group">
-        <label for="ach-desc">Описание</label>
-        <input type="text" id="ach-desc">
-      </div>
-      <div class="form-group">
-        <label for="ach-icon">Иконка (emoji)</label>
-        <input type="text" id="ach-icon" value="🏆">
-      </div>
-      <div class="form-group">
-        <label for="ach-hidden">Скрытое?</label>
-        <select id="ach-hidden">
-          <option value="false">Нет</option>
-          <option value="true">Да</option>
-        </select>
-      </div>
-      <button class="btn" id="ach-save-btn">Сохранить</button>
-      <p id="ach-message" class="auth-message"></p>
     </div>
   </div>
 
@@ -226,7 +196,7 @@
             <button class="admin-tab" data-tab="shop">Магазин</button>
             <button class="admin-tab" data-tab="notifications">Уведомления</button>
             <button class="admin-tab" data-tab="departments">Отделы</button>
-            <button class="admin-tab" data-tab="achievements">Достижения</button>
+            <button class="admin-tab" data-tab="awards">Награды</button>
             <button class="admin-tab" data-tab="stats">Статистика</button>
             <button class="admin-tab" data-tab="news">Новости</button>
             <button class="admin-tab" data-tab="export">Экспорт</button>
@@ -249,7 +219,7 @@
             case 'shop': renderShopTab(); break;
             case 'notifications': renderNotificationsTab(); break;
             case 'departments': renderDepartmentsTab(); break;
-            case 'achievements': renderAchievementsTab(); break;
+            case 'awards': renderAwardsTab(); break;
             case 'stats': renderStatsTab(); break;
             case 'news': renderNewsTab(); break;
             case 'export': renderExportTab(); break;
@@ -574,357 +544,4 @@
             items.forEach(item => {
               html += `<tr>
                 <td><code>${item.id}</code></td>
-                <td>${item.icon || '🛒'} ${item.title}</td>
-                <td>${item.category || ''}</td>
-                <td>${item.price}</td>
-                <td>${item.unique ? '✓' : '—'}</td>
-                <td><button class="btn btn-small edit-shop-item-btn" data-id="${item.id}">✏️</button><button class="btn btn-small btn-danger delete-shop-item-btn" data-id="${item.id}">Удалить</button></td>
-              </tr>`;
-            });
-            html += `</tbody></table>`;
-          } else { html += '<p>Товаров пока нет.</p>'; }
-          html += `
-            <div class="admin-add-game" style="margin-top:2rem;">
-              <h4>Добавить товар</h4>
-              <form id="add-shop-item-form">
-                <div class="form-group"><label>ID товара (оставьте пустым для автоматического)</label><input type="text" id="shop-id" placeholder="dark_theme"></div>
-                <div class="form-group"><label>Название *</label><input type="text" id="shop-title" required></div>
-                <div class="form-group"><label>Описание</label><textarea id="shop-desc" rows="2"></textarea></div>
-                <div class="form-group"><label>Категория</label><input type="text" id="shop-category" placeholder="Кастомизация"></div>
-                <div class="form-group"><label>Цена *</label><input type="number" id="shop-price" min="1" required></div>
-                <div class="form-group"><label>Иконка (emoji)</label><input type="text" id="shop-icon" value="🛒"></div>
-                <div class="form-group"><label>Эффект</label><input type="text" id="shop-effect" placeholder="dark_theme"></div>
-                <div class="form-group"><label>Уникальный</label><select id="shop-unique"><option value="true">Да</option><option value="false">Нет</option></select></div>
-                <button type="submit" class="btn">Добавить</button>
-              </form>
-            </div>
-          `;
-          tabContent.innerHTML = html;
-          document.querySelectorAll('.delete-shop-item-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => { if (confirm('Удалить товар?')) { await db.collection('shopItems').doc(e.target.dataset.id).delete(); showToast('Товар удалён', 'success'); renderShopTab(); } });
-          });
-          document.querySelectorAll('.edit-shop-item-btn').forEach(btn => {
-            btn.addEventListener('click', () => { const id = btn.dataset.id; const item = items.find(i => i.id === id); if (item) openEditShopItemModal(item); });
-          });
-          document.getElementById('add-shop-item-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const customId = document.getElementById('shop-id').value.trim();
-            const newItem = {
-              title: document.getElementById('shop-title').value.trim(), description: document.getElementById('shop-desc').value.trim(),
-              category: document.getElementById('shop-category').value.trim(), price: parseInt(document.getElementById('shop-price').value, 10),
-              icon: document.getElementById('shop-icon').value.trim() || '🛒', effect: document.getElementById('shop-effect').value.trim(),
-              unique: document.getElementById('shop-unique').value === 'true'
-            };
-            if (!newItem.title || !newItem.price) { showToast('Название и цена обязательны', 'error'); return; }
-            try {
-              if (customId) { const existing = await db.collection('shopItems').doc(customId).get(); if (existing.exists) { showToast('Товар с таким ID уже существует', 'error'); return; } await db.collection('shopItems').doc(customId).set(newItem); }
-              else { await db.collection('shopItems').add(newItem); }
-              showToast('Товар добавлен', 'success'); renderShopTab();
-            } catch (err) { showToast('Ошибка: ' + err.message, 'error'); }
-          });
-        } catch (err) { console.error(err); tabContent.innerHTML = '<p>Ошибка загрузки магазина.</p>'; }
-      }
-
-      let currentEditShopItemId = null;
-      function openEditShopItemModal(item) {
-        currentEditShopItemId = item.id;
-        document.getElementById('shop-item-title').value = item.title || '';
-        document.getElementById('shop-item-desc').value = item.description || '';
-        document.getElementById('shop-item-category').value = item.category || '';
-        document.getElementById('shop-item-price').value = item.price || 1;
-        document.getElementById('shop-item-icon').value = item.icon || '🛒';
-        document.getElementById('shop-item-effect').value = item.effect || '';
-        document.getElementById('shop-item-unique').value = item.unique ? 'true' : 'false';
-        document.getElementById('shop-item-message').textContent = '';
-        document.getElementById('shop-item-id-display').innerHTML = `<strong>ID товара:</strong> <code>${item.id}</code>`;
-        document.getElementById('shop-item-modal').style.display = 'flex';
-      }
-      document.getElementById('shop-item-modal-close').addEventListener('click', () => { document.getElementById('shop-item-modal').style.display = 'none'; });
-      document.getElementById('shop-item-save').addEventListener('click', async () => {
-        const updated = {
-          title: document.getElementById('shop-item-title').value.trim(), description: document.getElementById('shop-item-desc').value.trim(),
-          category: document.getElementById('shop-item-category').value.trim(), price: parseInt(document.getElementById('shop-item-price').value, 10),
-          icon: document.getElementById('shop-item-icon').value.trim(), effect: document.getElementById('shop-item-effect').value.trim(),
-          unique: document.getElementById('shop-item-unique').value === 'true'
-        };
-        if (!updated.title || !updated.price) { document.getElementById('shop-item-message').textContent = 'Название и цена обязательны.'; return; }
-        try {
-          await db.collection('shopItems').doc(currentEditShopItemId).update(updated);
-          showToast('Товар обновлён', 'success');
-          document.getElementById('shop-item-modal').style.display = 'none';
-          renderShopTab();
-        } catch (err) { document.getElementById('shop-item-message').textContent = 'Ошибка: ' + err.message; }
-      });
-
-      // ----- Уведомления (массовая рассылка) -----
-      function renderNotificationsTab() {
-        const tabContent = document.getElementById('admin-tab-content');
-        tabContent.innerHTML = `
-          <h3>Массовая рассылка уведомлений</h3>
-          <div class="mass-notif-form">
-            <div class="form-group"><label for="notif-target">Кому отправить</label><select id="notif-target"><option value="all">Всем пользователям</option><option value="department">По отделу</option><option value="role">По роли</option><option value="user">Конкретному пользователю</option></select></div>
-            <div class="form-group" id="notif-filter-group" style="display:none;"><label for="notif-filter-value">Значение фильтра</label><select id="notif-filter-value"></select></div>
-            <div class="form-group"><label for="notif-message">Текст уведомления</label><textarea id="notif-message" rows="3" required placeholder="Введите сообщение..."></textarea></div>
-            <div class="form-group"><label for="notif-link">Ссылка (необязательно)</label><input type="text" id="notif-link" placeholder="Например, leaderboard.html"></div>
-            <button class="btn" id="send-notif-btn">Отправить</button>
-            <div class="progress-bar" id="notif-progress"><div class="progress-fill" id="notif-progress-fill"></div></div>
-            <p id="notif-status" class="auth-message"></p>
-          </div>
-        `;
-        const targetSelect = document.getElementById('notif-target'), filterGroup = document.getElementById('notif-filter-group'), filterValue = document.getElementById('notif-filter-value'),
-              messageInput = document.getElementById('notif-message'), linkInput = document.getElementById('notif-link'), sendBtn = document.getElementById('send-notif-btn'),
-              progressBar = document.getElementById('notif-progress'), progressFill = document.getElementById('notif-progress-fill'), statusMsg = document.getElementById('notif-status');
-        async function updateFilterOptions() {
-          const target = targetSelect.value;
-          filterGroup.style.display = (target === 'all') ? 'none' : 'block';
-          filterValue.innerHTML = '';
-          if (target === 'department') { const snap = await db.collection('users').get(); const depts = [...new Set(snap.docs.map(d => d.data().department).filter(Boolean))]; depts.forEach(d => filterValue.add(new Option(d, d))); }
-          else if (target === 'role') { ['user', 'admin'].forEach(r => filterValue.add(new Option(r, r))); }
-          else if (target === 'user') { const snap = await db.collection('users').get(); snap.forEach(doc => { const d = doc.data(); filterValue.add(new Option(d.username || d.email, doc.id)); }); }
-        }
-        targetSelect.addEventListener('change', updateFilterOptions); updateFilterOptions();
-        sendBtn.addEventListener('click', async () => {
-          const message = messageInput.value.trim();
-          if (!message) { statusMsg.textContent = 'Введите текст уведомления.'; return; }
-          const link = linkInput.value.trim();
-          sendBtn.disabled = true; progressBar.style.display = 'block'; progressFill.style.width = '0%'; statusMsg.textContent = 'Отправка...';
-          try {
-            let users = [];
-            const target = targetSelect.value;
-            if (target === 'all') { const snap = await db.collection('users').get(); snap.forEach(doc => users.push(doc.id)); }
-            else { const field = target === 'department' ? 'department' : target === 'role' ? 'role' : '__name__'; const value = filterValue.value; if (!value) { statusMsg.textContent = 'Выберите значение фильтра.'; sendBtn.disabled = false; return; } const snap = await db.collection('users').where(field, '==', value).get(); snap.forEach(doc => users.push(doc.id)); }
-            if (users.length === 0) { statusMsg.textContent = 'Нет пользователей для рассылки.'; sendBtn.disabled = false; return; }
-            let sent = 0;
-            for (const uid of users) { await addNotification(uid, message, 'admin', link || ''); sent++; progressFill.style.width = (sent / users.length * 100) + '%'; }
-            statusMsg.textContent = `Уведомления отправлены (${sent} шт.)`; showToast(`Разослано ${sent} уведомлений`, 'success');
-          } catch (err) { console.error(err); statusMsg.textContent = 'Ошибка: ' + err.message; showToast('Ошибка рассылки', 'error'); }
-          finally { sendBtn.disabled = false; progressBar.style.display = 'none'; }
-        });
-      }
-
-      // ----- Отделы -----
-      function renderDepartmentsTab() {
-        const tabContent = document.getElementById('admin-tab-content');
-        let html = `<h3>Управление отделами</h3><ul class="dept-list">`;
-        departmentsCache.forEach(dept => { html += `<li><span>${dept.name}</span> <button class="btn btn-small btn-danger delete-dept-btn" data-dept-id="${dept.id}">Удалить</button></li>`; });
-        html += `</ul><div class="form-group" style="margin-top:1rem;"><label for="new-dept-name">Новый отдел</label><div style="display:flex; gap:0.5rem;"><input type="text" id="new-dept-name" placeholder="Название отдела"><button class="btn" id="add-dept-btn">Добавить</button></div></div>`;
-        tabContent.innerHTML = html;
-        document.getElementById('add-dept-btn').addEventListener('click', async () => {
-          const name = document.getElementById('new-dept-name').value.trim();
-          if (!name) { showToast('Введите название', 'error'); return; }
-          await db.collection('departments').add({ name }); await loadDepartments(); renderDepartmentsTab(); showToast('Отдел добавлен', 'success');
-        });
-        document.querySelectorAll('.delete-dept-btn').forEach(btn => {
-          btn.addEventListener('click', async (e) => { if (confirm('Удалить отдел?')) { await db.collection('departments').doc(e.target.dataset.deptId).delete(); await loadDepartments(); renderDepartmentsTab(); showToast('Отдел удалён', 'success'); } });
-        });
-      }
-
-      // ----- Достижения (Firestore) -----
-      async function renderAchievementsTab() {
-        const tabContent = document.getElementById('admin-tab-content');
-        tabContent.innerHTML = '<p>Загрузка достижений...</p>';
-        try {
-          const snap = await db.collection('achievements').get();
-          const achievements = [];
-          snap.forEach(doc => achievements.push({ id: doc.id, ...doc.data() }));
-          let html = `<h3>Управление достижениями (${achievements.length})</h3>`;
-          if (achievements.length > 0) {
-            html += `<ul class="achievements-list">`;
-            achievements.forEach(ach => {
-              html += `<li><span>${ach.icon || '🏆'} <strong>${ach.name}</strong> (${ach.id})${ach.hidden ? ' 🔒скрытое' : ''}</span>
-                <div><button class="btn btn-small edit-ach-btn" data-ach-id="${ach.id}">✏️</button><button class="btn btn-small btn-danger delete-ach-btn" data-ach-id="${ach.id}">Удалить</button></div></li>`;
-            });
-            html += `</ul>`;
-          } else { html += '<p>Достижений нет.</p>'; }
-          html += `<button class="btn" id="add-ach-btn" style="margin-top:1rem;">➕ Добавить достижение</button>`;
-          tabContent.innerHTML = html;
-          document.getElementById('add-ach-btn').addEventListener('click', () => openAchievementModal());
-          document.querySelectorAll('.edit-ach-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              const id = e.target.dataset.achId;
-              const ach = achievements.find(a => a.id === id);
-              if (ach) openAchievementModal(ach);
-            });
-          });
-          document.querySelectorAll('.delete-ach-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => { if (confirm('Удалить достижение?')) { await db.collection('achievements').doc(e.target.dataset.achId).delete(); showToast('Достижение удалено', 'success'); renderAchievementsTab(); } });
-          });
-        } catch (err) { console.error(err); tabContent.innerHTML = '<p>Ошибка загрузки достижений.</p>'; }
-      }
-
-      let currentEditAchId = null;
-      function openAchievementModal(ach = null) {
-        const modal = document.getElementById('achievement-modal');
-        document.getElementById('ach-message').textContent = '';
-        if (ach) {
-          currentEditAchId = ach.id;
-          document.getElementById('achievement-modal-title').textContent = 'Редактировать достижение';
-          document.getElementById('ach-id').value = ach.id; document.getElementById('ach-id').disabled = true;
-          document.getElementById('ach-name').value = ach.name || '';
-          document.getElementById('ach-desc').value = ach.description || '';
-          document.getElementById('ach-icon').value = ach.icon || '🏆';
-          document.getElementById('ach-hidden').value = ach.hidden ? 'true' : 'false';
-        } else {
-          currentEditAchId = null;
-          document.getElementById('achievement-modal-title').textContent = 'Добавить достижение';
-          document.getElementById('ach-id').value = ''; document.getElementById('ach-id').disabled = false;
-          document.getElementById('ach-name').value = '';
-          document.getElementById('ach-desc').value = '';
-          document.getElementById('ach-icon').value = '🏆';
-          document.getElementById('ach-hidden').value = 'false';
-        }
-        modal.style.display = 'flex';
-      }
-      document.getElementById('achievement-modal-close').addEventListener('click', () => { document.getElementById('achievement-modal').style.display = 'none'; });
-      document.getElementById('ach-save-btn').addEventListener('click', async () => {
-        const id = document.getElementById('ach-id').value.trim();
-        const name = document.getElementById('ach-name').value.trim();
-        if (!id || !name) { document.getElementById('ach-message').textContent = 'ID и название обязательны.'; return; }
-        const data = {
-          name,
-          description: document.getElementById('ach-desc').value.trim(),
-          icon: document.getElementById('ach-icon').value.trim() || '🏆',
-          hidden: document.getElementById('ach-hidden').value === 'true'
-        };
-        try {
-          await db.collection('achievements').doc(id).set(data);
-          showToast('Достижение сохранено', 'success');
-          document.getElementById('achievement-modal').style.display = 'none';
-          // Перезагружаем кэш достижений
-          if (typeof loadAchievements === 'function') await loadAchievements();
-          renderAchievementsTab();
-        } catch (err) { document.getElementById('ach-message').textContent = 'Ошибка: ' + err.message; }
-      });
-
-      // ----- Статистика -----
-      async function renderStatsTab() {
-        const tabContent = document.getElementById('admin-tab-content');
-        tabContent.innerHTML = '<p>Загрузка статистики...</p>';
-        try {
-          const now = new Date();
-          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-          const weekAgo = todayStart - 7 * 24 * 60 * 60 * 1000;
-          const usersSnap = await db.collection('users').get();
-          const totalUsers = usersSnap.size;
-          let activeToday = 0, activeWeek = 0, totalPoints = 0;
-          const gameCounts = { clicker: 0, snake: 0, memory: 0, '2048': 0, minesweeper: 0 };
-          usersSnap.forEach(doc => {
-            const data = doc.data();
-            if (data.points) totalPoints += data.points;
-            const history = data.gameHistory || [];
-            let today = false, week = false;
-            history.forEach(entry => {
-              if (entry.game && gameCounts[entry.game] !== undefined) gameCounts[entry.game]++;
-              if (entry.timestamp >= todayStart) today = true;
-              if (entry.timestamp >= weekAgo) week = true;
-            });
-            if (today) activeToday++;
-            if (week) activeWeek++;
-          });
-          const topGame = Object.entries(gameCounts).sort((a,b) => b[1] - a[1])[0];
-          const topGameName = topGame ? (topGame[0] === 'clicker' ? 'Кликер' : topGame[0] === 'snake' ? 'Змейка' : topGame[0] === 'memory' ? 'Найди пару' : topGame[0] === '2048' ? '2048' : topGame[0] === 'minesweeper' ? 'Сапёр' : '—') : '—';
-          const topGameCount = topGame ? topGame[1] : 0;
-          tabContent.innerHTML = `
-            <h3>Статистика <a href="metrics.html" class="btn" style="margin-left:1rem;">📊 Подробные метрики</a></h3>
-            <div class="stats-grid">
-              <div class="stat-card"><div class="stat-value">${totalUsers}</div><div>Пользователей</div></div>
-              <div class="stat-card"><div class="stat-value">${activeToday}</div><div>Активных сегодня</div></div>
-              <div class="stat-card"><div class="stat-value">${activeWeek}</div><div>Активных за неделю</div></div>
-              <div class="stat-card"><div class="stat-value">${totalPoints}</div><div>Всего баллов</div></div>
-              <div class="stat-card"><div class="stat-value">${topGameName}</div><div>Топ игра (${topGameCount} игр)</div></div>
-            </div>
-          `;
-        } catch (err) { console.error(err); tabContent.innerHTML = '<p>Не удалось загрузить статистику.</p>'; }
-      }
-
-      // ----- Новости (расширенные) -----
-      async function renderNewsTab() {
-        const tabContent = document.getElementById('admin-tab-content');
-        tabContent.innerHTML = '<p>Загрузка новостей...</p>';
-        try {
-          const snap = await db.collection('announcements').orderBy('createdAt', 'desc').get();
-          const announcements = [];
-          snap.forEach(doc => announcements.push({ id: doc.id, ...doc.data() }));
-          let html = `<h3>Новости и объявления</h3><ul class="announcements-list">`;
-          announcements.forEach(a => {
-            const date = a.createdAt ? new Date(a.createdAt.seconds*1000).toLocaleString('ru-RU') : '';
-            html += `<li><div><strong>${a.title}</strong> — ${a.body ? a.body.substring(0, 50) + '...' : ''} <br><small>${date}</small>
-              ${a.publishAt ? '<br><small>Опубликована с: ' + new Date(a.publishAt.seconds*1000).toLocaleString('ru-RU') + '</small>' : ''}
-              ${a.expireAt ? '<br><small>Истекает: ' + new Date(a.expireAt.seconds*1000).toLocaleString('ru-RU') + '</small>' : ''}</div>
-              <div><button class="btn btn-small edit-news-btn" data-news-id="${a.id}">✏️</button><button class="btn btn-small btn-danger delete-news-btn" data-news-id="${a.id}">Удалить</button></div></li>`;
-          });
-          html += `</ul><div class="form-group" style="margin-top:1rem;"><button class="btn" id="add-news-btn">➕ Создать новость</button></div>`;
-          tabContent.innerHTML = html;
-          document.getElementById('add-news-btn').addEventListener('click', () => openNewsModal());
-          document.querySelectorAll('.edit-news-btn').forEach(btn => { btn.addEventListener('click', (e) => { const id = e.target.dataset.newsId; const news = announcements.find(a => a.id === id); if (news) openNewsModal(news); }); });
-          document.querySelectorAll('.delete-news-btn').forEach(btn => { btn.addEventListener('click', async (e) => { if (confirm('Удалить новость?')) { await db.collection('announcements').doc(e.target.dataset.newsId).delete(); showToast('Новость удалена', 'success'); renderNewsTab(); } }); });
-        } catch (err) { console.error(err); tabContent.innerHTML = '<p>Ошибка загрузки новостей.</p>'; }
-      }
-
-      let currentNewsId = null;
-      function openNewsModal(news = null) {
-        const modal = document.getElementById('news-modal');
-        document.getElementById('news-message').textContent = '';
-        if (news) {
-          currentNewsId = news.id;
-          document.getElementById('news-modal-title').textContent = 'Редактировать новость';
-          document.getElementById('news-title').value = news.title || '';
-          document.getElementById('news-body').value = news.body || '';
-          document.getElementById('news-icon').value = news.icon || '📢';
-          document.getElementById('news-image-url').value = news.imageUrl || '';
-          document.getElementById('news-video-url').value = news.videoUrl || '';
-          document.getElementById('news-link').value = news.link || '';
-          document.getElementById('news-publish-at').value = news.publishAt ? toDatetimeLocal(news.publishAt.toDate()) : '';
-          document.getElementById('news-expire-at').value = news.expireAt ? toDatetimeLocal(news.expireAt.toDate()) : '';
-          document.getElementById('news-notify-all').checked = false;
-        } else {
-          currentNewsId = null;
-          document.getElementById('news-modal-title').textContent = 'Создать новость';
-          document.getElementById('news-title').value = ''; document.getElementById('news-body').value = ''; document.getElementById('news-icon').value = '📢';
-          document.getElementById('news-image-url').value = ''; document.getElementById('news-video-url').value = ''; document.getElementById('news-link').value = '';
-          document.getElementById('news-publish-at').value = ''; document.getElementById('news-expire-at').value = ''; document.getElementById('news-notify-all').checked = false;
-        }
-        modal.style.display = 'flex';
-      }
-      function toDatetimeLocal(date) { return date.toISOString().slice(0, 16); }
-      document.getElementById('news-modal-close').addEventListener('click', () => { document.getElementById('news-modal').style.display = 'none'; });
-      document.getElementById('news-save-btn').addEventListener('click', async () => {
-        const title = document.getElementById('news-title').value.trim();
-        if (!title) { document.getElementById('news-message').textContent = 'Введите заголовок'; return; }
-        const data = {
-          title, body: document.getElementById('news-body').value.trim(), icon: document.getElementById('news-icon').value.trim() || '📢',
-          imageUrl: document.getElementById('news-image-url').value.trim(), videoUrl: document.getElementById('news-video-url').value.trim(),
-          link: document.getElementById('news-link').value.trim(), updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        const publishStr = document.getElementById('news-publish-at').value;
-        data.publishAt = publishStr ? firebase.firestore.Timestamp.fromDate(new Date(publishStr)) : firebase.firestore.FieldValue.serverTimestamp();
-        const expireStr = document.getElementById('news-expire-at').value;
-        data.expireAt = expireStr ? firebase.firestore.Timestamp.fromDate(new Date(expireStr)) : null;
-        try {
-          if (currentNewsId) { await db.collection('announcements').doc(currentNewsId).update(data); }
-          else { data.createdAt = firebase.firestore.FieldValue.serverTimestamp(); await db.collection('announcements').add(data); }
-          if (document.getElementById('news-notify-all').checked) { const snap = await db.collection('users').get(); const uids = []; snap.forEach(doc => uids.push(doc.id)); for (const uid of uids) { await addNotification(uid, `Новая новость: ${title}`, 'system', 'index.html'); } }
-          showToast(currentNewsId ? 'Новость обновлена' : 'Новость создана', 'success'); document.getElementById('news-modal').style.display = 'none'; renderNewsTab();
-        } catch (err) { document.getElementById('news-message').textContent = 'Ошибка: ' + err.message; }
-      });
-
-      // ----- Экспорт CSV -----
-      function renderExportTab() {
-        const tabContent = document.getElementById('admin-tab-content');
-        tabContent.innerHTML = `<h3>Экспорт пользователей</h3><button class="btn export-btn" id="export-csv-btn">Скачать CSV</button>`;
-        document.getElementById('export-csv-btn').addEventListener('click', async () => {
-          try {
-            const snap = await db.collection('users').get();
-            const rows = [['UID','Имя','Email','Отдел','Баллы','Локоины','Роль','Заблокирован']];
-            snap.forEach(doc => { const u = doc.data(); rows.push([doc.id,u.username||'',u.email||'',u.department||'',u.points||0,u.lokoin_balance||0,u.role||'user',u.disabled?'Да':'Нет']); });
-            let csv = '\uFEFF' + rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click(); URL.revokeObjectURL(url);
-            showToast('Экспорт завершён', 'success');
-          } catch (err) { console.error(err); showToast('Ошибка экспорта', 'error'); }
-        });
-      }
-    });
-  </script>
-</body>
-</html>
+                <td>${item.icon || '🛒'} ${
