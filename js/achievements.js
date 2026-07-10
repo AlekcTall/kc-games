@@ -34,7 +34,11 @@ function getAchievementsConfig() {
     // Сапёр
     { id: 'minesweeper_loss', name: 'Одна нога тут, другая там', description: 'Подорвитесь на мине в сапёре', icon: '💣', hidden: false },
     { id: 'minesweeper_win', name: 'Без права на ошибку', description: 'Успешно завершите игру в сапёре', icon: '💣', hidden: false },
-    { id: 'minesweeper_speed', name: 'Я скорость', description: 'Завершите сапёра за ≤10 секунд', icon: '💣', hidden: true }
+    { id: 'minesweeper_speed', name: 'Я скорость', description: 'Завершите сапёра за ≤10 секунд', icon: '💣', hidden: true },
+    // Ежедневный вход
+    { id: 'daily_7', name: 'На связи', description: 'Заходите 7 дней подряд', icon: '📅', hidden: true },
+    { id: 'daily_30', name: 'Железная воля', description: 'Заходите 30 дней подряд', icon: '📅', hidden: true },
+    { id: 'daily_100', name: 'Старожил', description: 'Заходите 100 раз', icon: '📅', hidden: true }
   ];
 }
 
@@ -71,6 +75,7 @@ async function checkAndAwardAchievements() {
   const gameHistory = data.gameHistory || [];
   const easterEggs = data.easterEggsFound || [];
   const description = data.description || '';
+  const dailyLogin = data.dailyLogin || {};
 
   const config = getAchievementsConfig();
   const newlyUnlocked = [];
@@ -133,6 +138,11 @@ async function checkAndAwardAchievements() {
       case 'minesweeper_loss': earned = gameStats.minesweeper?.loss === true; break;
       case 'minesweeper_win': earned = gameStats.minesweeper?.completed === true; break;
       case 'minesweeper_speed': earned = gameStats.minesweeper?.completed && (gameStats.minesweeper.bestTime || 999) <= 10; break;
+
+      // Ежедневный вход
+      case 'daily_7': earned = (dailyLogin.longestStreak || 0) >= 7; break;
+      case 'daily_30': earned = (dailyLogin.longestStreak || 0) >= 30; break;
+      case 'daily_100': earned = (dailyLogin.totalLogins || 0) >= 100; break;
     }
 
     if (earned && !alreadyUnlocked) {
