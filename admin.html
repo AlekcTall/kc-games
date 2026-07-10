@@ -245,6 +245,7 @@
             <button class="admin-tab" data-tab="notifications">Уведомления</button>
             <button class="admin-tab" data-tab="departments">Отделы</button>
             <button class="admin-tab" data-tab="awards">Награды</button>
+            <button class="admin-tab" data-tab="events">🎪 Ивенты</button>
             <button class="admin-tab" data-tab="stats">Статистика</button>
             <button class="admin-tab" data-tab="news">Новости</button>
             <button class="admin-tab" data-tab="export">Экспорт</button>
@@ -268,6 +269,7 @@
             case 'notifications': renderNotificationsTab(); break;
             case 'departments': renderDepartmentsTab(); break;
             case 'awards': renderAwardsTab(); break;
+            case 'events': window.location.href = 'events-admin.html'; break;
             case 'stats': renderStatsTab(); break;
             case 'news': renderNewsTab(); break;
             case 'export': renderExportTab(); break;
@@ -588,7 +590,6 @@
           if (!awardDoc.exists) throw new Error('Награда не найдена');
           const award = awardDoc.data();
 
-          // Сохраняем в подколлекцию awarded
           await db.collection('users').doc(currentAwardUser.uid).collection('awarded').add({
             awardId,
             awardedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -596,7 +597,6 @@
             comment
           });
 
-          // Начисляем локоины, если указаны
           if (award.lokoinReward && award.lokoinReward > 0) {
             const userRef = db.collection('users').doc(currentAwardUser.uid);
             await userRef.update({
@@ -604,7 +604,6 @@
             });
           }
 
-          // Уведомление пользователю
           let notifMsg = `Вы получили награду «${award.name}»!`;
           if (comment) notifMsg += ` Комментарий: ${comment}`;
           if (award.lokoinReward > 0) notifMsg += ` (+${award.lokoinReward} лок.)`;
