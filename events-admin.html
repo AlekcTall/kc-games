@@ -11,9 +11,9 @@
     .events-tab { background: none; border: none; padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; border-radius: 4px 4px 0 0; }
     .events-tab.active { background: var(--color-primary); color: white; }
     .events-list { list-style: none; padding: 0; }
-    .events-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem; border-bottom: 1px solid #eee; }
-    .events-list li .event-info { flex: 1; }
-    .events-list li .event-actions { display: flex; gap: 0.3rem; }
+    .events-list li { padding: 0.8rem; border-bottom: 1px solid #eee; }
+    .events-list li .event-info { margin-bottom: 0.3rem; }
+    .events-list li .event-actions { display: flex; gap: 0.3rem; margin-top: 0.5rem; }
     .event-form { background: #f9fafb; border-radius: 12px; padding: 1.5rem; max-width: 700px; margin-top: 1rem; }
     .event-form label { font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.3rem; }
     .event-form input, .event-form select, .event-form textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 6px; }
@@ -29,6 +29,10 @@
     .monitor-card .label { font-size: 0.8rem; color: #888; }
     .admin-event-item { background: #fffbe6; border: 1px solid #f0c040; border-radius: 8px; padding: 0.8rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
     .admin-event-item .event-icon { font-size: 1.5rem; margin-right: 0.5rem; }
+    .final-stats { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.8rem; margin-top: 0.5rem; font-size: 0.9rem; }
+    .final-stats table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+    .final-stats th, .final-stats td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; text-align: left; }
+    .final-stats th { background: #e6f7e6; }
   </style>
 </head>
 <body>
@@ -144,8 +148,30 @@
                 <div class="event-info">
                   <strong>${ev.icon || '🎪'} ${ev.title}</strong> (${ev.id}) — ${statusBadge}
                   <br><small>${ev.startTime ? new Date(ev.startTime.seconds*1000).toLocaleString('ru-RU') : '—'} → ${ev.endTime ? new Date(ev.endTime.seconds*1000).toLocaleString('ru-RU') : '—'}</small>
-                </div>
-                <div class="event-actions">
+                </div>`;
+
+              // Показываем финальную статистику для завершённых ивентов
+              if (ev.status === 'finished' && ev.finalStats) {
+                const fs = ev.finalStats;
+                html += `<div class="final-stats">
+                  <strong>📊 Итоги:</strong>
+                  <table>
+                    <tr><td>Участников:</td><td><strong>${fs.uniqueParticipants || 0}</strong></td></tr>
+                    <tr><td>Действий:</td><td><strong>${fs.totalActions || 0}</strong></td></tr>
+                    <tr><td>Баллов выдано:</td><td><strong>${fs.totalPoints || 0}</strong></td></tr>
+                    <tr><td>Финальное здоровье:</td><td><strong>${ev.health ? Math.round(ev.health) : '—'}</strong></td></tr>
+                  </table>
+                  ${fs.topParticipants && fs.topParticipants.length > 0 ? `
+                  <p style="margin-top:0.5rem;"><strong>🏆 Топ участников:</strong></p>
+                  <table>
+                    <tr><th>#</th><th>Игрок</th><th>Действий</th></tr>
+                    ${fs.topParticipants.map((p, i) => `<tr><td>${i+1}</td><td>${p.username}</td><td>${p.total}</td></tr>`).join('')}
+                  </table>
+                  ` : ''}
+                </div>`;
+              }
+
+              html += `<div class="event-actions">
                   <button class="btn btn-small edit-event-btn" data-event-id="${ev.id}">✏️</button>
                   ${ev.status === 'draft' ? `<button class="btn btn-small btn-success start-event-btn" data-event-id="${ev.id}">▶️ Запустить</button>` : ''}
                   ${ev.status === 'active' ? `<button class="btn btn-small btn-warning stop-event-btn" data-event-id="${ev.id}">⏹️ Завершить</button>` : ''}
@@ -168,7 +194,10 @@
           document.querySelectorAll('.start-event-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
               if (confirm('Запустить ивент? Он станет виден пользователям.')) {
-                await db.collection('events').doc(e.target.dataset.eventId).update({ status: 'active' });
+                await db.collection('events').doc(e.target.dataset.eventId).update({
+                  status: 'active',
+                  startTime: firebase.firestore.FieldValue.serverTimestamp()
+                });
                 showToast('Ивент запущен', 'success');
                 renderEventsList();
               }
@@ -188,6 +217,7 @@
                   if (uid === '_lastDecay') continue;
                   const userDoc = await db.collection('users').doc(uid).get();
                   const userData = userDoc.data() || {};
+                  if (userData.role === 'admin') continue;
                   ranked.push({
                     uid,
                     username: userData.username || 'Аноним',
@@ -222,7 +252,8 @@
                   status: 'active',
                   health: 1000,
                   participants: { _lastDecay: Date.now() },
-                  statistics: { totalActions: 0, uniqueParticipants: 0 }
+                  statistics: { totalActions: 0, uniqueParticipants: 0 },
+                  finalStats: null
                 });
                 showToast('Ивент перезапущен', 'success');
                 renderEventsList();
