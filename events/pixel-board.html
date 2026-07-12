@@ -216,11 +216,26 @@
       }
     }
 
-    function renderTopPainters() {
+    async function renderTopPainters() {
       const ranked = Object.entries(painterStats).sort((a, b) => b[1] - a[1]).slice(0, 10);
       if (ranked.length === 0) { topPaintersEl.innerHTML = ''; return; }
+      
+      const nameMap = {};
+      for (const [uid] of ranked) {
+        if (!nameMap[uid]) {
+          const userDoc = await db.collection('users').doc(uid).get();
+          const userData = userDoc.data() || {};
+          nameMap[uid] = userData.role === 'admin' ? null : (userData.username || 'Аноним');
+        }
+      }
+      
+      const filteredRanked = ranked.filter(([uid]) => nameMap[uid] !== null);
+      if (filteredRanked.length === 0) { topPaintersEl.innerHTML = ''; return; }
+      
       let html = '<h4>🏆 Топ художников</h4><table><tr><th>#</th><th>Игрок</th><th>Пикселей</th></tr>';
-      ranked.forEach(([uid, count], i) => { html += `<tr><td>${i+1}</td><td>${uid.substring(0,6)}</td><td>${count}</td></tr>`; });
+      filteredRanked.forEach(([uid, count], i) => {
+        html += `<tr><td>${i+1}</td><td>${nameMap[uid]}</td><td>${count}</td></tr>`;
+      });
       html += '</table>';
       topPaintersEl.innerHTML = html;
     }
