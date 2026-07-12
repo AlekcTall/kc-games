@@ -21,7 +21,6 @@
     .stat-detail { display:flex; flex-direction:column; }
     .stat-value { font-size:1.1rem; font-weight:700; color:var(--color-header); }
     .stat-label { font-size:0.8rem; color:#666; }
-    /* Модалка достижения */
     .ach-modal-content { text-align: center; max-width: 350px; }
     .ach-modal-icon { font-size: 3rem; margin-bottom: 0.5rem; }
     .ach-modal-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.3rem; }
@@ -29,7 +28,6 @@
     .ach-modal-status { font-size: 0.9rem; font-weight: 500; }
     .ach-unlocked-status { color: #27ae60; }
     .ach-locked-status { color: #e67e22; }
-    /* Награды */
     .awards-section { margin-top: 1.5rem; }
     .awards-grid { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 0.5rem; }
     .award-card { background: linear-gradient(135deg, #fff9e6, #fff3cc); border: 2px solid #f0c040; border-radius: 12px; padding: 0.8rem 1rem; display: flex; align-items: center; gap: 0.8rem; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; max-width: 300px; }
@@ -39,20 +37,18 @@
     .award-card-info { flex: 1; }
     .award-card-name { font-weight: 700; color: #b8860b; font-size: 0.95rem; }
     .award-card-comment { font-size: 0.8rem; color: #666; margin-top: 0.2rem; }
-    /* Модалка награды */
     .award-modal-content { text-align: center; max-width: 400px; }
     .award-modal-icon { width: 80px; height: 80px; margin: 0 auto 1rem; }
     .award-modal-icon img { width: 100%; height: 100%; object-fit: contain; }
     .award-modal-title { font-size: 1.4rem; font-weight: 700; color: #b8860b; margin-bottom: 0.3rem; }
     .award-modal-desc { font-size: 0.95rem; color: #555; margin-bottom: 0.5rem; line-height: 1.5; }
     .award-modal-comment { font-size: 0.9rem; color: #888; font-style: italic; margin-top: 0.5rem; }
-    /* Кастомный статус */
     .custom-status-text { font-size: 0.9rem; color: #888; font-style: italic; margin-top: 0.2rem; }
     .avatar-circle.gold-frame { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B; }
     .avatar-circle.animated-avatar { animation: avatarGlow 2s ease-in-out infinite alternate; }
     .avatar-circle.gold-frame.animated-avatar { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B; animation: avatarGlowGold 2s ease-in-out infinite alternate; }
-    @keyframes avatarGlow { from { box-shadow: 0 0 5px #FBBF24, 0 0 10px #F59E0B; } to { box-shadow: 0 0 15px #FBBF24, 0 0 25px #F59E0B; } }
-    @keyframes avatarGlowGold { from { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 5px #FBBF24; } to { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 20px #FBBF24, 0 0 30px #F59E0B; } }
+    @keyframes avatarGlow { from { box-shadow: 0 0 5px #FBBF24; } to { box-shadow: 0 0 15px #FBBF24; } }
+    @keyframes avatarGlowGold { from { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 5px #FBBF24; } to { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 20px #FBBF24; } }
     @media (max-width:480px) { .public-profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } .award-card { max-width: 100%; } }
   </style>
 </head>
@@ -98,15 +94,18 @@
           const achCfg = getAchievementsConfig(); const unlockedAch = userData.achievements||[]; const gameHistory = userData.gameHistory||[];
           const userAwards = await loadUserAwards(userId);
           const purchased = userData.purchasedItems || [];
-          const hasGoldFrame = purchased.includes('gold_frame'), hasAnimatedAvatar = purchased.includes('animated_avatar'), hasCustomStatus = purchased.includes('custom_status');
+          const hasGoldFrame = purchased.includes('gold_frame');
+          const hasAnimatedAvatar = purchased.includes('animated_avatar');
+          const showGoldFrame = userData.showGoldFrame !== false;
+          const showAnimatedAvatar = userData.showAnimatedAvatar !== false;
           let avatarClass = '';
-          if(hasGoldFrame && hasAnimatedAvatar) avatarClass = 'gold-frame animated-avatar';
-          else if(hasGoldFrame) avatarClass = 'gold-frame';
-          else if(hasAnimatedAvatar) avatarClass = 'animated-avatar';
+          if (hasGoldFrame && hasAnimatedAvatar && showGoldFrame && showAnimatedAvatar) avatarClass = 'gold-frame animated-avatar';
+          else if (hasGoldFrame && showGoldFrame) avatarClass = 'gold-frame';
+          else if (hasAnimatedAvatar && showAnimatedAvatar) avatarClass = 'animated-avatar';
           const customStatus = userData.customStatus || '';
           const avatarHtml = (typeof renderAvatarDiv==='function') ? renderAvatarDiv(userData, avatarClass) : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(userData.uid)}">${getInitials(userData.username)}</div>`;
           container.innerHTML = `<div class="public-profile-box">
-            <div class="profile-header">${avatarHtml}<div><h2>${userData.username}</h2><span class="badge badge-${userData.role}">${userData.role}</span>${hasCustomStatus && customStatus ? `<div class="custom-status-text">«${customStatus}»</div>` : ''}${userData.department?`<p class="profile-department"><strong>Отдел:</strong> ${userData.department}</p>`:''}</div></div>
+            <div class="profile-header">${avatarHtml}<div><h2>${userData.username}</h2><span class="badge badge-${userData.role}">${userData.role}</span>${customStatus ? `<div class="custom-status-text">«${customStatus}»</div>` : ''}${userData.department?`<p class="profile-department"><strong>Отдел:</strong> ${userData.department}</p>`:''}</div></div>
             <div class="profile-details"><p><strong>Баллы:</strong> ${userData.points||0}</p><p><strong>О себе:</strong> ${userData.description||'—'}</p></div>
             ${userAwards.length > 0 ? `<div class="awards-section"><h3 class="section-title">🎖️ Награды</h3><div class="awards-grid">${userAwards.map(award => `<div class="award-card" data-award-id="${award.id}"><div class="award-card-icon"><img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'"></div><div class="award-card-info"><div class="award-card-name">${award.name}</div>${award.comment ? `<div class="award-card-comment">${award.comment}</div>` : ''}</div></div>`).join('')}</div></div>` : ''}
             <h3 class="section-title">Достижения (${unlockedAch.length}/${achCfg.length})</h3>
