@@ -17,39 +17,13 @@
 </head>
 <body>
   <header class="header">
-    <div class="container header__inner">
-      <a href="index.html" class="logo">КЦ-Игры</a>
-      <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
-      <nav class="nav" id="main-nav">
-        <ul class="nav__list">
-          <li><a href="index.html" class="nav__link">Главная</a></li>
-          <li><a href="games.html" class="nav__link">Игры</a></li>
-          <li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li>
-          <li><a href="shop.html" class="nav__link active">Магазин</a></li>
-          <li><a href="profile.html" class="nav__link">Профиль</a></li>
-          <li><a href="admin.html" class="nav__link">Админ</a></li>
-        </ul>
-      </nav>
-      <div id="auth-status" class="auth-status"></div>
-    </div>
+    <div class="container header__inner"><a href="index.html" class="logo">КЦ-Игры</a><button class="burger" id="burger-btn" aria-label="Меню">☰</button><nav class="nav" id="main-nav"><ul class="nav__list"><li><a href="index.html" class="nav__link">Главная</a></li><li><a href="games.html" class="nav__link">Игры</a></li><li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li><li><a href="shop.html" class="nav__link active">Магазин</a></li><li><a href="profile.html" class="nav__link">Профиль</a></li><li><a href="admin.html" class="nav__link">Админ</a></li></ul></nav><div id="auth-status" class="auth-status"></div></div>
   </header>
-  <main class="main">
-    <div class="container">
-      <h2>Магазин</h2>
-      <div id="shop-content"></div>
-    </div>
-  </main>
+  <main class="main"><div class="container"><h2>Магазин</h2><div id="shop-content"></div></div></main>
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
-  <div class="modal-overlay" id="item-modal" style="display:none;">
-    <div class="modal item-modal-content">
-      <span class="modal-close" id="item-modal-close">&times;</span>
-      <div class="item-detail"><div class="item-detail-icon" id="item-detail-icon"></div><h3 id="item-detail-title"></h3><p class="item-detail-price"><strong>Цена:</strong> <span id="item-detail-price"></span> локоинов</p><p class="item-detail-desc" id="item-detail-desc"></p><p id="item-detail-duration" style="font-size:0.9rem; color:#888;"></p><div class="item-detail-actions" id="item-detail-actions"></div></div>
-    </div>
-  </div>
-  <div class="modal-overlay" id="confirm-modal" style="display:none;">
-    <div class="modal confirm-modal-content"><p id="confirm-text"></p><button class="btn" id="confirm-yes">Да, купить</button><button class="btn btn-cancel" id="confirm-no">Отмена</button></div>
-  </div>
+  <div class="modal-overlay" id="item-modal" style="display:none;"><div class="modal item-modal-content"><span class="modal-close" id="item-modal-close">&times;</span><div class="item-detail"><div class="item-detail-icon" id="item-detail-icon"></div><h3 id="item-detail-title"></h3><p class="item-detail-price"><strong>Цена:</strong> <span id="item-detail-price"></span> локоинов</p><p class="item-detail-desc" id="item-detail-desc"></p><p id="item-detail-duration" style="font-size:0.9rem;color:#888;"></p><div class="item-detail-actions" id="item-detail-actions"></div></div></div></div>
+  <div class="modal-overlay" id="confirm-modal" style="display:none;"><div class="modal confirm-modal-content"><p id="confirm-text"></p><button class="btn" id="confirm-yes">Да, купить</button><button class="btn btn-cancel" id="confirm-no">Отмена</button></div></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -124,19 +98,30 @@
         if (item.stock !== null && item.stock !== undefined) { const ns = item.stock - 1; await db.collection('shopItems').doc(item.id).update({ stock: ns }); item.stock = ns; }
         await userRef.update(updateData);
 
-        // Активируем эффект
-        if (item.effect && item.duration > 0 && typeof activateEffect === 'function') {
-          await activateEffect(auth.currentUser.uid, item.effect, item.duration);
-        }
-        if ((item.effect === 'dark_theme' || item.id === 'dark_theme') && item.duration === 0) {
-          await userRef.update({ activeTheme: 'dark' }); document.body.classList.add('dark-theme');
-        }
+        if (item.effect && item.duration > 0 && typeof activateEffect === 'function') await activateEffect(auth.currentUser.uid, item.effect, item.duration);
+        if ((item.effect === 'dark_theme' || item.id === 'dark_theme') && item.duration === 0) { await userRef.update({ activeTheme: 'dark' }); document.body.classList.add('dark-theme'); }
 
         if (typeof addPurchaseNotification === 'function') await addPurchaseNotification(auth.currentUser.uid, item.title, item.price, newBalance);
+
+        // Создаём заявку для админа, если требуется
         if (item.notifyAdmin) {
+          await db.collection('purchaseRequests').add({
+            userId: auth.currentUser.uid,
+            username: currentUserDoc.username || currentUserDoc.email,
+            email: currentUserDoc.email || '',
+            department: currentUserDoc.department || '',
+            itemId: item.id,
+            itemTitle: item.title,
+            itemPrice: item.price,
+            itemEffect: item.effect || '',
+            status: 'new',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          // Уведомление админам
           const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
-          adminsSnap.forEach(async adminDoc => { if (typeof addNotification === 'function') await addNotification(adminDoc.id, `🛒 ${currentUserDoc.username || currentUserDoc.email} приобрёл «${item.title}» за ${item.price} лок.`, 'purchase', 'admin.html'); });
+          adminsSnap.forEach(async adminDoc => { if (typeof addNotification === 'function') await addNotification(adminDoc.id, `🛒 ${currentUserDoc.username} приобрёл «${item.title}» за ${item.price} лок. Требуется реализация.`, 'purchase', 'admin.html'); });
         }
+
         showToast(`Вы приобрели «${item.title}»!`, 'success');
         currentUserDoc.lokoin_balance = newBalance;
         if (!currentUserDoc.purchasedItems) currentUserDoc.purchasedItems = []; currentUserDoc.purchasedItems.push(item.id);
