@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Магазин – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .shop-categories { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .shop-category-btn { padding: 0.4rem 1rem; border: 1px solid #d0d8e0; border-radius: 20px; background: white; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+    .shop-category-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+    .shop-card__duration { font-size: 0.8rem; color: #888; margin-bottom: 0.5rem; }
+    .shop-card__stock { font-size: 0.8rem; color: #e74c3c; margin-bottom: 0.5rem; font-weight: 600; }
+    .shop-card__effect { font-size: 0.75rem; color: #27ae60; margin-bottom: 0.3rem; font-weight: 500; }
+    .modal { max-width: 450px; }
+  </style>
 </head>
 <body>
   <header class="header">
@@ -27,16 +36,12 @@
   <main class="main">
     <div class="container">
       <h2>Магазин</h2>
-      <div id="shop-content">
-        <!-- Динамическое содержимое -->
-      </div>
+      <div id="shop-content"></div>
     </div>
   </main>
-  <footer class="footer">
-    <div class="container"><p>© 2026 ваши амбассадоры</p></div>
-  </footer>
+  <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
-  <!-- Модальное окно товара (скрыто) -->
+  <!-- Модальное окно товара -->
   <div class="modal-overlay" id="item-modal" style="display:none;">
     <div class="modal item-modal-content">
       <span class="modal-close" id="item-modal-close">&times;</span>
@@ -45,12 +50,13 @@
         <h3 id="item-detail-title"></h3>
         <p class="item-detail-price"><strong>Цена:</strong> <span id="item-detail-price"></span> локоинов</p>
         <p class="item-detail-desc" id="item-detail-desc"></p>
+        <p id="item-detail-duration" style="font-size:0.9rem; color:#888;"></p>
         <div class="item-detail-actions" id="item-detail-actions"></div>
       </div>
     </div>
   </div>
 
-  <!-- Модальное окно подтверждения покупки (скрыто) -->
+  <!-- Модальное окно подтверждения -->
   <div class="modal-overlay" id="confirm-modal" style="display:none;">
     <div class="modal confirm-modal-content">
       <p id="confirm-text"></p>
@@ -72,73 +78,50 @@
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
   <script>
-    // Глобальные функции для уведомлений и склонений будут доступны из main.js
     let allItems = [];
-    let currentUserDoc = null; // кэш документа пользователя
+    let currentUserDoc = null;
     const shopContent = document.getElementById('shop-content');
-    
-    // Элементы фильтров и сетки создадим динамически после авторизации
     let grid, searchInput, categorySelect, sortSelect;
 
-    // Модальные окна
     const itemModal = document.getElementById('item-modal');
     const itemModalClose = document.getElementById('item-modal-close');
     const itemDetailIcon = document.getElementById('item-detail-icon');
     const itemDetailTitle = document.getElementById('item-detail-title');
     const itemDetailPrice = document.getElementById('item-detail-price');
     const itemDetailDesc = document.getElementById('item-detail-desc');
+    const itemDetailDuration = document.getElementById('item-detail-duration');
     const itemDetailActions = document.getElementById('item-detail-actions');
     const confirmModal = document.getElementById('confirm-modal');
     const confirmText = document.getElementById('confirm-text');
     const confirmYes = document.getElementById('confirm-yes');
     const confirmNo = document.getElementById('confirm-no');
-
-    let pendingItem = null; // товар, который пытаемся купить
+    let pendingItem = null;
 
     async function loadShopItems() {
       try {
         const snap = await db.collection('shopItems').get();
         allItems = [];
-        snap.forEach(doc => {
-          allItems.push({ id: doc.id, ...doc.data() });
-        });
+        snap.forEach(doc => allItems.push({ id: doc.id, ...doc.data() }));
         populateCategories();
         renderShop();
-      } catch (e) {
-        console.error(e);
-        grid.innerHTML = '<p class="no-results">Не удалось загрузить товары.</p>';
-      }
+      } catch (e) { console.error(e); grid.innerHTML = '<p class="no-results">Не удалось загрузить товары.</p>'; }
     }
 
     function populateCategories() {
       const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))];
       categorySelect.innerHTML = '<option value="">Все категории</option>';
-      cats.forEach(c => {
-        const opt = new Option(c, c);
-        categorySelect.add(opt);
-      });
+      cats.forEach(c => { const opt = new Option(c, c); categorySelect.add(opt); });
     }
 
     function getCurrentUserDoc() {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         if (!auth.currentUser) return resolve(null);
-        db.collection('users').doc(auth.currentUser.uid).get()
-          .then(doc => {
-            if (doc.exists) {
-              resolve({ uid: auth.currentUser.uid, ...doc.data() });
-            } else {
-              resolve(null);
-            }
-          })
-          .catch(reject);
+        db.collection('users').doc(auth.currentUser.uid).get().then(doc => resolve(doc.exists ? { uid: auth.currentUser.uid, ...doc.data() } : null)).catch(() => resolve(null));
       });
     }
 
     function renderShop() {
-      if (!allItems.length) {
-        grid.innerHTML = '<p class="no-results">Товаров пока нет.</p>';
-        return;
-      }
+      if (!allItems.length) { grid.innerHTML = '<p class="no-results">Товаров пока нет.</p>'; return; }
       const searchTerm = searchInput.value.trim().toLowerCase();
       const category = categorySelect.value;
       const sort = sortSelect.value;
@@ -149,31 +132,29 @@
         return true;
       });
 
-      if (sort === 'price_asc') {
-        filtered.sort((a, b) => a.price - b.price);
-      } else if (sort === 'price_desc') {
-        filtered.sort((a, b) => b.price - a.price);
-      }
+      if (sort === 'price_asc') filtered.sort((a, b) => a.price - b.price);
+      else if (sort === 'price_desc') filtered.sort((a, b) => b.price - a.price);
 
-      if (!filtered.length) {
-        grid.innerHTML = '<p class="no-results">Ничего не найдено.</p>';
-        return;
-      }
+      if (!filtered.length) { grid.innerHTML = '<p class="no-results">Ничего не найдено.</p>'; return; }
 
       let html = '';
       filtered.forEach(item => {
         const isOwned = currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
         const cardClass = isOwned ? 'shop-card owned' : 'shop-card';
+        const stockText = item.stock !== null && item.stock !== undefined ? `Осталось: ${item.stock} шт.` : '';
+        const durationText = item.duration > 0 ? `Действует: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
         html += `<div class="${cardClass}" data-item-id="${item.id}">
           <div class="shop-card__icon">${item.icon || '🛒'}</div>
           <h3 class="shop-card__title">${item.title}</h3>
+          ${item.effect ? `<p class="shop-card__effect">${item.effect}</p>` : ''}
+          ${durationText ? `<p class="shop-card__duration">${durationText}</p>` : ''}
+          ${stockText ? `<p class="shop-card__stock">${stockText}</p>` : ''}
           <p class="shop-card__price">${item.price} локоин${pluralizeLokoin(item.price)}</p>
-          ${isOwned ? '<span class="shop-card__badge">Уже куплено</span>' : ''}
+          ${isOwned ? '<span class="shop-card__badge">Куплено</span>' : ''}
         </div>`;
       });
       grid.innerHTML = html;
 
-      // Обработчики клика по карточкам
       document.querySelectorAll('.shop-card').forEach(card => {
         card.addEventListener('click', () => {
           const itemId = card.dataset.itemId;
@@ -190,117 +171,91 @@
       itemDetailTitle.textContent = item.title;
       itemDetailPrice.textContent = item.price;
       itemDetailDesc.textContent = item.description || 'Описание отсутствует.';
+      itemDetailDuration.textContent = item.duration > 0 ? `Длительность: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
       const isOwned = currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
       if (isOwned) {
-        itemDetailActions.innerHTML = `<span class="item-detail-owned">Уже куплено</span>`;
+        itemDetailActions.innerHTML = '<span class="item-detail-owned">Уже куплено</span>';
+      } else if (item.stock !== null && item.stock !== undefined && item.stock <= 0) {
+        itemDetailActions.innerHTML = '<span class="item-detail-owned" style="background:#e74c3c;">Раскуплено</span>';
       } else {
-        itemDetailActions.innerHTML = `<button class="btn btn-buy" id="btn-buy" data-item-id="${item.id}">Купить за ${item.price} локоин${pluralizeLokoin(item.price)}</button>`;
+        itemDetailActions.innerHTML = `<button class="btn btn-buy" id="btn-buy">Купить за ${item.price} локоин${pluralizeLokoin(item.price)}</button>`;
       }
       itemModal.style.display = 'flex';
-      // Привяжем событие к кнопке покупки, если она есть
       const buyBtn = document.getElementById('btn-buy');
-      if (buyBtn) {
-        buyBtn.addEventListener('click', () => {
-          itemModal.style.display = 'none';
-          confirmPurchase(item);
-        });
-      }
+      if (buyBtn) buyBtn.addEventListener('click', () => { itemModal.style.display = 'none'; confirmPurchase(item); });
     }
 
     function confirmPurchase(item) {
-      if (!auth.currentUser) {
-        showToast('Войдите, чтобы совершать покупки.', 'error');
-        return;
-      }
-      if (!currentUserDoc) {
-        showToast('Не удалось загрузить данные пользователя.', 'error');
-        return;
-      }
+      if (!auth.currentUser) { showToast('Войдите, чтобы покупать.', 'error'); return; }
+      if (!currentUserDoc) { showToast('Не удалось загрузить данные.', 'error'); return; }
       const balance = currentUserDoc.lokoin_balance || 0;
-      if (balance < item.price) {
-        showToast(`Недостаточно локоинов. Ваш баланс: ${balance}`, 'error');
-        return;
-      }
-      confirmText.textContent = `Вы действительно хотите купить «${item.title}» за ${item.price} локоин${pluralizeLokoin(item.price)}?`;
+      if (balance < item.price) { showToast(`Недостаточно локоинов. Ваш баланс: ${balance}`, 'error'); return; }
+      if (item.stock !== null && item.stock !== undefined && item.stock <= 0) { showToast('Товар раскуплен.', 'error'); return; }
+      confirmText.textContent = `Купить «${item.title}» за ${item.price} локоин${pluralizeLokoin(item.price)}?`;
       confirmModal.style.display = 'flex';
-      // Сохраним item для обработчика
-      confirmYes.onclick = async () => {
-        confirmModal.style.display = 'none';
-        await performPurchase(item);
-      };
-      confirmNo.onclick = () => {
-        confirmModal.style.display = 'none';
-      };
+      confirmYes.onclick = async () => { confirmModal.style.display = 'none'; await performPurchase(item); };
+      confirmNo.onclick = () => { confirmModal.style.display = 'none'; };
     }
 
     async function performPurchase(item) {
       try {
         if (!auth.currentUser) throw new Error('Не авторизован');
         const newBalance = (currentUserDoc.lokoin_balance || 0) - item.price;
-        // Обновляем документ пользователя: списываем локоины, добавляем товар
         const userRef = db.collection('users').doc(auth.currentUser.uid);
-        await userRef.update({
-          lokoin_balance: newBalance,
-          purchasedItems: firebase.firestore.FieldValue.arrayUnion(item.id)
-        });
-        // Если товар — тёмная тема, сразу активируем
+        const updateData = { lokoin_balance: newBalance, purchasedItems: firebase.firestore.FieldValue.arrayUnion(item.id) };
+        
+        if (item.stock !== null && item.stock !== undefined) {
+          const newStock = item.stock - 1;
+          await db.collection('shopItems').doc(item.id).update({ stock: newStock });
+          item.stock = newStock;
+        }
+
+        await userRef.update(updateData);
+
         if (item.effect === 'dark_theme' || item.id === 'dark_theme') {
           await userRef.update({ activeTheme: 'dark' });
           document.body.classList.add('dark-theme');
         }
-        // Отправляем уведомление
+
+        // Уведомление покупателю
         if (typeof addPurchaseNotification === 'function') {
           await addPurchaseNotification(auth.currentUser.uid, item.title, item.price, newBalance);
         }
+
+        // Уведомление админу, если требуется
+        if (item.notifyAdmin) {
+          const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
+          adminsSnap.forEach(async (adminDoc) => {
+            if (typeof addNotification === 'function') {
+              const userInfo = currentUserDoc.username || currentUserDoc.email;
+              await addNotification(adminDoc.id, `🛒 ${userInfo} приобрёл «${item.title}» за ${item.price} лок. Требуется реализация.`, 'purchase', 'admin.html');
+            }
+          });
+        }
+
         showToast(`Вы приобрели «${item.title}»!`, 'success');
-        // Обновим кэш и перерисуем
         currentUserDoc.lokoin_balance = newBalance;
         if (!currentUserDoc.purchasedItems) currentUserDoc.purchasedItems = [];
         currentUserDoc.purchasedItems.push(item.id);
         renderShop();
-        // Закрыть модалку деталей, если открыта
         itemModal.style.display = 'none';
-      } catch (e) {
-        console.error(e);
-        showToast('Ошибка при покупке: ' + e.message, 'error');
-      }
+      } catch (e) { console.error(e); showToast('Ошибка при покупке: ' + e.message, 'error'); }
     }
 
-    // Закрытие модалок
     itemModalClose.addEventListener('click', () => { itemModal.style.display = 'none'; });
-    window.addEventListener('click', (e) => {
-      if (e.target === itemModal) itemModal.style.display = 'none';
-      if (e.target === confirmModal) confirmModal.style.display = 'none';
-    });
+    window.addEventListener('click', (e) => { if (e.target === itemModal) itemModal.style.display = 'none'; if (e.target === confirmModal) confirmModal.style.display = 'none'; });
 
-    // Инициализация: строим интерфейс только после проверки auth
     auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        shopContent.innerHTML = '<p class="no-results">Войдите в профиль, чтобы просматривать магазин.</p>';
-        return;
-      }
+      if (!user) { shopContent.innerHTML = '<p class="no-results">Войдите, чтобы просматривать магазин.</p>'; return; }
 
-      // Пользователь авторизован — строим интерфейс магазина
       shopContent.innerHTML = `
+        <div class="shop-categories" id="shop-categories">
+          <button class="shop-category-btn active" data-category="">Все</button>
+        </div>
         <div class="shop-filters">
-          <div class="filter-group">
-            <label for="shop-search">🔍 Поиск</label>
-            <input type="text" id="shop-search" placeholder="Название товара...">
-          </div>
-          <div class="filter-group">
-            <label for="shop-category">Категория</label>
-            <select id="shop-category">
-              <option value="">Все категории</option>
-            </select>
-          </div>
-          <div class="filter-group">
-            <label for="shop-sort">Сортировка</label>
-            <select id="shop-sort">
-              <option value="default">По умолчанию</option>
-              <option value="price_asc">Сначала дешёвые</option>
-              <option value="price_desc">Сначала дорогие</option>
-            </select>
-          </div>
+          <div class="filter-group"><label>🔍 Поиск</label><input type="text" id="shop-search" placeholder="Название товара..."></div>
+          <div class="filter-group"><label>Категория</label><select id="shop-category"><option value="">Все категории</option></select></div>
+          <div class="filter-group"><label>Сортировка</label><select id="shop-sort"><option value="default">По умолчанию</option><option value="price_asc">Сначала дешёвые</option><option value="price_desc">Сначала дорогие</option></select></div>
         </div>
         <div id="shop-grid" class="shop-grid"></div>
       `;
@@ -310,38 +265,50 @@
       categorySelect = document.getElementById('shop-category');
       sortSelect = document.getElementById('shop-sort');
 
-      // Загружаем данные пользователя
       currentUserDoc = await getCurrentUserDoc();
       if (!currentUserDoc) {
-        // На всякий случай создаём документ, если его почему-то нет
-        await db.collection('users').doc(user.uid).set({
-          username: user.email || 'Аноним',
-          points: 0,
-          lokoin_balance: 0,
-          purchasedItems: [],
-          achievements: [],
-          gameHistory: [],
-          role: 'user',
-          email: user.email,
-          activeTheme: 'light'
-        }, { merge: true });
+        await db.collection('users').doc(user.uid).set({ username: user.email || 'Аноним', points: 0, lokoin_balance: 0, purchasedItems: [], achievements: [], gameHistory: [], role: 'user', email: user.email, activeTheme: 'light' }, { merge: true });
         currentUserDoc = await getCurrentUserDoc();
       }
 
-      // Применяем тему
-      if (currentUserDoc.activeTheme === 'dark') {
-        document.body.classList.add('dark-theme');
-      } else {
-        document.body.classList.remove('dark-theme');
-      }
+      if (currentUserDoc.activeTheme === 'dark') document.body.classList.add('dark-theme');
+      else document.body.classList.remove('dark-theme');
 
-      // Обработчики фильтров
-      searchInput.addEventListener('input', renderShop);
-      categorySelect.addEventListener('change', renderShop);
-      sortSelect.addEventListener('change', renderShop);
-
-      // Загружаем товары
       await loadShopItems();
+
+      // Кнопки категорий
+      const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))];
+      const catContainer = document.getElementById('shop-categories');
+      cats.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'shop-category-btn';
+        btn.textContent = cat;
+        btn.dataset.category = cat;
+        btn.addEventListener('click', () => {
+          catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          categorySelect.value = cat;
+          renderShop();
+        });
+        catContainer.appendChild(btn);
+      });
+
+      // Кнопка «Все»
+      document.querySelector('.shop-category-btn[data-category=""]').addEventListener('click', () => {
+        catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.shop-category-btn[data-category=""]').classList.add('active');
+        categorySelect.value = '';
+        renderShop();
+      });
+
+      searchInput.addEventListener('input', renderShop);
+      categorySelect.addEventListener('change', function() {
+        catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
+        const activeBtn = document.querySelector(`.shop-category-btn[data-category="${this.value}"]`) || document.querySelector('.shop-category-btn[data-category=""]');
+        if (activeBtn) activeBtn.classList.add('active');
+        renderShop();
+      });
+      sortSelect.addEventListener('change', renderShop);
     });
   </script>
 </body>
