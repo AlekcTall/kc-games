@@ -41,31 +41,16 @@
   </main>
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
-  <!-- Модальное окно товара -->
   <div class="modal-overlay" id="item-modal" style="display:none;">
     <div class="modal item-modal-content">
       <span class="modal-close" id="item-modal-close">&times;</span>
-      <div class="item-detail">
-        <div class="item-detail-icon" id="item-detail-icon"></div>
-        <h3 id="item-detail-title"></h3>
-        <p class="item-detail-price"><strong>Цена:</strong> <span id="item-detail-price"></span> локоинов</p>
-        <p class="item-detail-desc" id="item-detail-desc"></p>
-        <p id="item-detail-duration" style="font-size:0.9rem; color:#888;"></p>
-        <div class="item-detail-actions" id="item-detail-actions"></div>
-      </div>
+      <div class="item-detail"><div class="item-detail-icon" id="item-detail-icon"></div><h3 id="item-detail-title"></h3><p class="item-detail-price"><strong>Цена:</strong> <span id="item-detail-price"></span> локоинов</p><p class="item-detail-desc" id="item-detail-desc"></p><p id="item-detail-duration" style="font-size:0.9rem; color:#888;"></p><div class="item-detail-actions" id="item-detail-actions"></div></div>
     </div>
   </div>
-
-  <!-- Модальное окно подтверждения -->
   <div class="modal-overlay" id="confirm-modal" style="display:none;">
-    <div class="modal confirm-modal-content">
-      <p id="confirm-text"></p>
-      <button class="btn" id="confirm-yes">Да, купить</button>
-      <button class="btn btn-cancel" id="confirm-no">Отмена</button>
-    </div>
+    <div class="modal confirm-modal-content"><p id="confirm-text"></p><button class="btn" id="confirm-yes">Да, купить</button><button class="btn btn-cancel" id="confirm-no">Отмена</button></div>
   </div>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -78,111 +63,44 @@
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
   <script>
-    let allItems = [];
-    let currentUserDoc = null;
+    let allItems = [], currentUserDoc = null;
     const shopContent = document.getElementById('shop-content');
     let grid, searchInput, categorySelect, sortSelect;
 
-    const itemModal = document.getElementById('item-modal');
-    const itemModalClose = document.getElementById('item-modal-close');
-    const itemDetailIcon = document.getElementById('item-detail-icon');
-    const itemDetailTitle = document.getElementById('item-detail-title');
-    const itemDetailPrice = document.getElementById('item-detail-price');
-    const itemDetailDesc = document.getElementById('item-detail-desc');
-    const itemDetailDuration = document.getElementById('item-detail-duration');
-    const itemDetailActions = document.getElementById('item-detail-actions');
-    const confirmModal = document.getElementById('confirm-modal');
-    const confirmText = document.getElementById('confirm-text');
-    const confirmYes = document.getElementById('confirm-yes');
-    const confirmNo = document.getElementById('confirm-no');
+    const itemModal = document.getElementById('item-modal'), itemModalClose = document.getElementById('item-modal-close'), itemDetailIcon = document.getElementById('item-detail-icon'), itemDetailTitle = document.getElementById('item-detail-title'), itemDetailPrice = document.getElementById('item-detail-price'), itemDetailDesc = document.getElementById('item-detail-desc'), itemDetailDuration = document.getElementById('item-detail-duration'), itemDetailActions = document.getElementById('item-detail-actions');
+    const confirmModal = document.getElementById('confirm-modal'), confirmText = document.getElementById('confirm-text'), confirmYes = document.getElementById('confirm-yes'), confirmNo = document.getElementById('confirm-no');
     let pendingItem = null;
 
-    async function loadShopItems() {
-      try {
-        const snap = await db.collection('shopItems').get();
-        allItems = [];
-        snap.forEach(doc => allItems.push({ id: doc.id, ...doc.data() }));
-        populateCategories();
-        renderShop();
-      } catch (e) { console.error(e); grid.innerHTML = '<p class="no-results">Не удалось загрузить товары.</p>'; }
-    }
-
-    function populateCategories() {
-      const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))];
-      categorySelect.innerHTML = '<option value="">Все категории</option>';
-      cats.forEach(c => { const opt = new Option(c, c); categorySelect.add(opt); });
-    }
-
-    function getCurrentUserDoc() {
-      return new Promise((resolve) => {
-        if (!auth.currentUser) return resolve(null);
-        db.collection('users').doc(auth.currentUser.uid).get().then(doc => resolve(doc.exists ? { uid: auth.currentUser.uid, ...doc.data() } : null)).catch(() => resolve(null));
-      });
-    }
+    async function loadShopItems() { try { const snap = await db.collection('shopItems').get(); allItems = []; snap.forEach(doc => allItems.push({ id: doc.id, ...doc.data() })); populateCategories(); renderShop(); } catch (e) { grid.innerHTML = '<p class="no-results">Не удалось загрузить товары.</p>'; } }
+    function populateCategories() { const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))]; categorySelect.innerHTML = '<option value="">Все категории</option>'; cats.forEach(c => categorySelect.add(new Option(c, c))); }
+    function getCurrentUserDoc() { return new Promise(resolve => { if (!auth.currentUser) return resolve(null); db.collection('users').doc(auth.currentUser.uid).get().then(doc => resolve(doc.exists ? { uid: auth.currentUser.uid, ...doc.data() } : null)).catch(() => resolve(null)); }); }
 
     function renderShop() {
       if (!allItems.length) { grid.innerHTML = '<p class="no-results">Товаров пока нет.</p>'; return; }
-      const searchTerm = searchInput.value.trim().toLowerCase();
-      const category = categorySelect.value;
-      const sort = sortSelect.value;
-
-      let filtered = allItems.filter(item => {
-        if (searchTerm && !item.title.toLowerCase().includes(searchTerm)) return false;
-        if (category && item.category !== category) return false;
-        return true;
-      });
-
-      if (sort === 'price_asc') filtered.sort((a, b) => a.price - b.price);
-      else if (sort === 'price_desc') filtered.sort((a, b) => b.price - a.price);
-
+      const searchTerm = searchInput.value.trim().toLowerCase(), category = categorySelect.value, sort = sortSelect.value;
+      let filtered = allItems.filter(item => { if (searchTerm && !item.title.toLowerCase().includes(searchTerm)) return false; if (category && item.category !== category) return false; return true; });
+      if (sort === 'price_asc') filtered.sort((a, b) => a.price - b.price); else if (sort === 'price_desc') filtered.sort((a, b) => b.price - a.price);
       if (!filtered.length) { grid.innerHTML = '<p class="no-results">Ничего не найдено.</p>'; return; }
-
       let html = '';
       filtered.forEach(item => {
         const isOwned = currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
-        const cardClass = isOwned ? 'shop-card owned' : 'shop-card';
         const stockText = item.stock !== null && item.stock !== undefined ? `Осталось: ${item.stock} шт.` : '';
         const durationText = item.duration > 0 ? `Действует: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
-        html += `<div class="${cardClass}" data-item-id="${item.id}">
-          <div class="shop-card__icon">${item.icon || '🛒'}</div>
-          <h3 class="shop-card__title">${item.title}</h3>
-          ${item.effect ? `<p class="shop-card__effect">${item.effect}</p>` : ''}
-          ${durationText ? `<p class="shop-card__duration">${durationText}</p>` : ''}
-          ${stockText ? `<p class="shop-card__stock">${stockText}</p>` : ''}
-          <p class="shop-card__price">${item.price} локоин${pluralizeLokoin(item.price)}</p>
-          ${isOwned ? '<span class="shop-card__badge">Куплено</span>' : ''}
-        </div>`;
+        html += `<div class="shop-card" data-item-id="${item.id}"><div class="shop-card__icon">${item.icon || '🛒'}</div><h3 class="shop-card__title">${item.title}</h3>${item.effect ? `<p class="shop-card__effect">${item.effect}</p>` : ''}${durationText ? `<p class="shop-card__duration">${durationText}</p>` : ''}${stockText ? `<p class="shop-card__stock">${stockText}</p>` : ''}<p class="shop-card__price">${item.price} локоин${pluralizeLokoin(item.price)}</p>${isOwned ? '<span class="shop-card__badge">Куплено</span>' : ''}</div>`;
       });
       grid.innerHTML = html;
-
-      document.querySelectorAll('.shop-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const itemId = card.dataset.itemId;
-          const item = allItems.find(i => i.id === itemId);
-          if (item) openItemModal(item);
-        });
-      });
+      document.querySelectorAll('.shop-card').forEach(card => card.addEventListener('click', () => { const item = allItems.find(i => i.id === card.dataset.itemId); if (item) openItemModal(item); }));
     }
 
     function openItemModal(item) {
-      if (!item) return;
-      pendingItem = item;
-      itemDetailIcon.textContent = item.icon || '🛒';
-      itemDetailTitle.textContent = item.title;
-      itemDetailPrice.textContent = item.price;
-      itemDetailDesc.textContent = item.description || 'Описание отсутствует.';
-      itemDetailDuration.textContent = item.duration > 0 ? `Длительность: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
+      if (!item) return; pendingItem = item;
+      itemDetailIcon.textContent = item.icon || '🛒'; itemDetailTitle.textContent = item.title; itemDetailPrice.textContent = item.price; itemDetailDesc.textContent = item.description || 'Описание отсутствует.'; itemDetailDuration.textContent = item.duration > 0 ? `Длительность: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
       const isOwned = currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
-      if (isOwned) {
-        itemDetailActions.innerHTML = '<span class="item-detail-owned">Уже куплено</span>';
-      } else if (item.stock !== null && item.stock !== undefined && item.stock <= 0) {
-        itemDetailActions.innerHTML = '<span class="item-detail-owned" style="background:#e74c3c;">Раскуплено</span>';
-      } else {
-        itemDetailActions.innerHTML = `<button class="btn btn-buy" id="btn-buy">Купить за ${item.price} локоин${pluralizeLokoin(item.price)}</button>`;
-      }
+      if (isOwned) itemDetailActions.innerHTML = '<span class="item-detail-owned">Уже куплено</span>';
+      else if (item.stock !== null && item.stock !== undefined && item.stock <= 0) itemDetailActions.innerHTML = '<span class="item-detail-owned" style="background:#e74c3c;">Раскуплено</span>';
+      else itemDetailActions.innerHTML = `<button class="btn btn-buy" id="btn-buy">Купить за ${item.price} локоин${pluralizeLokoin(item.price)}</button>`;
       itemModal.style.display = 'flex';
-      const buyBtn = document.getElementById('btn-buy');
-      if (buyBtn) buyBtn.addEventListener('click', () => { itemModal.style.display = 'none'; confirmPurchase(item); });
+      const buyBtn = document.getElementById('btn-buy'); if (buyBtn) buyBtn.addEventListener('click', () => { itemModal.style.display = 'none'; confirmPurchase(item); });
     }
 
     function confirmPurchase(item) {
@@ -203,111 +121,46 @@
         const newBalance = (currentUserDoc.lokoin_balance || 0) - item.price;
         const userRef = db.collection('users').doc(auth.currentUser.uid);
         const updateData = { lokoin_balance: newBalance, purchasedItems: firebase.firestore.FieldValue.arrayUnion(item.id) };
-        
-        if (item.stock !== null && item.stock !== undefined) {
-          const newStock = item.stock - 1;
-          await db.collection('shopItems').doc(item.id).update({ stock: newStock });
-          item.stock = newStock;
-        }
-
+        if (item.stock !== null && item.stock !== undefined) { const ns = item.stock - 1; await db.collection('shopItems').doc(item.id).update({ stock: ns }); item.stock = ns; }
         await userRef.update(updateData);
 
-        if (item.effect === 'dark_theme' || item.id === 'dark_theme') {
-          await userRef.update({ activeTheme: 'dark' });
-          document.body.classList.add('dark-theme');
+        // Активируем эффект
+        if (item.effect && item.duration > 0 && typeof activateEffect === 'function') {
+          await activateEffect(auth.currentUser.uid, item.effect, item.duration);
+        }
+        if ((item.effect === 'dark_theme' || item.id === 'dark_theme') && item.duration === 0) {
+          await userRef.update({ activeTheme: 'dark' }); document.body.classList.add('dark-theme');
         }
 
-        // Уведомление покупателю
-        if (typeof addPurchaseNotification === 'function') {
-          await addPurchaseNotification(auth.currentUser.uid, item.title, item.price, newBalance);
-        }
-
-        // Уведомление админу, если требуется
+        if (typeof addPurchaseNotification === 'function') await addPurchaseNotification(auth.currentUser.uid, item.title, item.price, newBalance);
         if (item.notifyAdmin) {
           const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
-          adminsSnap.forEach(async (adminDoc) => {
-            if (typeof addNotification === 'function') {
-              const userInfo = currentUserDoc.username || currentUserDoc.email;
-              await addNotification(adminDoc.id, `🛒 ${userInfo} приобрёл «${item.title}» за ${item.price} лок. Требуется реализация.`, 'purchase', 'admin.html');
-            }
-          });
+          adminsSnap.forEach(async adminDoc => { if (typeof addNotification === 'function') await addNotification(adminDoc.id, `🛒 ${currentUserDoc.username || currentUserDoc.email} приобрёл «${item.title}» за ${item.price} лок.`, 'purchase', 'admin.html'); });
         }
-
         showToast(`Вы приобрели «${item.title}»!`, 'success');
         currentUserDoc.lokoin_balance = newBalance;
-        if (!currentUserDoc.purchasedItems) currentUserDoc.purchasedItems = [];
-        currentUserDoc.purchasedItems.push(item.id);
-        renderShop();
-        itemModal.style.display = 'none';
-      } catch (e) { console.error(e); showToast('Ошибка при покупке: ' + e.message, 'error'); }
+        if (!currentUserDoc.purchasedItems) currentUserDoc.purchasedItems = []; currentUserDoc.purchasedItems.push(item.id);
+        renderShop(); itemModal.style.display = 'none';
+      } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
     }
 
     itemModalClose.addEventListener('click', () => { itemModal.style.display = 'none'; });
-    window.addEventListener('click', (e) => { if (e.target === itemModal) itemModal.style.display = 'none'; if (e.target === confirmModal) confirmModal.style.display = 'none'; });
+    window.addEventListener('click', e => { if (e.target === itemModal) itemModal.style.display = 'none'; if (e.target === confirmModal) confirmModal.style.display = 'none'; });
 
-    auth.onAuthStateChanged(async (user) => {
+    auth.onAuthStateChanged(async user => {
       if (!user) { shopContent.innerHTML = '<p class="no-results">Войдите, чтобы просматривать магазин.</p>'; return; }
-
-      shopContent.innerHTML = `
-        <div class="shop-categories" id="shop-categories">
-          <button class="shop-category-btn active" data-category="">Все</button>
-        </div>
-        <div class="shop-filters">
-          <div class="filter-group"><label>🔍 Поиск</label><input type="text" id="shop-search" placeholder="Название товара..."></div>
-          <div class="filter-group"><label>Категория</label><select id="shop-category"><option value="">Все категории</option></select></div>
-          <div class="filter-group"><label>Сортировка</label><select id="shop-sort"><option value="default">По умолчанию</option><option value="price_asc">Сначала дешёвые</option><option value="price_desc">Сначала дорогие</option></select></div>
-        </div>
-        <div id="shop-grid" class="shop-grid"></div>
-      `;
-
-      grid = document.getElementById('shop-grid');
-      searchInput = document.getElementById('shop-search');
-      categorySelect = document.getElementById('shop-category');
-      sortSelect = document.getElementById('shop-sort');
-
+      shopContent.innerHTML = `<div class="shop-categories" id="shop-categories"><button class="shop-category-btn active" data-category="">Все</button></div><div class="shop-filters"><div class="filter-group"><label>🔍 Поиск</label><input type="text" id="shop-search" placeholder="Название..."></div><div class="filter-group"><label>Категория</label><select id="shop-category"><option value="">Все</option></select></div><div class="filter-group"><label>Сортировка</label><select id="shop-sort"><option value="default">По умолчанию</option><option value="price_asc">Сначала дешёвые</option><option value="price_desc">Сначала дорогие</option></select></div></div><div id="shop-grid" class="shop-grid"></div>`;
+      grid = document.getElementById('shop-grid'); searchInput = document.getElementById('shop-search'); categorySelect = document.getElementById('shop-category'); sortSelect = document.getElementById('shop-sort');
       currentUserDoc = await getCurrentUserDoc();
-      if (!currentUserDoc) {
-        await db.collection('users').doc(user.uid).set({ username: user.email || 'Аноним', points: 0, lokoin_balance: 0, purchasedItems: [], achievements: [], gameHistory: [], role: 'user', email: user.email, activeTheme: 'light' }, { merge: true });
-        currentUserDoc = await getCurrentUserDoc();
-      }
-
-      if (currentUserDoc.activeTheme === 'dark') document.body.classList.add('dark-theme');
-      else document.body.classList.remove('dark-theme');
-
+      if (!currentUserDoc) { await db.collection('users').doc(user.uid).set({ username: user.email || 'Аноним', points: 0, lokoin_balance: 0, purchasedItems: [], achievements: [], gameHistory: [], role: 'user', email: user.email, activeTheme: 'light' }, { merge: true }); currentUserDoc = await getCurrentUserDoc(); }
+      if (currentUserDoc.activeTheme === 'dark') document.body.classList.add('dark-theme'); else document.body.classList.remove('dark-theme');
       await loadShopItems();
-
-      // Кнопки категорий
       const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))];
       const catContainer = document.getElementById('shop-categories');
-      cats.forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = 'shop-category-btn';
-        btn.textContent = cat;
-        btn.dataset.category = cat;
-        btn.addEventListener('click', () => {
-          catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          categorySelect.value = cat;
-          renderShop();
-        });
-        catContainer.appendChild(btn);
-      });
-
-      // Кнопка «Все»
-      document.querySelector('.shop-category-btn[data-category=""]').addEventListener('click', () => {
-        catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector('.shop-category-btn[data-category=""]').classList.add('active');
-        categorySelect.value = '';
-        renderShop();
-      });
-
+      cats.forEach(cat => { const btn = document.createElement('button'); btn.className = 'shop-category-btn'; btn.textContent = cat; btn.dataset.category = cat; btn.addEventListener('click', () => { catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); categorySelect.value = cat; renderShop(); }); catContainer.appendChild(btn); });
+      document.querySelector('.shop-category-btn[data-category=""]').addEventListener('click', () => { catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active')); document.querySelector('.shop-category-btn[data-category=""]').classList.add('active'); categorySelect.value = ''; renderShop(); });
       searchInput.addEventListener('input', renderShop);
-      categorySelect.addEventListener('change', function() {
-        catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
-        const activeBtn = document.querySelector(`.shop-category-btn[data-category="${this.value}"]`) || document.querySelector('.shop-category-btn[data-category=""]');
-        if (activeBtn) activeBtn.classList.add('active');
-        renderShop();
-      });
+      categorySelect.addEventListener('change', function() { catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active')); const ab = document.querySelector(`.shop-category-btn[data-category="${this.value}"]`) || document.querySelector('.shop-category-btn[data-category=""]'); if (ab) ab.classList.add('active'); renderShop(); });
       sortSelect.addEventListener('change', renderShop);
     });
   </script>
