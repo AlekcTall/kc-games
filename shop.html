@@ -57,7 +57,7 @@
       if (!filtered.length) { grid.innerHTML = '<p class="no-results">Ничего не найдено.</p>'; return; }
       let html = '';
       filtered.forEach(item => {
-        const isOwned = currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
+        const isOwned = item.unique && currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
         const stockText = item.stock !== null && item.stock !== undefined ? `Осталось: ${item.stock} шт.` : '';
         const durationText = item.duration > 0 ? `Действует: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
         html += `<div class="shop-card" data-item-id="${item.id}"><div class="shop-card__icon">${item.icon || '🛒'}</div><h3 class="shop-card__title">${item.title}</h3>${item.effect ? `<p class="shop-card__effect">${item.effect}</p>` : ''}${durationText ? `<p class="shop-card__duration">${durationText}</p>` : ''}${stockText ? `<p class="shop-card__stock">${stockText}</p>` : ''}<p class="shop-card__price">${item.price} локоин${pluralizeLokoin(item.price)}</p>${isOwned ? '<span class="shop-card__badge">Куплено</span>' : ''}</div>`;
@@ -69,7 +69,7 @@
     function openItemModal(item) {
       if (!item) return; pendingItem = item;
       itemDetailIcon.textContent = item.icon || '🛒'; itemDetailTitle.textContent = item.title; itemDetailPrice.textContent = item.price; itemDetailDesc.textContent = item.description || 'Описание отсутствует.'; itemDetailDuration.textContent = item.duration > 0 ? `Длительность: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
-      const isOwned = currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
+      const isOwned = item.unique && currentUserDoc && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id);
       if (isOwned) itemDetailActions.innerHTML = '<span class="item-detail-owned">Уже куплено</span>';
       else if (item.stock !== null && item.stock !== undefined && item.stock <= 0) itemDetailActions.innerHTML = '<span class="item-detail-owned" style="background:#e74c3c;">Раскуплено</span>';
       else itemDetailActions.innerHTML = `<button class="btn btn-buy" id="btn-buy">Купить за ${item.price} локоин${pluralizeLokoin(item.price)}</button>`;
@@ -83,6 +83,7 @@
       const balance = currentUserDoc.lokoin_balance || 0;
       if (balance < item.price) { showToast(`Недостаточно локоинов. Ваш баланс: ${balance}`, 'error'); return; }
       if (item.stock !== null && item.stock !== undefined && item.stock <= 0) { showToast('Товар раскуплен.', 'error'); return; }
+      if (item.unique && currentUserDoc.purchasedItems && currentUserDoc.purchasedItems.includes(item.id)) { showToast('Вы уже купили этот товар.', 'error'); return; }
       confirmText.textContent = `Купить «${item.title}» за ${item.price} локоин${pluralizeLokoin(item.price)}?`;
       confirmModal.style.display = 'flex';
       confirmYes.onclick = async () => { confirmModal.style.display = 'none'; await performPurchase(item); };
@@ -103,23 +104,10 @@
 
         if (typeof addPurchaseNotification === 'function') await addPurchaseNotification(auth.currentUser.uid, item.title, item.price, newBalance);
 
-        // Создаём заявку для админа, если требуется
         if (item.notifyAdmin) {
-          await db.collection('purchaseRequests').add({
-            userId: auth.currentUser.uid,
-            username: currentUserDoc.username || currentUserDoc.email,
-            email: currentUserDoc.email || '',
-            department: currentUserDoc.department || '',
-            itemId: item.id,
-            itemTitle: item.title,
-            itemPrice: item.price,
-            itemEffect: item.effect || '',
-            status: 'new',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-          // Уведомление админам
+          await db.collection('purchaseRequests').add({ userId: auth.currentUser.uid, username: currentUserDoc.username || currentUserDoc.email, email: currentUserDoc.email || '', department: currentUserDoc.department || '', itemId: item.id, itemTitle: item.title, itemPrice: item.price, itemEffect: item.effect || '', status: 'new', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
           const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
-          adminsSnap.forEach(async adminDoc => { if (typeof addNotification === 'function') await addNotification(adminDoc.id, `🛒 ${currentUserDoc.username} приобрёл «${item.title}» за ${item.price} лок. Требуется реализация.`, 'purchase', 'admin.html'); });
+          adminsSnap.forEach(async adminDoc => { if (typeof addNotification === 'function') await addNotification(adminDoc.id, `🛒 ${currentUserDoc.username} приобрёл «${item.title}» за ${item.price} лок.`, 'purchase', 'admin.html'); });
         }
 
         showToast(`Вы приобрели «${item.title}»!`, 'success');
