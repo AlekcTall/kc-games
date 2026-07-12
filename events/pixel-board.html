@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Пиксельная доска – КЦ Игры</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .pixel-page { max-width: 750px; margin: 2rem auto; text-align: center; background: white; padding: 2rem; border-radius: var(--border-radius); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .pixel-stats { display: flex; justify-content: space-around; margin: 1rem 0; font-weight: 600; flex-wrap: wrap; gap: 0.5rem; }
+    .pixel-canvas-container { position: relative; margin: 1rem auto; overflow: auto; max-height: 60vh; border: 1px solid #ddd; }
+    canvas { display: block; image-rendering: pixelated; }
+    .palette { display: flex; gap: 0.4rem; justify-content: center; margin: 1rem 0; flex-wrap: wrap; }
+    .palette-color { width: 32px; height: 32px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s; }
+    .palette-color:hover, .palette-color.selected { transform: scale(1.2); border-color: #333; }
+    .cooldown-bar { font-size: 0.9rem; color: #888; margin: 0.5rem 0; }
+    .pixel-back { display: inline-block; margin-top: 1rem; color: var(--color-primary); text-decoration: none; }
+    .top-painters { margin-top: 1.5rem; text-align: left; }
+    .top-painters h4 { text-align: center; }
+    .top-painters table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+    .top-painters th, .top-painters td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #eee; }
+    .top-painters th { background: #f5f5f5; }
+    .cell-tooltip { position: absolute; background: #333; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; pointer-events: none; display: none; z-index: 10; }
+    .finished-board { margin: 1rem 0; }
+    .finished-board img { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    /* Toast */
+    #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+    .toast { padding: 0.75rem 1.2rem; border-radius: 8px; color: #fff; font-weight: 500; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; transform: translateX(100%); transition: opacity 0.3s, transform 0.3s; pointer-events: auto; max-width: 350px; word-wrap: break-word; }
+    .toast--visible { opacity: 1; transform: translateX(0); } .toast--success { background: #27ae60; } .toast--info { background: #3498db; } .toast--error { background: #e74c3c; }
+    @media (max-width: 600px) { .pixel-canvas-container { max-height: 50vh; } .palette-color { width: 28px; height: 28px; } }
+  </style>
+</head>
+<body>
+  <div class="pixel-page">
+    <h2>🎨 Пиксельная доска</h2>
+    <div class="timer-bar" id="timer-bar">Загрузка...</div>
+    <div class="pixel-stats">
+      <span>🖼️ <span id="total-pixels">0</span> пикселей</span>
+      <span>👥 <span id="unique-painters">0</span> художников</span>
+    </div>
+    <div class="cooldown-bar" id="cooldown-bar"></div>
+    <div class="pixel-canvas-container" id="canvas-container">
+      <canvas id="pixel-canvas"></canvas>
+      <div class="cell-tooltip" id="cell-tooltip"></div>
+    </div>
+    <div class="palette" id="palette"></div>
+    <div id="finished-board-container"></div>
+    <div class="top-painters" id="top-painters"></div>
+    <a href="../index.html" class="pixel-back">← На главную</a>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/firebase-auth.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/achievements.js"></script>
+  <script src="../js/notifications.js"></script>
+  <script src="../js/easter-eggs.js"></script>
+
+  <script>
+    // ---------- Пасхалки ----------
+    document.addEventListener('DOMContentLoaded', () => { if (typeof initEasterEggs === 'function') initEasterEggs(); });
+
+    // ---------- Toast ----------
+    function showToast(msg, type = 'info') {
+      let c = document.getElementById('toast-container');
+      if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); }
+      const t = document.createElement('div'); t.className = `toast toast--${type}`; t.textContent = msg;
+      c.appendChild(t); requestAnimationFrame(() => t.classList.add('toast--visible'));
+      setTimeout(() => { t.classList.remove('toast--visible'); t.addEventListener('transitionend', () => { if (t.parentNode) t.remove(); if (!c.children.length && c.parentNode) c.remove(); }); }, 3500);
+    }
+
+    // ---------- Параметры из URL ----------
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('id');
+    if (!eventId) { document.body.innerHTML = '<p>Ивент не указан. Вернитесь на главную.</p>'; throw new Error('eventId missing'); }
+
+    // ---------- DOM ----------
+    const canvas = document.getElementById('pixel-canvas');
+    const ctx = canvas.getContext('2d');
+    const canvasContainer = document.getElementById('canvas-container');
+    const tooltip = document.getElementById('cell-tooltip');
+    const paletteEl = document.getElementById('palette');
+    const timerBar = document.getElementById('timer-bar');
+    const totalPixelsEl = document.getElementById('total-pixels');
+    const uniquePaintersEl = document.getElementById('unique-painters');
+    const cooldownBar = document.getElementById('cooldown-bar');
+    const topPaintersEl = document.getElementById('top-painters');
+    const finishedBoardContainer = document.getElementById('finished-board-container');
+
+    // ---------- Переменные ----------
+    let eventData = null;
+    let unsubscribeEvent = null;
+    let boardData = {};
+    let selectedColor = '#000000';
+    let lastPlaceTime = 0;
+    let cooldownTimer = null;
+    let painterStats = {};
+
+    const DEFAULT_PALETTE = ['#FFFFFF', '#C0C0C0', '#808080', '#000000', '#FF0000', '#800000', '#FFFF00', '#808000', '#00FF00', '#008000', '#00FFFF', '#008080', '#0000FF', '#000080', '#FF00FF', '#800080', '#FFA500', '#A52A2A', '#FFC0CB', '#FFD700'];
+    const DEFAULT_WIDTH = 64;
+    const DEFAULT_HEIGHT = 64;
+    const PIXEL_SIZE = 10;
+
+    // ---------- Инициализация ----------
+    async function init() {
+      auth.onAuthStateChanged(async (user) => {
+        if (!user) { document.body.innerHTML = '<p>Войдите, чтобы участвовать в ивенте.</p>'; return; }
+        await loadEvent();
+      });
+    }
+
+    async function loadEvent() {
+      const doc = await db.collection('events').doc(eventId).get();
+      if (!doc.exists) { document.body.innerHTML = '<p>Ивент не найден.</p>'; return; }
+      eventData = { id: doc.id, ...doc.data() };
+      
+      if (eventData.status === 'finished') { renderFinishedState(); return; }
+      if (eventData.status !== 'active') { document.body.innerHTML = '<p>Ивент не активен.</p>'; return; }
+
+      const settings = eventData.settings || {};
+      const width = settings.width || DEFAULT_WIDTH;
+      const height = settings.height || DEFAULT_HEIGHT;
+      const palette = settings.palette || DEFAULT_PALETTE;
+      
+      boardData = eventData.boardData || {};
+      painterStats = eventData.painterStats || {};
+      
+      canvas.width = width * PIXEL_SIZE;
+      canvas.height = height * PIXEL_SIZE;
+      
+      buildPalette(palette);
+      drawBoard();
+      updateStats();
+      setupRealtime();
+    }
+
+    function buildPalette(palette) {
+      paletteEl.innerHTML = palette.map(color => 
+        `<div class="palette-color${color === selectedColor ? ' selected' : ''}" style="background-color: ${color};" data-color="${color}"></div>`
+      ).join('');
+      
+      paletteEl.querySelectorAll('.palette-color').forEach(el => {
+        el.addEventListener('click', () => {
+          selectedColor = el.dataset.color;
+          paletteEl.querySelectorAll('.palette-color').forEach(e => e.classList.remove('selected'));
+          el.classList.add('selected');
+        });
+      });
+    }
+
+    function drawBoard() {
+      const width = eventData.settings?.width || DEFAULT_WIDTH;
+      const height = eventData.settings?.height || DEFAULT_HEIGHT;
+      
+      // Фон
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Клетки
+      for (const [key, cell] of Object.entries(boardData)) {
+        const [col, row] = key.split('_').map(Number);
+        ctx.fillStyle = cell.color;
+        ctx.fillRect(col * PIXEL_SIZE, row * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+      }
+      
+      // Сетка
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= width; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * PIXEL_SIZE, 0);
+        ctx.lineTo(i * PIXEL_SIZE, height * PIXEL_SIZE);
+        ctx.stroke();
+      }
+      for (let j = 0; j <= height; j++) {
+        ctx.beginPath();
+        ctx.moveTo(0, j * PIXEL_SIZE);
+        ctx.lineTo(width * PIXEL_SIZE, j * PIXEL_SIZE);
+        ctx.stroke();
+      }
+    }
+
+    function setupRealtime() {
+      if (unsubscribeEvent) unsubscribeEvent();
+      unsubscribeEvent = db.collection('events').doc(eventId).onSnapshot(doc => {
+        if (!doc.exists) return;
+        const data = doc.data();
+        eventData = { id: doc.id, ...data };
+        if (data.status === 'finished') { renderFinishedState(); return; }
+        boardData = data.boardData || {};
+        painterStats = data.painterStats || {};
+        drawBoard();
+        updateStats();
+      });
+    }
+
+    function updateStats() {
+      const totalPixels = Object.keys(boardData).length;
+      const uniquePainters = Object.keys(painterStats).length;
+      totalPixelsEl.textContent = totalPixels;
+      uniquePaintersEl.textContent = uniquePainters;
+      
+      const cooldown = eventData.settings?.cooldown || 30;
+      const remaining = Math.max(0, (lastPlaceTime + cooldown * 1000 - Date.now()) / 1000);
+      if (remaining > 0 && lastPlaceTime > 0) {
+        cooldownBar.textContent = `⏳ Кулдаун: ${remaining.toFixed(1)} сек. | 💰 Пропустить за ${eventData.settings?.lokoinSkipCost || 2} лок.`;
+        cooldownBar.innerHTML += ` <button class="btn btn-small" id="skip-cooldown-btn">Пропустить</button>`;
+        setTimeout(() => {
+          const skipBtn = document.getElementById('skip-cooldown-btn');
+          if (skipBtn) skipBtn.addEventListener('click', skipCooldown);
+        }, 100);
+      } else {
+        cooldownBar.textContent = '✅ Можно рисовать! Выберите цвет и кликните на клетку.';
+        if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+      }
+      
+      renderTopPainters();
+      updateTimer();
+    }
+
+    function updateTimer() {
+      if (eventData.endTime) {
+        const diff = eventData.endTime.seconds * 1000 - Date.now();
+        timerBar.textContent = diff > 0 ? `До конца: ${Math.floor(diff/86400000)} дн. ${Math.floor((diff%86400000)/3600000)} ч. ${Math.floor((diff%3600000)/60000)} мин.` : 'Ивент завершён';
+      }
+    }
+
+    function renderTopPainters() {
+      const ranked = Object.entries(painterStats).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      if (ranked.length === 0) { topPaintersEl.innerHTML = ''; return; }
+      
+      let html = '<h4>🏆 Топ художников</h4><table><tr><th>#</th><th>Игрок</th><th>Пикселей</th></tr>';
+      ranked.forEach(([uid, count], i) => {
+        html += `<tr><td>${i+1}</td><td>${uid.substring(0,6)}</td><td>${count}</td></tr>`;
+      });
+      html += '</table>';
+      topPaintersEl.innerHTML = html;
+    }
+
+    async function skipCooldown() {
+      const cost = eventData.settings?.lokoinSkipCost || 2;
+      if (!confirm(`Потратить ${cost} локоинов для мгновенного снятия кулдауна?`)) return;
+      
+      const userDoc = await db.collection('users').doc(auth.currentUser.uid).get();
+      const balance = userDoc.data().lokoin_balance || 0;
+      if (balance < cost) { showToast('Недостаточно локоинов.', 'error'); return; }
+      
+      await db.collection('users').doc(auth.currentUser.uid).update({ lokoin_balance: firebase.firestore.FieldValue.increment(-cost) });
+      lastPlaceTime = 0;
+      updateStats();
+      showToast('Кулдаун снят!', 'success');
+    }
+
+    // ---------- Обработка кликов по канвасу ----------
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const col = Math.floor((e.clientX - rect.left) * scaleX / PIXEL_SIZE);
+      const row = Math.floor((e.clientY - rect.top) * scaleY / PIXEL_SIZE);
+      
+      if (col < 0 || row < 0 || col >= (eventData.settings?.width || DEFAULT_WIDTH) || row >= (eventData.settings?.height || DEFAULT_HEIGHT)) return;
+      
+      const cooldown = eventData.settings?.cooldown || 30;
+      if (Date.now() - lastPlaceTime < cooldown * 1000) {
+        showToast(`Подождите ещё ${((lastPlaceTime + cooldown * 1000 - Date.now()) / 1000).toFixed(1)} сек.`, 'error');
+        return;
+      }
+      
+      placePixel(col, row);
+    });
+
+    // Тултип при движении мыши
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const col = Math.floor((e.clientX - rect.left) * scaleX / PIXEL_SIZE);
+      const row = Math.floor((e.clientY - rect.top) * scaleY / PIXEL_SIZE);
+      
+      const key = `${col}_${row}`;
+      const cell = boardData[key];
+      
+      if (cell) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX - canvasContainer.getBoundingClientRect().left + 15) + 'px';
+        tooltip.style.top = (e.clientY - canvasContainer.getBoundingClientRect().top - 30) + 'px';
+        tooltip.textContent = `${cell.username || 'Аноним'} | ${cell.timestamp ? new Date(cell.timestamp.seconds * 1000).toLocaleString('ru-RU') : ''}`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+    async function placePixel(col, row) {
+      if (!auth.currentUser) return;
+      
+      const key = `${col}_${row}`;
+      const userId = auth.currentUser.uid;
+      const userDoc = await db.collection('users').doc(userId).get();
+      const username = userDoc.data()?.username || 'Аноним';
+      
+      // Используем транзакцию для безопасной записи
+      const eventRef = db.collection('events').doc(eventId);
+      
+      try {
+        await db.firestore().runTransaction(async (transaction) => {
+          const doc = await transaction.get(eventRef);
+          if (!doc.exists) return;
+          
+          const data = doc.data();
+          const currentBoard = data.boardData || {};
+          const currentStats = data.painterStats || {};
+          const stats = data.statistics || { totalPixels: 0, uniqueParticipants: 0 };
+          
+          // Обновляем клетку
+          currentBoard[key] = {
+            color: selectedColor,
+            userId,
+            username,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          
+          // Обновляем статистику художника
+          currentStats[userId] = (currentStats[userId] || 0) + 1;
+          
+          // Общая статистика
+          stats.totalPixels = (stats.totalPixels || 0) + 1;
+          if (!currentStats[userId] || currentStats[userId] === 1) stats.uniqueParticipants = Object.keys(currentStats).length;
+          
+          transaction.update(eventRef, {
+            boardData: currentBoard,
+            painterStats: currentStats,
+            statistics: stats
+          });
+        });
+        
+        lastPlaceTime = Date.now();
+        showToast('Пиксель закрашен! +1 балл', 'success');
+        await addPointsToCurrentUser(1, 'pixel_board');
+        
+        // Обновляем кулдаун
+        updateStats();
+        if (!cooldownTimer) {
+          cooldownTimer = setInterval(updateStats, 1000);
+        }
+      } catch (err) {
+        console.error('Ошибка закрашивания:', err);
+        showToast('Кто-то уже закрасил эту клетку. Попробуйте другую.', 'error');
+      }
+    }
+
+    function renderFinishedState() {
+      const finalStats = eventData.finalStats || {};
+      const stats = eventData.statistics || {};
+      
+      let html = `<h2>🎨 Ивент завершён!</h2><h3>${eventData.title}</h3>`;
+      html += `<p>Всего пикселей: <strong>${finalStats.totalPixels || stats.totalPixels || 0}</strong> | Художников: <strong>${finalStats.uniqueParticipants || stats.uniqueParticipants || 0}</strong></p>`;
+      
+      if (finalStats.imageData) {
+        html += `<div class="finished-board"><h4>🖼️ Финальная доска</h4><img src="${finalStats.imageData}" alt="Пиксельная доска"><br><a href="${finalStats.imageData}" download="pixel-board-${eventId}.png" class="btn" style="margin-top:0.5rem;">📥 Скачать PNG</a></div>`;
+      } else {
+        // Генерируем изображение из boardData
+        html += '<div class="finished-board"><p>Генерация изображения...</p></div>';
+        setTimeout(() => generateAndSaveImage(), 100);
+      }
+      
+      html += `<a href="../index.html" class="pixel-back">← На главную</a>`;
+      document.querySelector('.pixel-page').innerHTML = html;
+    }
+
+    async function generateAndSaveImage() {
+      const boardData = eventData.boardData || {};
+      const settings = eventData.settings || {};
+      const width = settings.width || DEFAULT_WIDTH;
+      const height = settings.height || DEFAULT_HEIGHT;
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Фон
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.fillRect(0, 0, width, height);
+      
+      // Клетки
+      for (const [key, cell] of Object.entries(boardData)) {
+        const [col, row] = key.split('_').map(Number);
+        tempCtx.fillStyle = cell.color;
+        tempCtx.fillRect(col, row, 1, 1);
+      }
+      
+      const imageData = tempCanvas.toDataURL('image/png');
+      
+      // Сохраняем в Firestore
+      await db.collection('events').doc(eventId).update({
+        'finalStats.imageData': imageData
+      });
+      
+      // Обновляем страницу
+      eventData.finalStats = { ...eventData.finalStats, imageData };
+      renderFinishedState();
+    }
+
+    window.addEventListener('beforeunload', () => { if (unsubscribeEvent) unsubscribeEvent(); if (cooldownTimer) clearInterval(cooldownTimer); });
+    init();
+  </script>
+</body>
+</html>
