@@ -33,6 +33,7 @@
     .final-stats table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
     .final-stats th, .final-stats td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; text-align: left; }
     .final-stats th { background: #e6f7e6; }
+    .final-stats img { max-width: 200px; border-radius: 6px; margin: 0.5rem 0; }
   </style>
 </head>
 <body>
@@ -86,6 +87,25 @@
       { id: 'rainbow', icon: '🌈', name: 'Радуга', healthChange: 20, duration: 0, description: 'Разовое восстановление здоровья' },
       { id: 'ladybug', icon: '🐞', name: 'Божьи коровки', healthChange: 5, duration: 0, description: 'Авто-снятие жуков' }
     ];
+
+    const DEFAULT_TREE_SETTINGS = {
+      difficulty: 'medium',
+      decayPerHour: null,
+      minHealth: 50,
+      adaptiveMode: true,
+      maxHealth: 1000,
+      dailyActionLimits: { water: 5, bugs: 3, birds: 3, fertilize: 2, tie: 10, sing: 10 },
+      lokoinActionCost: 5,
+      lokoinActionBoost: 20
+    };
+
+    const DEFAULT_PIXEL_SETTINGS = {
+      width: 64,
+      height: 64,
+      cooldown: 30,
+      lokoinSkipCost: 2,
+      palette: ['#FFFFFF', '#C0C0C0', '#808080', '#000000', '#FF0000', '#800000', '#FFFF00', '#808000', '#00FF00', '#008000', '#00FFFF', '#008080', '#0000FF', '#000080', '#FF00FF', '#800080', '#FFA500', '#A52A2A', '#FFC0CB', '#FFD700']
+    };
 
     document.addEventListener('DOMContentLoaded', async () => {
       const container = document.getElementById('events-admin-container');
@@ -146,7 +166,7 @@
               const statusBadge = ev.status === 'active' ? '🟢 Активен' : ev.status === 'draft' ? '📝 Черновик' : '🏁 Завершён';
               html += `<li>
                 <div class="event-info">
-                  <strong>${ev.icon || '🎪'} ${ev.title}</strong> (${ev.id}) — ${statusBadge}
+                  <strong>${ev.icon || '🎪'} ${ev.title}</strong> (${ev.id}) — ${statusBadge} [${ev.type || 'tree'}]
                   <br><small>${ev.startTime ? new Date(ev.startTime.seconds*1000).toLocaleString('ru-RU') : '—'} → ${ev.endTime ? new Date(ev.endTime.seconds*1000).toLocaleString('ru-RU') : '—'}</small>
                 </div>`;
 
@@ -154,27 +174,23 @@
                 const fs = ev.finalStats;
                 html += `<div class="final-stats">
                   <strong>📊 Итоги:</strong>
+                  ${fs.imageData ? `<img src="${fs.imageData}" alt="Доска" style="max-width:200px; display:block; margin:0.5rem 0;">` : ''}
                   <table>
-                    <tr><td>Участников:</td><td><strong>${fs.uniqueParticipants || 0}</strong></td></tr>
-                    <tr><td>Действий:</td><td><strong>${fs.totalActions || 0}</strong></td></tr>
-                    <tr><td>Баллов выдано:</td><td><strong>${fs.totalPoints || 0}</strong></td></tr>
-                    <tr><td>Финальное здоровье:</td><td><strong>${ev.health ? Math.round(ev.health) : '—'}</strong></td></tr>
+                    ${fs.uniqueParticipants !== undefined ? `<tr><td>Участников:</td><td><strong>${fs.uniqueParticipants}</strong></td></tr>` : ''}
+                    ${fs.totalActions !== undefined ? `<tr><td>Действий:</td><td><strong>${fs.totalActions}</strong></td></tr>` : ''}
+                    ${fs.totalPixels !== undefined ? `<tr><td>Пикселей:</td><td><strong>${fs.totalPixels}</strong></td></tr>` : ''}
+                    ${fs.totalPoints !== undefined ? `<tr><td>Баллов выдано:</td><td><strong>${fs.totalPoints}</strong></td></tr>` : ''}
+                    ${ev.health !== undefined ? `<tr><td>Финальное здоровье:</td><td><strong>${Math.round(ev.health)}</strong></td></tr>` : ''}
                   </table>
-                  ${fs.topPlayer ? `<p style="margin-top:0.5rem;"><strong>👑 Лучший игрок:</strong> ${fs.topPlayer.username} (${fs.topPlayer.department || '—'}) — ${fs.topPlayer.totalActions} действий</p>` : ''}
+                  ${fs.topPlayer ? `<p style="margin-top:0.5rem;"><strong>👑 Лучший игрок:</strong> ${fs.topPlayer.username} (${fs.topPlayer.department || '—'}) — ${fs.topPlayer.totalActions || fs.topPlayer.totalPixels || 0} действий</p>` : ''}
                   ${fs.departments && fs.departments.length > 0 ? `
                   <p style="margin-top:0.5rem;"><strong>🏢 По отделам:</strong></p>
-                  <table>
-                    <tr><th>Отдел</th><th>Действий</th><th>Лучший игрок</th></tr>
-                    ${fs.departments.map(d => `<tr><td>${d.name}</td><td>${d.totalActions}</td><td>${d.topPlayer}</td></tr>`).join('')}
-                  </table>
-                  ` : ''}
+                  <table><tr><th>Отдел</th><th>Действий</th><th>Лучший игрок</th></tr>
+                  ${fs.departments.map(d => `<tr><td>${d.name}</td><td>${d.totalActions || d.totalPixels || 0}</td><td>${d.topPlayer}</td></tr>`).join('')}</table>` : ''}
                   ${fs.topParticipants && fs.topParticipants.length > 0 ? `
                   <p style="margin-top:0.5rem;"><strong>🏆 Топ участников:</strong></p>
-                  <table>
-                    <tr><th>#</th><th>Игрок</th><th>Отдел</th><th>Действий</th></tr>
-                    ${fs.topParticipants.map((p, i) => `<tr><td>${i+1}</td><td>${p.username}</td><td>${p.department || '—'}</td><td>${p.total}</td></tr>`).join('')}
-                  </table>
-                  ` : ''}
+                  <table><tr><th>#</th><th>Игрок</th><th>Отдел</th><th>Действий</th></tr>
+                  ${fs.topParticipants.map((p, i) => `<tr><td>${i+1}</td><td>${p.username}</td><td>${p.department || '—'}</td><td>${p.total || p.totalPixels || 0}</td></tr>`).join('')}</table>` : ''}
                 </div>`;
               }
 
@@ -216,51 +232,70 @@
                 const data = doc.data();
                 
                 const participants = data.participants || {};
-                const ranked = [];
-                for (const [uid, pdata] of Object.entries(participants)) {
-                  if (uid === '_lastDecay') continue;
-                  const userDoc = await db.collection('users').doc(uid).get();
-                  const userData = userDoc.data() || {};
-                  if (userData.role === 'admin') continue;
-                  ranked.push({
-                    uid,
-                    username: userData.username || 'Аноним',
-                    department: userData.department || '—',
-                    total: Object.values(pdata.actions || {}).reduce((a, b) => a + b, 0)
-                  });
-                }
-                ranked.sort((a, b) => b.total - a.total);
+                const painterStats = data.painterStats || {};
+                const boardData = data.boardData || {};
+                const isTree = data.type === 'tree';
+                const isPixel = data.type === 'pixel';
                 
-                // Топ игрок
-                const topPlayer = ranked[0] ? {
-                  username: ranked[0].username,
-                  department: ranked[0].department,
-                  totalActions: ranked[0].total
-                } : null;
+                let finalStats = { totalActions: data.statistics?.totalActions || 0, totalPoints: 0, topParticipants: [] };
                 
-                // По отделам
-                const deptMap = {};
-                for (const p of ranked) {
-                  const dept = p.department || '—';
-                  if (!deptMap[dept]) deptMap[dept] = { totalActions: 0, topPlayer: '', topActions: 0 };
-                  deptMap[dept].totalActions += p.total;
-                  if (p.total > deptMap[dept].topActions) {
-                    deptMap[dept].topPlayer = p.username;
-                    deptMap[dept].topActions = p.total;
+                if (isTree) {
+                  const ranked = [];
+                  for (const [uid, pdata] of Object.entries(participants)) {
+                    if (uid === '_lastDecay') continue;
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    const userData = userDoc.data() || {};
+                    if (userData.role === 'admin') continue;
+                    ranked.push({ uid, username: userData.username || 'Аноним', department: userData.department || '—', total: Object.values(pdata.actions || {}).reduce((a, b) => a + b, 0) });
                   }
+                  ranked.sort((a, b) => b.total - a.total);
+                  const topPlayer = ranked[0] ? { username: ranked[0].username, department: ranked[0].department, totalActions: ranked[0].total } : null;
+                  const deptMap = {};
+                  for (const p of ranked) {
+                    const dept = p.department || '—';
+                    if (!deptMap[dept]) deptMap[dept] = { totalActions: 0, topPlayer: '', topActions: 0 };
+                    deptMap[dept].totalActions += p.total;
+                    if (p.total > deptMap[dept].topActions) { deptMap[dept].topPlayer = p.username; deptMap[dept].topActions = p.total; }
+                  }
+                  finalStats = {
+                    uniqueParticipants: data.statistics?.uniqueParticipants || Object.keys(participants).filter(k => k !== '_lastDecay').length,
+                    totalActions: data.statistics?.totalActions || 0,
+                    totalPoints: data.statistics?.totalPoints || 0,
+                    topPlayer,
+                    departments: Object.entries(deptMap).map(([name, d]) => ({ name, totalActions: d.totalActions, topPlayer: d.topPlayer })),
+                    topParticipants: ranked.slice(0, 5).map(p => ({ username: p.username, department: p.department, total: p.total }))
+                  };
+                } else if (isPixel) {
+                  const ranked = [];
+                  for (const [uid, count] of Object.entries(painterStats)) {
+                    const userDoc = await db.collection('users').doc(uid).get();
+                    const userData = userDoc.data() || {};
+                    if (userData.role === 'admin') continue;
+                    ranked.push({ uid, username: userData.username || 'Аноним', department: userData.department || '—', totalPixels: count });
+                  }
+                  ranked.sort((a, b) => b.totalPixels - a.totalPixels);
+                  finalStats = {
+                    totalPixels: Object.keys(boardData).length,
+                    uniqueParticipants: Object.keys(painterStats).length,
+                    topParticipants: ranked.slice(0, 5).map(p => ({ username: p.username, department: p.department, total: p.totalPixels }))
+                  };
+                  // Генерируем изображение доски
+                  const settings = data.settings || {};
+                  const w = settings.width || 64, h = settings.height || 64;
+                  const tempCanvas = document.createElement('canvas');
+                  tempCanvas.width = w; tempCanvas.height = h;
+                  const tempCtx = tempCanvas.getContext('2d');
+                  tempCtx.fillStyle = '#FFFFFF';
+                  tempCtx.fillRect(0, 0, w, h);
+                  for (const [key, cell] of Object.entries(boardData)) {
+                    const [col, row] = key.split('_').map(Number);
+                    tempCtx.fillStyle = cell.color;
+                    tempCtx.fillRect(col, row, 1, 1);
+                  }
+                  finalStats.imageData = tempCanvas.toDataURL('image/png');
                 }
-                const departments = Object.entries(deptMap).map(([name, d]) => ({ name, totalActions: d.totalActions, topPlayer: d.topPlayer }));
                 
-                const finalStats = {
-                  uniqueParticipants: ranked.length,
-                  totalActions: data.statistics?.totalActions || 0,
-                  totalPoints: data.statistics?.totalPoints || 0,
-                  topPlayer,
-                  departments,
-                  topParticipants: ranked.slice(0, 5).map(p => ({ username: p.username, department: p.department, total: p.total }))
-                };
-                
-                await eventRef.update({ status: 'finished', health: data.health, finalStats });
+                await eventRef.update({ status: 'finished', health: data.health || null, finalStats });
                 showToast('Ивент завершён', 'success');
                 renderEventsList();
               }
@@ -269,20 +304,16 @@
           document.querySelectorAll('.restart-event-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
               if (confirm('Перезапустить ивент?')) {
-                await db.collection('events').doc(e.target.dataset.eventId).update({ status: 'active', health: 1000, participants: { _lastDecay: Date.now() }, statistics: { totalActions: 0, uniqueParticipants: 0 }, finalStats: null });
+                const eventId = e.target.dataset.eventId;
+                const update = { status: 'active', statistics: { totalActions: 0, uniqueParticipants: 0 }, finalStats: null, participants: { _lastDecay: Date.now() }, boardData: {}, painterStats: {} };
+                await db.collection('events').doc(eventId).update(update);
                 showToast('Ивент перезапущен', 'success');
                 renderEventsList();
               }
             });
           });
           document.querySelectorAll('.delete-event-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-              if (confirm('Удалить ивент?')) {
-                await db.collection('events').doc(e.target.dataset.eventId).delete();
-                showToast('Ивент удалён', 'success');
-                renderEventsList();
-              }
-            });
+            btn.addEventListener('click', async (e) => { if (confirm('Удалить ивент?')) { await db.collection('events').doc(e.target.dataset.eventId).delete(); showToast('Ивент удалён', 'success'); renderEventsList(); } });
           });
         } catch (e) { console.error(e); content.innerHTML = '<p>Ошибка загрузки.</p>'; }
       }
@@ -292,41 +323,106 @@
         const isEdit = !!existingEvent;
         const ev = existingEvent || {};
         const settings = ev.settings || {};
+        const eventType = ev.type || 'tree';
+        
+        const defaultSettings = eventType === 'pixel' ? DEFAULT_PIXEL_SETTINGS : DEFAULT_TREE_SETTINGS;
+        const mergedSettings = { ...defaultSettings, ...settings };
         
         content.innerHTML = `
           <h3>${isEdit ? 'Редактировать' : 'Создать'} ивент</h3>
           <div class="event-form">
-            <div class="row"><div><label>ID ивента</label><input type="text" id="event-id" value="${ev.id || ''}" ${isEdit ? 'disabled' : ''} required></div><div><label>Тип</label><select id="event-type"><option value="tree" ${(ev.type || 'tree') === 'tree' ? 'selected' : ''}>Живое дерево</option></select></div></div>
-            <div class="row"><div><label>Название</label><input type="text" id="event-title" value="${ev.title || ''}" required></div><div><label>Иконка</label><input type="text" id="event-icon" value="${ev.icon || '🎪'}"></div></div>
-            <label>Описание</label><textarea id="event-desc" rows="2">${ev.description || ''}</textarea>
-            <label>URL</label><input type="text" id="event-url" value="${ev.url || 'events/tree.html'}">
-            <div class="row"><div><label>Начало</label><input type="datetime-local" id="event-start" value="${ev.startTime ? toDatetimeLocal(ev.startTime.toDate()) : ''}"></div><div><label>Окончание</label><input type="datetime-local" id="event-end" value="${ev.endTime ? toDatetimeLocal(ev.endTime.toDate()) : ''}"></div></div>
-            <h4>Настройки (JSON)</h4><textarea id="event-settings" rows="6">${JSON.stringify({ difficulty: settings.difficulty || 'medium', decayPerHour: settings.decayPerHour || null, minHealth: settings.minHealth || 50, adaptiveMode: settings.adaptiveMode !== false, maxHealth: settings.maxHealth || 1000, dailyActionLimits: settings.dailyActionLimits || { water: 5, bugs: 3, birds: 3, fertilize: 2, tie: 10, sing: 10 }, lokoinActionCost: settings.lokoinActionCost || 5, lokoinActionBoost: settings.lokoinActionBoost || 20 }, null, 2)}</textarea>
+            <div class="row">
+              <div><label>ID ивента (латиница)</label><input type="text" id="event-id" value="${ev.id || ''}" ${isEdit ? 'disabled' : ''} required></div>
+              <div>
+                <label>Тип</label>
+                <select id="event-type">
+                  <option value="tree" ${eventType === 'tree' ? 'selected' : ''}>Живое дерево</option>
+                  <option value="pixel" ${eventType === 'pixel' ? 'selected' : ''}>Пиксельная доска</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div><label>Название</label><input type="text" id="event-title" value="${ev.title || ''}" required></div>
+              <div><label>Иконка (emoji)</label><input type="text" id="event-icon" value="${ev.icon || (eventType === 'pixel' ? '🎨' : '🌳')}"></div>
+            </div>
+            <label>Описание</label>
+            <textarea id="event-desc" rows="2">${ev.description || ''}</textarea>
+            <label>URL страницы ивента</label>
+            <input type="text" id="event-url" value="${ev.url || (eventType === 'pixel' ? 'events/pixel-board.html' : 'events/tree.html')}">
+            <div class="row">
+              <div><label>Начало</label><input type="datetime-local" id="event-start" value="${ev.startTime ? toDatetimeLocal(ev.startTime.toDate()) : ''}"></div>
+              <div><label>Окончание</label><input type="datetime-local" id="event-end" value="${ev.endTime ? toDatetimeLocal(ev.endTime.toDate()) : ''}"></div>
+            </div>
+            <h4>Настройки (JSON)</h4>
+            <textarea id="event-settings" rows="8">${JSON.stringify(mergedSettings, null, 2)}</textarea>
             <h4>Награды</h4>
-            <div class="row"><div><label>За участие (баллы)</label><input type="number" id="reward-participation" value="${(ev.rewards?.participation?.points) || 10}"></div><div><label>За участие (локоины)</label><input type="number" id="reward-participation-lokoin" value="${(ev.rewards?.participation?.lokoin) || 2}"></div></div>
-            <div class="row"><div><label>За победу (баллы)</label><input type="number" id="reward-win" value="${(ev.rewards?.win?.points) || 50}"></div><div><label>За победу (локоины)</label><input type="number" id="reward-win-lokoin" value="${(ev.rewards?.win?.lokoin) || 10}"></div></div>
-            <button class="btn" id="save-event-btn">Сохранить</button><p id="event-form-message" class="auth-message"></p>
-          </div>`;
+            <div class="row">
+              <div><label>За участие (баллы)</label><input type="number" id="reward-participation" value="${(ev.rewards?.participation?.points) || 10}"></div>
+              <div><label>За участие (локоины)</label><input type="number" id="reward-participation-lokoin" value="${(ev.rewards?.participation?.lokoin) || 2}"></div>
+            </div>
+            <div class="row">
+              <div><label>За победу (баллы)</label><input type="number" id="reward-win" value="${(ev.rewards?.win?.points) || 50}"></div>
+              <div><label>За победу (локоины)</label><input type="number" id="reward-win-lokoin" value="${(ev.rewards?.win?.lokoin) || 10}"></div>
+            </div>
+            <button class="btn" id="save-event-btn">Сохранить</button>
+            <p id="event-form-message" class="auth-message"></p>
+          </div>
+        `;
+
+        // При смене типа обновляем настройки и URL
+        document.getElementById('event-type').addEventListener('change', function() {
+          const newType = this.value;
+          const settingsEl = document.getElementById('event-settings');
+          const urlEl = document.getElementById('event-url');
+          const iconEl = document.getElementById('event-icon');
+          
+          if (newType === 'pixel') {
+            settingsEl.value = JSON.stringify(DEFAULT_PIXEL_SETTINGS, null, 2);
+            urlEl.value = 'events/pixel-board.html';
+            if (!isEdit) iconEl.value = '🎨';
+          } else {
+            settingsEl.value = JSON.stringify(DEFAULT_TREE_SETTINGS, null, 2);
+            urlEl.value = 'events/tree.html';
+            if (!isEdit) iconEl.value = '🌳';
+          }
+        });
 
         document.getElementById('save-event-btn').addEventListener('click', async () => {
           const id = document.getElementById('event-id').value.trim();
           if (!id) { document.getElementById('event-form-message').textContent = 'Введите ID'; return; }
+          
           let settings;
           try { settings = JSON.parse(document.getElementById('event-settings').value); } catch (e) { document.getElementById('event-form-message').textContent = 'Ошибка в JSON'; return; }
+
           const data = {
-            type: document.getElementById('event-type').value, title: document.getElementById('event-title').value.trim(),
-            description: document.getElementById('event-desc').value.trim(), icon: document.getElementById('event-icon').value.trim() || '🎪',
+            type: document.getElementById('event-type').value,
+            title: document.getElementById('event-title').value.trim(),
+            description: document.getElementById('event-desc').value.trim(),
+            icon: document.getElementById('event-icon').value.trim() || '🎪',
             url: document.getElementById('event-url').value.trim(),
             startTime: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('event-start').value)),
             endTime: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('event-end').value)),
             settings,
-            rewards: { participation: { points: parseInt(document.getElementById('reward-participation').value) || 0, lokoin: parseInt(document.getElementById('reward-participation-lokoin').value) || 0 }, win: { points: parseInt(document.getElementById('reward-win').value) || 0, lokoin: parseInt(document.getElementById('reward-win-lokoin').value) || 0 } },
-            status: isEdit ? ev.status : 'draft', updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            rewards: {
+              participation: { points: parseInt(document.getElementById('reward-participation').value) || 0, lokoin: parseInt(document.getElementById('reward-participation-lokoin').value) || 0 },
+              win: { points: parseInt(document.getElementById('reward-win').value) || 0, lokoin: parseInt(document.getElementById('reward-win-lokoin').value) || 0 }
+            },
+            status: isEdit ? ev.status : 'draft',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           };
+
           try {
-            if (!isEdit) { data.createdAt = firebase.firestore.FieldValue.serverTimestamp(); data.createdBy = auth.currentUser.uid; data.statistics = { totalActions: 0, uniqueParticipants: 0 }; data.participants = {}; }
+            if (!isEdit) {
+              data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+              data.createdBy = auth.currentUser.uid;
+              data.statistics = { totalActions: 0, uniqueParticipants: 0 };
+              data.participants = {};
+              data.boardData = {};
+              data.painterStats = {};
+            }
             await db.collection('events').doc(id).set(data, { merge: true });
-            showToast('Ивент сохранён', 'success'); renderEventsList();
+            showToast('Ивент сохранён', 'success');
+            renderEventsList();
           } catch (err) { document.getElementById('event-form-message').textContent = 'Ошибка: ' + err.message; }
         });
       }
@@ -338,29 +434,49 @@
           const activeSnap = await db.collection('events').where('status', '==', 'active').limit(1).get();
           if (activeSnap.empty) { content.innerHTML = '<p>Нет активных ивентов.</p>'; return; }
           const eventDoc = activeSnap.docs[0]; const event = { id: eventDoc.id, ...eventDoc.data() };
-          const participants = event.participants || {};
-          const uniqueParticipants = Object.keys(participants).filter(k => k !== '_lastDecay').length;
-          const totalActions = Object.values(participants).reduce((s, p) => s + (p.actions ? Object.values(p.actions).reduce((a, b) => a + b, 0) : 0), 0);
-          let html = `<h3>Мониторинг: ${event.icon} ${event.title}</h3><div class="monitor-grid">`;
-          html += `<div class="monitor-card"><div class="value">${uniqueParticipants}</div><div class="label">Участников</div></div>`;
-          html += `<div class="monitor-card"><div class="value">${totalActions}</div><div class="label">Действий</div></div>`;
-          html += `<div class="monitor-card"><div class="value">${event.settings?.maxHealth || 1000}</div><div class="label">Макс. здоровье</div></div>`;
+          const isTree = event.type === 'tree';
+          const isPixel = event.type === 'pixel';
+          
+          let html = `<h3>Мониторинг: ${event.icon} ${event.title} (${event.type})</h3><div class="monitor-grid">`;
+          
+          if (isTree) {
+            const participants = event.participants || {};
+            const uniqueParticipants = Object.keys(participants).filter(k => k !== '_lastDecay').length;
+            const totalActions = Object.values(participants).reduce((s, p) => s + (p.actions ? Object.values(p.actions).reduce((a, b) => a + b, 0) : 0), 0);
+            html += `<div class="monitor-card"><div class="value">${uniqueParticipants}</div><div class="label">Участников</div></div>`;
+            html += `<div class="monitor-card"><div class="value">${totalActions}</div><div class="label">Действий</div></div>`;
+            html += `<div class="monitor-card"><div class="value">${event.settings?.maxHealth || 1000}</div><div class="label">Макс. здоровье</div></div>`;
+          } else if (isPixel) {
+            const boardData = event.boardData || {};
+            const painterStats = event.painterStats || {};
+            html += `<div class="monitor-card"><div class="value">${Object.keys(painterStats).length}</div><div class="label">Художников</div></div>`;
+            html += `<div class="monitor-card"><div class="value">${Object.keys(boardData).length}</div><div class="label">Пикселей</div></div>`;
+          }
+          
           html += `<div class="monitor-card"><div class="value">${event.status}</div><div class="label">Статус</div></div></div>`;
-          html += '<h4 style="margin-top:1.5rem;">⚡ Ручные события</h4><div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">';
-          ADMIN_EVENT_TYPES.forEach(ae => { html += `<button class="btn btn-small trigger-admin-event-btn" data-event-type="${ae.id}" title="${ae.description}">${ae.icon} ${ae.name}</button>`; });
-          html += '</div><div id="admin-events-history"><p>Загрузка...</p></div>';
+
+          if (isTree) {
+            html += '<h4 style="margin-top:1.5rem;">⚡ Ручные события</h4><div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">';
+            ADMIN_EVENT_TYPES.forEach(ae => { html += `<button class="btn btn-small trigger-admin-event-btn" data-event-type="${ae.id}" title="${ae.description}">${ae.icon} ${ae.name}</button>`; });
+            html += '</div><div id="admin-events-history"><p>Загрузка...</p></div>';
+          }
+          
           content.innerHTML = html;
-          const historySnap = await db.collection('events').doc(event.id).collection('events').orderBy('timestamp', 'desc').limit(20).get();
-          const historyEl = document.getElementById('admin-events-history');
-          historyEl.innerHTML = historySnap.empty ? '<p>Нет ручных событий.</p>' : historySnap.docs.map(doc => `<div class="admin-event-item"><span><span class="event-icon">${doc.data().icon || '⚡'}</span> ${doc.data().name}</span><small>${doc.data().timestamp ? new Date(doc.data().timestamp.seconds*1000).toLocaleString('ru-RU') : ''}</small></div>`).join('');
-          document.querySelectorAll('.trigger-admin-event-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-              const ae = ADMIN_EVENT_TYPES.find(t => t.id === btn.dataset.eventType);
-              if (!ae || !confirm(`Применить «${ae.name}»?`)) return;
-              await db.collection('events').doc(event.id).collection('events').add({ type: ae.id, name: ae.name, icon: ae.icon, healthChange: ae.healthChange, duration: ae.duration, description: ae.description, timestamp: firebase.firestore.FieldValue.serverTimestamp(), appliedBy: auth.currentUser.uid });
-              showToast(`${ae.name} применено`, 'success'); renderMonitor();
+
+          if (isTree) {
+            const historySnap = await db.collection('events').doc(event.id).collection('events').orderBy('timestamp', 'desc').limit(20).get();
+            const historyEl = document.getElementById('admin-events-history');
+            historyEl.innerHTML = historySnap.empty ? '<p>Нет ручных событий.</p>' : historySnap.docs.map(doc => `<div class="admin-event-item"><span><span class="event-icon">${doc.data().icon || '⚡'}</span> ${doc.data().name}</span><small>${doc.data().timestamp ? new Date(doc.data().timestamp.seconds*1000).toLocaleString('ru-RU') : ''}</small></div>`).join('');
+            
+            document.querySelectorAll('.trigger-admin-event-btn').forEach(btn => {
+              btn.addEventListener('click', async () => {
+                const ae = ADMIN_EVENT_TYPES.find(t => t.id === btn.dataset.eventType);
+                if (!ae || !confirm(`Применить «${ae.name}»?`)) return;
+                await db.collection('events').doc(event.id).collection('events').add({ type: ae.id, name: ae.name, icon: ae.icon, healthChange: ae.healthChange, duration: ae.duration, description: ae.description, timestamp: firebase.firestore.FieldValue.serverTimestamp(), appliedBy: auth.currentUser.uid });
+                showToast(`${ae.name} применено`, 'success'); renderMonitor();
+              });
             });
-          });
+          }
         } catch (e) { console.error(e); content.innerHTML = '<p>Ошибка.</p>'; }
       }
 
