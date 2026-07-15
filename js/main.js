@@ -78,7 +78,9 @@ function updateAuthUI(firebaseUser) {
       });
     }
   } else {
-    statusEl.innerHTML = '<a href="profile.html">Войти</a>';
+    // Ссылка на страницу входа с редиректом обратно на текущую страницу
+    const currentPage = window.location.pathname + window.location.search;
+    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}">Войти</a>`;
   }
 }
 
