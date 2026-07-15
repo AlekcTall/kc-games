@@ -87,11 +87,25 @@
             margin: 0.5rem 0;
         }
         .lobby-panel {
-            max-width: 400px;
+            max-width: 500px;
             margin: 1rem auto;
             padding: 1.5rem;
             background: #f9f9fb;
             border-radius: 12px;
+        }
+        .open-games-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        .open-games-table th, .open-games-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        .open-games-table th {
+            background: #f5f5f5;
         }
         .back-link {
             display: inline-block;
@@ -150,21 +164,21 @@
 <script>
     (function() {
         const GRID_SIZE = 10;
-        const SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]; // классический набор
+        const ALL_SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
         const gameContainer = document.getElementById('game-content');
 
-        // Текущее состояние игры
         let currentUser = null;
         let gameId = null;
         let gameData = null;
         let myBoard = [];
         let enemyBoard = [];
         let myShips = [];
+        let remainingShips = [...ALL_SHIPS];
         let selectedShipIndex = 0;
-        let orientation = 'horizontal'; // horizontal | vertical
+        let orientation = 'horizontal';
         let unsubscribeGame = null;
+        let unsubscribeOpenGames = null;
 
-        // Инициализация авторизации
         auth.onAuthStateChanged(user => {
             if (!user) {
                 gameContainer.innerHTML = '<p>Войдите, чтобы играть. <a href="../login.html?redirect=games/battleship.html">Войти</a></p>';
@@ -184,6 +198,8 @@
 
         // ========== ЛОББИ ==========
         function showLobby() {
+            if (unsubscribeOpenGames) unsubscribeOpenGames();
+
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
                     <h3>Морской бой</h3>
@@ -194,11 +210,92 @@
                         <button class="btn" id="join-game-btn">Присоединиться</button>
                     </div>
                     <p id="lobby-message" class="auth-message"></p>
+                    <h4 style="margin-top:1.5rem;">Открытые игры</h4>
+                    <div id="open-games-list">
+                        <p>Загрузка...</p>
+                    </div>
                 </div>
             `;
 
             document.getElementById('create-game-btn').addEventListener('click', createGame);
             document.getElementById('join-game-btn').addEventListener('click', joinGame);
+
+            unsubscribeOpenGames = db.collection('battles')
+                .where('status', '==', 'waiting')
+                .orderBy('createdAt', 'desc')
+                .limit(10)
+                .onSnapshot(snapshot => {
+                    const openGamesList = document.getElementById('open-games-list');
+                    if (!openGamesList) return;
+
+                    if (snapshot.empty) {
+                        openGamesList.innerHTML = '<p>Нет открытых игр.</p>';
+                        return;
+                    }
+
+                    let html = '<table class="open-games-table"><thead><tr><th>Создатель</th><th>Создана</th><th></th></tr></thead><tbody>';
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const creator = data.players[Object.keys(data.players)[0]]?.username || 'Игрок';
+                        const createdAt = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString('ru-RU') : '';
+                        html += `<tr>
+                            <td>${creator}</td>
+                            <td>${createdAt}</td>
+                            <td><button class="btn btn-small join-open-game-btn" data-game-id="${doc.id}">Присоединиться</button></td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    openGamesList.innerHTML = html;
+
+                    document.querySelectorAll('.join-open-game-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const id = btn.dataset.gameId;
+                            joinGameById(id);
+                        });
+                    });
+                });
+        }
+
+        async function joinGameById(id) {
+            try {
+                const doc = await db.collection('battles').doc(id).get();
+                if (!doc.exists) {
+                    showToast('Игра не найдена', 'error');
+                    return;
+                }
+                const data = doc.data();
+                if (data.status !== 'waiting') {
+                    showToast('Игра уже началась или завершена', 'error');
+                    return;
+                }
+                if (Object.keys(data.players).length >= 2) {
+                    showToast('Игра уже заполнена', 'error');
+                    return;
+                }
+                if (data.players[currentUser.uid]) {
+                    gameId = id;
+                    subscribeToGame();
+                    resetGameState();
+                    showSetupScreen();
+                    return;
+                }
+                await db.collection('battles').doc(id).update({
+                    [`players.${currentUser.uid}`]: {
+                        username: getCurrentUser()?.username || 'Игрок 2',
+                        ships: [],
+                        ready: false
+                    },
+                    [`boards.${currentUser.uid}`]: [],
+                    status: 'setup'
+                });
+                gameId = id;
+                subscribeToGame();
+                showToast('Вы присоединились к игре!', 'success');
+                resetGameState();
+                showSetupScreen();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
         }
 
         async function createGame() {
@@ -223,6 +320,7 @@
                 gameId = docRef.id;
                 subscribeToGame();
                 showToast('Игра создана! ID: ' + gameId, 'success');
+                resetGameState();
                 showSetupScreen();
             } catch (e) {
                 showToast('Ошибка создания: ' + e.message, 'error');
@@ -235,48 +333,19 @@
                 showToast('Введите ID игры', 'error');
                 return;
             }
-            try {
-                const doc = await db.collection('battles').doc(id).get();
-                if (!doc.exists) {
-                    showToast('Игра не найдена', 'error');
-                    return;
-                }
-                const data = doc.data();
-                if (data.status !== 'waiting') {
-                    showToast('Игра уже началась или завершена', 'error');
-                    return;
-                }
-                if (Object.keys(data.players).length >= 2) {
-                    showToast('Игра уже заполнена', 'error');
-                    return;
-                }
-                if (data.players[currentUser.uid]) {
-                    // Игрок уже в игре
-                    gameId = id;
-                    subscribeToGame();
-                    showSetupScreen();
-                    return;
-                }
-                // Добавляем второго игрока
-                await db.collection('battles').doc(id).update({
-                    [`players.${currentUser.uid}`]: {
-                        username: getCurrentUser()?.username || 'Игрок 2',
-                        ships: [],
-                        ready: false
-                    },
-                    [`boards.${currentUser.uid}`]: [],
-                    status: 'setup'
-                });
-                gameId = id;
-                subscribeToGame();
-                showToast('Вы присоединились к игре!', 'success');
-                showSetupScreen();
-            } catch (e) {
-                showToast('Ошибка: ' + e.message, 'error');
-            }
+            await joinGameById(id);
         }
 
-        // ========== ПОДПИСКА НА ИГРУ ==========
+        // ========== ОБЩИЕ ФУНКЦИИ ==========
+        function resetGameState() {
+            myBoard = [];
+            enemyBoard = [];
+            myShips = [];
+            remainingShips = [...ALL_SHIPS];
+            selectedShipIndex = 0;
+            orientation = 'horizontal';
+        }
+
         function subscribeToGame() {
             if (unsubscribeGame) unsubscribeGame();
             unsubscribeGame = db.collection('battles').doc(gameId).onSnapshot(doc => {
@@ -293,11 +362,9 @@
             if (!gameData) return;
             const myUid = currentUser.uid;
             const players = gameData.players;
-            const isPlayer1 = Object.keys(players)[0] === myUid;
             const opponentUid = Object.keys(players).find(uid => uid !== myUid);
 
             if (gameData.status === 'waiting') {
-                // Ожидание второго игрока
                 gameContainer.innerHTML = `
                     <div class="lobby-panel">
                         <h3>Ожидание соперника...</h3>
@@ -317,7 +384,6 @@
             }
         }
 
-        // ========== ИНИЦИАЛИЗАЦИЯ ДОСОК ==========
         function initMyBoard() {
             myBoard = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
         }
@@ -326,7 +392,7 @@
             enemyBoard = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
         }
 
-        // ========== РАССТАНОВКА КОРАБЛЕЙ ==========
+        // ========== РАССТАНОВКА ==========
         function renderSetupScreen() {
             const myUid = currentUser.uid;
             const players = gameData.players;
@@ -342,21 +408,41 @@
                     ${renderMyBoard(true)}
                 `;
                 if (opponentReady) {
-                    // Оба готовы — старт
                     db.collection('battles').doc(gameId).update({
                         status: 'active',
-                        turn: Object.keys(players)[0] // первый ходит создатель
+                        turn: Object.keys(players)[0]
                     });
                 }
                 return;
             }
 
+            if (remainingShips.length === 0) {
+                gameContainer.innerHTML = `
+                    <h3>Расстановка завершена</h3>
+                    <p>Нажмите "Готов", чтобы продолжить.</p>
+                    ${renderMyBoard(false)}
+                    <button class="btn" id="ready-btn">Готов</button>
+                `;
+                document.getElementById('ready-btn').addEventListener('click', async () => {
+                    await db.collection('battles').doc(gameId).update({
+                        [`players.${myUid}.ships`]: myShips,
+                        [`players.${myUid}.ready`]: true,
+                        [`boards.${myUid}`]: myBoard
+                    });
+                    showToast('Готов!', 'success');
+                });
+                return;
+            }
+
+            let shipSelectionHtml = '<div class="ship-selection"><span>Выберите корабль:</span>';
+            remainingShips.forEach((size, index) => {
+                shipSelectionHtml += `<button class="ship-btn ${index === selectedShipIndex ? 'active' : ''}" data-index="${index}">${'█'.repeat(size)} (${size})</button>`;
+            });
+            shipSelectionHtml += '</div>';
+
             let html = `
                 <h3>Расставьте корабли</h3>
-                <div class="ship-selection">
-                    <span>Выберите корабль:</span>
-                    ${SHIPS.map((size, index) => `<button class="ship-btn ${index === selectedShipIndex ? 'active' : ''}" data-index="${index}">${'█'.repeat(size)} (${size})</button>`).join('')}
-                </div>
+                ${shipSelectionHtml}
                 <div>
                     <button class="btn orientation-btn ${orientation === 'horizontal' ? 'active' : ''}" data-orientation="horizontal">Горизонтально</button>
                     <button class="btn orientation-btn ${orientation === 'vertical' ? 'active' : ''}" data-orientation="vertical">Вертикально</button>
@@ -371,7 +457,6 @@
 
             gameContainer.innerHTML = html;
 
-            // Обработчики выбора корабля
             document.querySelectorAll('.ship-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     selectedShipIndex = parseInt(btn.dataset.index);
@@ -380,7 +465,6 @@
                 });
             });
 
-            // Ориентация
             document.querySelectorAll('.orientation-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     orientation = btn.dataset.orientation;
@@ -389,26 +473,24 @@
                 });
             });
 
-            // Клик по своей доске для размещения корабля
             document.querySelectorAll('#my-board .cell').forEach(cell => {
                 cell.addEventListener('click', () => {
-                    if (isReady) return;
                     const row = parseInt(cell.dataset.row);
                     const col = parseInt(cell.dataset.col);
                     placeShip(row, col);
                 });
             });
 
-            // Кнопка готовности
-            document.getElementById('ready-btn').disabled = myShips.length < SHIPS.length;
-            document.getElementById('ready-btn').addEventListener('click', async () => {
+            const readyBtn = document.getElementById('ready-btn');
+            readyBtn.disabled = myShips.length < ALL_SHIPS.length;
+            readyBtn.addEventListener('click', async () => {
                 await db.collection('battles').doc(gameId).update({
                     [`players.${myUid}.ships`]: myShips,
                     [`players.${myUid}.ready`]: true,
                     [`boards.${myUid}`]: myBoard
                 });
                 showToast('Готов!', 'success');
-                renderSetupScreen(); // обновим экран
+                renderSetupScreen();
             });
         }
 
@@ -424,17 +506,16 @@
         }
 
         function placeShip(row, col) {
-            if (myShips.length >= SHIPS.length) {
+            if (remainingShips.length === 0) {
                 showToast('Все корабли уже расставлены', 'info');
                 return;
             }
-            const size = SHIPS[selectedShipIndex];
+            const size = remainingShips[selectedShipIndex];
             if (!canPlaceShip(row, col, size, orientation)) {
                 showToast('Нельзя разместить корабль здесь', 'error');
                 return;
             }
 
-            // Размещаем
             const newShip = [];
             for (let i = 0; i < size; i++) {
                 const r = orientation === 'horizontal' ? row : row + i;
@@ -443,7 +524,10 @@
                 newShip.push({ row: r, col: c });
             }
             myShips.push(newShip);
-            // Обновляем доску и выбор корабля
+            remainingShips.splice(selectedShipIndex, 1);
+            if (remainingShips.length > 0) {
+                selectedShipIndex = 0;
+            }
             renderSetupScreen();
         }
 
@@ -453,7 +537,6 @@
                 const c = orientation === 'horizontal' ? col + i : col;
                 if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) return false;
                 if (myBoard[r][c] === 1) return false;
-                // Проверка соседних клеток (нельзя вплотную)
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
                         const nr = r + dr;
@@ -475,10 +558,9 @@
             const myShots = shots[myUid] || [];
             const opponentShots = shots[opponentUid] || [];
 
-            // Обновляем enemyBoard на основе своих выстрелов
             for (const shot of myShots) {
                 const { row, col, hit } = shot;
-                enemyBoard[row][col] = hit ? 2 : -1; // 2 - попадание, -1 - промах
+                enemyBoard[row][col] = hit ? 2 : -1;
             }
 
             let html = `
@@ -498,7 +580,6 @@
 
             gameContainer.innerHTML = html;
 
-            // Обработчик клика по вражеской доске
             if (myTurn) {
                 document.querySelectorAll('#enemy-board .cell').forEach(cell => {
                     cell.addEventListener('click', () => {
@@ -515,7 +596,6 @@
             for (let r = 0; r < GRID_SIZE; r++) {
                 for (let c = 0; c < GRID_SIZE; c++) {
                     let cellClass = myBoard[r][c] === 1 ? 'ship' : '';
-                    // Проверка выстрелов соперника
                     const shot = opponentShots.find(s => s.row === r && s.col === c);
                     if (shot) {
                         if (shot.hit) {
@@ -563,7 +643,6 @@
             const myShots = shots[currentUser.uid] || [];
             myShots.push(shot);
 
-            // Проверка на уничтожение всех кораблей
             const opponentShips = gameData.players[opponentUid].ships;
             const allSunk = checkAllShipsSunk(opponentShips, myShots);
 
@@ -589,22 +668,18 @@
 
         async function handleWin() {
             const myUid = currentUser.uid;
-            // Начисление очков
             if (typeof addPointsToCurrentUser === 'function') {
                 await addPointsToCurrentUser(10, 'battleship');
             }
-            // Локоины
             if (auth.currentUser) {
                 const userRef = db.collection('users').doc(myUid);
                 const doc = await userRef.get();
                 const currentBalance = doc.data().lokoin_balance || 0;
                 await userRef.update({ lokoin_balance: currentBalance + 3 });
             }
-            // Уведомление
             if (typeof addNotification === 'function') {
                 await addNotification(myUid, '🏆 Победа в морском бою! +10 баллов, +3 локоина', 'game', 'games/battleship.html');
             }
-            // Достижения (можно добавить в конфиг позже)
             if (typeof checkAndAwardAchievements === 'function') {
                 await checkAndAwardAchievements();
             }
@@ -624,9 +699,7 @@
                 if (unsubscribeGame) unsubscribeGame();
                 gameId = null;
                 gameData = null;
-                myBoard = [];
-                enemyBoard = [];
-                myShips = [];
+                resetGameState();
                 showLobby();
             });
         }
