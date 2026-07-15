@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Обращения – Админ-панель – Геймификация КЦ</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .admin-page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+    .back-link { display: inline-block; margin-bottom: 1rem; color: var(--color-primary); text-decoration: none; }
+    .feedback-list { margin-top: 1rem; }
+    .feedback-item { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .feedback-item-header { margin-bottom: 0.5rem; }
+    .feedback-item-header small { color: #999; }
+    .btn-small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .skeleton-item { animation: shimmer 1.5s infinite; }
+    .skeleton-item .skeleton-cell { height: 1rem; background: #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem; }
+    @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">КЦ-Игры</a>
+      <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
+      <nav class="nav" id="main-nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link">Главная</a></li>
+          <li><a href="games.html" class="nav__link">Игры</a></li>
+          <li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li>
+          <li><a href="shop.html" class="nav__link">Магазин</a></li>
+          <li><a href="profile.html" class="nav__link">Профиль</a></li>
+          <li><a href="admin.html" class="nav__link active">Админ</a></li>
+        </ul>
+      </nav>
+      <div id="auth-status" class="auth-status"></div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container admin-page" id="admin-container">
+      <p>Загрузка...</p>
+    </div>
+  </main>
+
+  <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/firebase-auth.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/easter-eggs.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/feedback.js"></script>
+
+  <script>
+    (function() {
+      const CACHE_KEY = 'krugames_admin_feedback';
+      const CACHE_TTL = 2 * 60 * 1000;
+      let allFeedback = [];
+
+      function getCachedFeedback() {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < CACHE_TTL) return parsed.data;
+          } catch (e) {}
+        }
+        return null;
+      }
+
+      function setCachedFeedback(feedback) {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: feedback }));
+      }
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        const container = document.getElementById('admin-container');
+
+        auth.onAuthStateChanged(async fbUser => {
+          if (!fbUser) { container.innerHTML = '<p>Вы не авторизованы.</p>'; return; }
+          try {
+            const d = await db.collection('users').doc(fbUser.uid).get();
+            if (!d.exists || d.data().role !== 'admin') {
+              container.innerHTML = '<p>Доступ запрещён.</p>';
+              return;
+            }
+            renderPage();
+          } catch (e) { container.innerHTML = `<p>Ошибка: ${e.message}</p>`; }
+        });
+
+        function renderPage() {
+          container.innerHTML = `
+            <a href="admin.html" class="back-link">← В админку</a>
+            <h2>💬 Обращения пользователей</h2>
+            <div id="feedback-list-container"></div>
+          `;
+          loadFeedback();
+        }
+
+        async function loadFeedback() {
+          const listContainer = document.getElementById('feedback-list-container');
+          listContainer.innerHTML = '<p>Загрузка...</p>';
+
+          // Пробуем кеш
+          const cached = getCachedFeedback();
+          if (cached) {
+            allFeedback = cached;
+            renderFeedbackList();
+          } else {
+            // Скелетоны
+            listContainer.innerHTML = Array.from({ length: 3 }, () => `
+              <div class="feedback-item skeleton-item">
+                <div class="skeleton-cell" style="width:60%;"></div>
+                <div class="skeleton-cell" style="width:80%;"></div>
+                <div class="skeleton-cell" style="width:40%;"></div>
+              </div>
+            `).join('');
+          }
+
+          try {
+            const snap = await db.collection('feedback').orderBy('createdAt', 'desc').get();
+            allFeedback = [];
+            snap.forEach(d => {
+              const x = d.data();
+              allFeedback.push({
+                id: d.id,
+                ...x,
+                createdAt: x.createdAt ? x.createdAt.toDate() : null
+              });
+            });
+            setCachedFeedback(allFeedback);
+            renderFeedbackList();
+          } catch (e) {
+            console.error(e);
+            if (!allFeedback.length) listContainer.innerHTML = '<p>Ошибка загрузки.</p>';
+          }
+        }
+
+        function renderFeedbackList() {
+          const listContainer = document.getElementById('feedback-list-container');
+          if (!allFeedback.length) {
+            listContainer.innerHTML = '<p>Нет обращений.</p>';
+            return;
+          }
+
+          let html = `<div class="feedback-list">`;
+          allFeedback.forEach(f => {
+            const dateStr = f.createdAt ? f.createdAt.toLocaleString('ru-RU') : '—';
+            html += `
+              <div class="feedback-item">
+                <div class="feedback-item-header">
+                  <strong>${f.topic}</strong> от ${f.name} <small>${dateStr}</small>
+                </div>
+                <p>${f.message}</p>
+                <button class="btn btn-small btn-danger delete-feedback-btn" data-fb-id="${f.id}">Удалить</button>
+              </div>
+            `;
+          });
+          html += '</div>';
+          listContainer.innerHTML = html;
+
+          document.querySelectorAll('.delete-feedback-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+              if (confirm('Удалить обращение?')) {
+                await db.collection('feedback').doc(e.target.dataset.fbId).delete();
+                showToast('Удалено', 'success');
+                loadFeedback();
+              }
+            });
+          });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
