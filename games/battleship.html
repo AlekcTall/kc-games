@@ -43,7 +43,7 @@
         .cell.hit { background: #e74c3c; }
         .cell.miss { background: #3498db; }
         .cell.ship.hit { background: #c0392b; }
-        .cell.auto-miss { background: #a0c4e8; } /* чуть светлее, чтобы отличать авто-промахи */
+        .cell.auto-miss { background: #a0c4e8; }
         .cell.disabled { cursor: default; }
         .btn { margin: 0.3rem; }
         .ship-selection {
@@ -129,10 +129,9 @@
         let setupTimer = null, setupSecondsLeft = SETUP_TIME;
         let isAI = false;
         let unsubscribeGame = null, unsubscribeOpenGames = null;
-        // Клетки, автоматически помеченные как "мимо" после уничтожения корабля
         let autoMisses = [];
 
-        // Сериализация данных для Firestore (массивы запрещены)
+        // Сериализация
         function serializeBoard(board) { return JSON.stringify(board); }
         function parseBoard(data) {
             if (!data) return Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
@@ -146,13 +145,17 @@
             catch (e) { return []; }
         }
 
-        auth.onAuthStateChanged(user => {
+        auth.onAuthStateChanged(async user => {
             if (!user) {
                 gameContainer.innerHTML = '<p>Войдите, чтобы играть. <a href="../login.html?redirect=games/battleship.html">Войти</a></p>';
                 return;
             }
             currentUser = user;
-            switchTab('game');
+            // Попытка восстановить незавершённую игру
+            const resumed = await autoResumeGame();
+            if (!resumed) {
+                switchTab('game');
+            }
         });
 
         document.querySelectorAll('.tab').forEach(tab => {
@@ -245,6 +248,29 @@
             } catch (e) { gameContainer.innerHTML = '<p>Ошибка загрузки рейтинга.</p>'; }
         }
 
+        // ========== АВТО-ВОССТАНОВЛЕНИЕ ИГРЫ ==========
+        async function autoResumeGame() {
+            if (!currentUser) return false;
+            try {
+                const snap = await db.collection('battles')
+                    .where(`players.${currentUser.uid}.ready`, '>=', false) // любой участник
+                    .where('status', '!=', 'finished')
+                    .get();
+                if (snap.empty) return false;
+                // Берем первую (скорее всего одну)
+                const doc = snap.docs[0];
+                gameId = doc.id;
+                gameData = doc.data();
+                isAI = gameData.isAI || false;
+                resetGameState();
+                subscribeToGame();
+                return true;
+            } catch (e) {
+                console.error('Ошибка восстановления игры:', e);
+                return false;
+            }
+        }
+
         // ========== СОЗДАНИЕ / ПРИСОЕДИНЕНИЕ ==========
         async function createGame(aiMode = false) {
             try {
@@ -262,8 +288,8 @@
                 });
                 gameId = docRef.id;
                 if (aiMode) {
-                    const aiShips = generateAIShips();
-                    const aiBoard = generateAIBoard();
+                    const aiShips = generateAIShips();  // генерируем ОДИН раз
+                    const aiBoard = buildBoardFromShips(aiShips);
                     await db.collection('battles').doc(gameId).update({
                         [`players.ai`]: { username: 'Компьютер', isAI: true, shipsData: serializeShips(aiShips), ready: true },
                         [`boards.ai`]: serializeBoard(aiBoard),
@@ -331,9 +357,8 @@
             return ships;
         }
 
-        function generateAIBoard() {
+        function buildBoardFromShips(ships) {
             const board = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
-            const ships = generateAIShips();
             ships.flat().forEach(cell => board[cell.row][cell.col] = 1);
             return board;
         }
@@ -343,12 +368,11 @@
                 const r = orientation === 'h' ? row : row + i;
                 const c = orientation === 'h' ? col + i : col;
                 if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE || board[r][c] === 1) return false;
-                for (let dr = -1; dr <= 1; dr++) {
+                for (let dr = -1; dr <= 1; dr++)
                     for (let dc = -1; dc <= 1; dc++) {
                         const nr = r + dr, nc = c + dc;
                         if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && board[nr][nc] === 1) return false;
                     }
-                }
             }
             return true;
         }
@@ -382,6 +406,8 @@
                 if (!myBoard.length) myBoard = parseBoard(gameData.boards[currentUser.uid]);
                 if (!enemyBoard.length) initEnemyBoard();
                 clearSetupTimer();
+                // Восстановить авто-мимо из истории выстрелов
+                restoreAutoMisses();
                 renderBattleScreen();
             } else if (gameData.status === 'finished') {
                 clearSetupTimer();
@@ -564,7 +590,7 @@
 
         // ========== БОЙ ==========
         function getOpponentUid() {
-            return Object.keys(gameData.players).find(uid => uid !== currentUser.uid && uid !== 'ai' ? uid : null) || 'ai';
+            return Object.keys(gameData.players).find(uid => uid !== currentUser.uid) || 'ai';
         }
 
         function getRemainingShipsInfo() {
@@ -576,6 +602,32 @@
             return { aliveShips: aliveShips.length, aliveCells };
         }
 
+        function restoreAutoMisses() {
+            const opponentUid = getOpponentUid();
+            const ships = parseShips(gameData.players[opponentUid].shipsData);
+            const shots = gameData.shots[currentUser.uid] || [];
+            autoMisses = [];
+            for (const ship of ships) {
+                if (ship.every(cell => shots.some(s => s.row === cell.row && s.col === cell.col && s.hit))) {
+                    // корабль убит, добавляем его периметр в авто-мимо
+                    const occupied = new Set(ship.map(c => `${c.row},${c.col}`));
+                    for (const cell of ship) {
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                const nr = cell.row + dr, nc = cell.col + dc;
+                                if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !occupied.has(`${nr},${nc}`)) {
+                                    if (enemyBoard[nr][nc] === 0) {
+                                        enemyBoard[nr][nc] = -2;
+                                        autoMisses.push({ row: nr, col: nc });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         function renderBattleScreen() {
             const myUid = currentUser.uid;
             const opponentUid = getOpponentUid();
@@ -584,12 +636,12 @@
             const myShots = shots[myUid] || [];
             const opponentShots = shots[opponentUid] || [];
 
-            // Обновляем вражескую доску с учётом автоматических промахов
+            // Закрашиваем доску на основе выстрелов и авто-мимо
             for (const shot of myShots) {
                 enemyBoard[shot.row][shot.col] = shot.hit ? 2 : -1;
             }
             for (const miss of autoMisses) {
-                if (enemyBoard[miss.row][miss.col] === 0) enemyBoard[miss.row][miss.col] = -2; // -2 = авто-мимо
+                if (enemyBoard[miss.row][miss.col] === 0) enemyBoard[miss.row][miss.col] = -2;
             }
 
             const info = getRemainingShipsInfo();
@@ -656,7 +708,6 @@
             const myShots = [...(shots[currentUser.uid] || []), shot];
             const oppShips = parseShips(gameData.players[opponentUid].shipsData);
 
-            // Проверяем, убит ли корабль этим выстрелом
             const sunkShip = oppShips.find(ship => 
                 ship.some(cell => cell.row === row && cell.col === col) &&
                 ship.every(cell => myShots.some(s => s.row === cell.row && s.col === cell.col && s.hit))
@@ -665,7 +716,6 @@
             let toastMsg = hit ? 'Ранил!' : 'Мимо!';
             if (sunkShip) {
                 toastMsg = 'Убил!';
-                // Добавляем соседние клетки в авто-мимо
                 addAutoMissesForShip(sunkShip);
             }
             showToast(toastMsg, hit ? 'success' : 'info');
@@ -692,11 +742,10 @@
             for (const cell of ship) {
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
-                        const nr = cell.row + dr;
-                        const nc = cell.col + dc;
+                        const nr = cell.row + dr, nc = cell.col + dc;
                         if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !occupied.has(`${nr},${nc}`)) {
                             if (enemyBoard[nr][nc] === 0) {
-                                enemyBoard[nr][nc] = -2; // авто-мимо
+                                enemyBoard[nr][nc] = -2;
                                 autoMisses.push({ row: nr, col: nc });
                             }
                         }
