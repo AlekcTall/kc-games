@@ -191,7 +191,7 @@
     (function() {
         const GRID_SIZE = 10;
         const ALL_SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
-        const SETUP_TIME = 120; // 2 минуты на расстановку
+        const SETUP_TIME = 120;
         const gameContainer = document.getElementById('tab-content');
 
         let currentUser = null;
@@ -210,7 +210,6 @@
         let unsubscribeOpenGames = null;
         let currentTab = 'game';
 
-        // Инициализация авторизации
         auth.onAuthStateChanged(user => {
             if (!user) {
                 gameContainer.innerHTML = '<p>Войдите, чтобы играть. <a href="../login.html?redirect=games/battleship.html">Войти</a></p>';
@@ -220,7 +219,6 @@
             switchTab('game');
         });
 
-        // Переключение вкладок
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -321,6 +319,19 @@
             }
         }
 
+        // ========== СЕРИАЛИЗАЦИЯ КОРАБЛЕЙ ==========
+        function serializeShips(ships) {
+            return JSON.stringify(ships);
+        }
+        function parseShips(shipsData) {
+            if (!shipsData) return [];
+            try {
+                return typeof shipsData === 'string' ? JSON.parse(shipsData) : shipsData;
+            } catch (e) {
+                return [];
+            }
+        }
+
         // ========== СОЗДАНИЕ / ПРИСОЕДИНЕНИЕ ==========
         async function createGame(aiMode = false) {
             try {
@@ -329,7 +340,7 @@
                     status: 'waiting',
                     isAI: aiMode,
                     players: {
-                        [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', ships: [], ready: false }
+                        [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', shipsData: '', ready: false }
                     },
                     boards: { [currentUser.uid]: [] },
                     shots: {},
@@ -340,10 +351,11 @@
                 });
                 gameId = docRef.id;
                 if (aiMode) {
-                    // Добавляем ИИ сразу
+                    const aiShips = generateAIShips();
+                    const aiBoard = generateAIBoard();
                     await db.collection('battles').doc(gameId).update({
-                        [`players.ai`]: { username: 'Компьютер', isAI: true, ships: generateAIShips(), ready: true },
-                        [`boards.ai`]: generateAIBoard(),
+                        [`players.ai`]: { username: 'Компьютер', isAI: true, shipsData: serializeShips(aiShips), ready: true },
+                        [`boards.ai`]: aiBoard,
                         status: 'setup',
                         setupDeadline: firebase.firestore.Timestamp.fromMillis(Date.now() + SETUP_TIME * 1000)
                     });
@@ -363,7 +375,7 @@
                 if (data.status !== 'waiting') { showToast('Игра уже началась', 'error'); return; }
                 if (Object.keys(data.players).length >= 2) { showToast('Игра заполнена', 'error'); return; }
                 await db.collection('battles').doc(id).update({
-                    [`players.${currentUser.uid}`]: { username: getCurrentUser()?.username || 'Игрок', ships: [], ready: false },
+                    [`players.${currentUser.uid}`]: { username: getCurrentUser()?.username || 'Игрок', shipsData: '', ready: false },
                     [`boards.${currentUser.uid}`]: [],
                     status: 'setup',
                     setupDeadline: firebase.firestore.Timestamp.fromMillis(Date.now() + SETUP_TIME * 1000)
@@ -389,14 +401,14 @@
             for (const size of ALL_SHIPS) {
                 let placed = false;
                 while (!placed) {
-                    const orientation = Math.random() < 0.5 ? 'h' : 'v';
+                    const orient = Math.random() < 0.5 ? 'h' : 'v';
                     const row = Math.floor(Math.random() * GRID_SIZE);
                     const col = Math.floor(Math.random() * GRID_SIZE);
-                    if (canPlaceShipOnBoard(board, row, col, size, orientation)) {
+                    if (canPlaceShipOnBoard(board, row, col, size, orient)) {
                         const ship = [];
                         for (let i = 0; i < size; i++) {
-                            const r = orientation === 'h' ? row : row + i;
-                            const c = orientation === 'h' ? col + i : col;
+                            const r = orient === 'h' ? row : row + i;
+                            const c = orient === 'h' ? col + i : col;
                             board[r][c] = 1;
                             ship.push({ row: r, col: c });
                         }
@@ -475,7 +487,6 @@
                 if (setupSecondsLeft <= 0) {
                     clearSetupTimer();
                     if (!gameData?.players[currentUser.uid]?.ready) {
-                        // Автоматическая расстановка
                         autoPlaceShips();
                         readyUp();
                     }
@@ -526,17 +537,15 @@
         async function readyUp() {
             const myUid = currentUser.uid;
             await db.collection('battles').doc(gameId).update({
-                [`players.${myUid}.ships`]: myShips,
+                [`players.${myUid}.shipsData`]: serializeShips(myShips),
                 [`players.${myUid}.ready`]: true,
                 [`boards.${myUid}`]: myBoard
             });
-            // Проверяем, готовы ли оба
             const doc = await db.collection('battles').doc(gameId).get();
             const data = doc.data();
-            const players = data.players;
-            const allReady = Object.values(players).every(p => p.ready);
+            const allReady = Object.values(data.players).every(p => p.ready);
             if (allReady) {
-                const uids = Object.keys(players);
+                const uids = Object.keys(data.players);
                 const randomFirst = uids[Math.floor(Math.random() * uids.length)];
                 await db.collection('battles').doc(gameId).update({ status: 'active', turn: randomFirst });
             }
@@ -548,13 +557,9 @@
             const players = gameData.players;
             const myData = players[myUid];
             const isReady = myData?.ready;
-            const opponentReady = Object.entries(players).find(([uid, p]) => uid !== myUid && p.ready);
 
             if (isReady) {
                 gameContainer.innerHTML = `<h3>Расстановка завершена</h3><p>Ожидание соперника...</p>${renderMyBoard(true)}`;
-                if (opponentReady && !gameData.turn) {
-                    // Оба готовы, но статус еще не active - ждем
-                }
                 return;
             }
 
@@ -650,7 +655,6 @@
                 const r = orientation === 'horizontal' ? row : row + i;
                 const c = orientation === 'horizontal' ? col + i : col;
                 if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE || myBoard[r][c] === 1) return false;
-                // проверка соседних клеток
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
                         const nr = r + dr, nc = c + dc;
@@ -691,7 +695,6 @@
                 });
             }
 
-            // Ход ИИ
             if (gameData.turn === 'ai' && gameData.status === 'active') {
                 setTimeout(() => aiMove(), 1500);
             }
@@ -734,7 +737,8 @@
             const shot = { row, col, hit };
             const shots = gameData.shots || {};
             const myShots = [...(shots[currentUser.uid] || []), shot];
-            const oppShips = gameData.players[opponentUid].ships;
+            // Парсим корабли соперника
+            const oppShips = parseShips(gameData.players[opponentUid].shipsData);
             const allSunk = checkAllShipsSunk(oppShips, myShots);
 
             await db.collection('battles').doc(gameId).update({
@@ -748,7 +752,6 @@
         }
 
         async function aiMove() {
-            // Простой ИИ: случайный выстрел по неизвестным клеткам
             const myUid = currentUser.uid;
             const shots = gameData.shots?.ai || [];
             const available = [];
@@ -762,7 +765,7 @@
             const myBoardData = gameData.boards[myUid];
             const hit = myBoardData[row][col] === 1;
             const newShots = [...shots, { row, col, hit }];
-            const myShipsData = gameData.players[myUid].ships;
+            const myShipsData = parseShips(gameData.players[myUid].shipsData);
             const allSunk = checkAllShipsSunk(myShipsData, newShots);
 
             await db.collection('battles').doc(gameId).update({
