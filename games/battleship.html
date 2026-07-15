@@ -22,9 +22,7 @@
             gap: 2rem;
             margin: 1rem 0;
         }
-        .board-wrapper {
-            text-align: center;
-        }
+        .board-wrapper { text-align: center; }
         .board-grid {
             display: grid;
             grid-template-columns: repeat(10, 30px);
@@ -36,132 +34,53 @@
             width: fit-content;
         }
         .cell {
-            width: 30px;
-            height: 30px;
+            width: 30px; height: 30px;
             background: #fff;
             cursor: pointer;
             transition: background 0.2s;
         }
-        .cell.ship {
-            background: #7f8c8d;
-        }
-        .cell.hit {
-            background: #e74c3c;
-        }
-        .cell.miss {
-            background: #3498db;
-        }
-        .cell.ship.hit {
-            background: #c0392b;
-        }
-        .cell.disabled {
-            cursor: default;
-        }
-        .btn {
-            margin: 0.3rem;
-        }
+        .cell.ship { background: #7f8c8d; }
+        .cell.hit { background: #e74c3c; }
+        .cell.miss { background: #3498db; }
+        .cell.ship.hit { background: #c0392b; }
+        .cell.disabled { cursor: default; }
+        .btn { margin: 0.3rem; }
         .ship-selection {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin: 1rem 0;
+            display: flex; gap: 0.5rem; align-items: center;
+            justify-content: center; flex-wrap: wrap; margin: 1rem 0;
         }
         .ship-selection button {
-            padding: 0.4rem 0.8rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #f0f0f0;
-            cursor: pointer;
+            padding: 0.4rem 0.8rem; border: 1px solid #ccc;
+            border-radius: 4px; background: #f0f0f0; cursor: pointer;
         }
-        .ship-selection button.active {
-            background: #3498db;
-            color: white;
-        }
-        .status-message {
-            font-weight: bold;
-            margin: 0.5rem 0;
-        }
+        .ship-selection button.active { background: #3498db; color: white; }
+        .status-message { font-weight: bold; margin: 0.5rem 0; }
         .lobby-panel {
-            max-width: 550px;
-            margin: 1rem auto;
-            padding: 1.5rem;
-            background: #f9f9fb;
-            border-radius: 12px;
+            max-width: 550px; margin: 1rem auto; padding: 1.5rem;
+            background: #f9f9fb; border-radius: 12px;
         }
         .open-games-table, .rating-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-            font-size: 0.9rem;
+            width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem;
         }
-        .open-games-table th, .open-games-table td, .rating-table th, .rating-table td {
-            padding: 0.5rem;
-            border-bottom: 1px solid #eee;
-            text-align: left;
+        .open-games-table th, .open-games-table td,
+        .rating-table th, .rating-table td {
+            padding: 0.5rem; border-bottom: 1px solid #eee; text-align: left;
         }
-        .open-games-table th, .rating-table th {
-            background: #f5f5f5;
-        }
+        .open-games-table th, .rating-table th { background: #f5f5f5; }
         .tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 0.5rem;
+            display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+            border-bottom: 2px solid #eee; padding-bottom: 0.5rem;
         }
         .tab {
-            background: none;
-            border: none;
-            padding: 0.5rem 1rem;
-            font-size: 1rem;
-            cursor: pointer;
-            border-radius: 4px 4px 0 0;
+            background: none; border: none; padding: 0.5rem 1rem;
+            font-size: 1rem; cursor: pointer; border-radius: 4px 4px 0 0;
         }
-        .tab.active {
-            background: var(--color-primary);
-            color: white;
-        }
+        .tab.active { background: var(--color-primary); color: white; }
         .back-link {
-            display: inline-block;
-            margin-top: 1rem;
-            color: var(--color-primary);
-            text-decoration: none;
+            display: inline-block; margin-top: 1rem;
+            color: var(--color-primary); text-decoration: none;
         }
-        #toast-container {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            pointer-events: none;
-        }
-        .toast {
-            padding: 0.75rem 1.2rem;
-            border-radius: 8px;
-            color: #fff;
-            font-weight: 500;
-            font-size: 0.95rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            opacity: 0;
-            transform: translateX(100%);
-            transition: opacity 0.3s, transform 0.3s;
-            pointer-events: auto;
-            max-width: 350px;
-            word-wrap: break-word;
-        }
-        .toast--visible { opacity: 1; transform: translateX(0); }
-        .toast--success { background: #27ae60; }
-        .toast--info { background: #3498db; }
-        .toast--error { background: #e74c3c; }
-        .timer {
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin: 0.5rem 0;
-        }
+        .timer { font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0; }
     </style>
 </head>
 <body>
@@ -194,21 +113,27 @@
         const SETUP_TIME = 120;
         const gameContainer = document.getElementById('tab-content');
 
-        let currentUser = null;
-        let gameId = null;
-        let gameData = null;
-        let myBoard = [];
-        let enemyBoard = [];
-        let myShips = [];
+        let currentUser = null, gameId = null, gameData = null;
+        let myBoard = [], enemyBoard = [], myShips = [];
         let remainingShips = [...ALL_SHIPS];
-        let selectedShipIndex = 0;
-        let orientation = 'horizontal';
-        let setupTimer = null;
-        let setupSecondsLeft = SETUP_TIME;
+        let selectedShipIndex = 0, orientation = 'horizontal';
+        let setupTimer = null, setupSecondsLeft = SETUP_TIME;
         let isAI = false;
-        let unsubscribeGame = null;
-        let unsubscribeOpenGames = null;
-        let currentTab = 'game';
+        let unsubscribeGame = null, unsubscribeOpenGames = null;
+
+        // Сериализация данных для Firestore (массивы запрещены)
+        function serializeBoard(board) { return JSON.stringify(board); }
+        function parseBoard(data) {
+            if (!data) return Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+            try { return typeof data === 'string' ? JSON.parse(data) : data; }
+            catch (e) { return Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0)); }
+        }
+        function serializeShips(ships) { return JSON.stringify(ships); }
+        function parseShips(data) {
+            if (!data) return [];
+            try { return typeof data === 'string' ? JSON.parse(data) : data; }
+            catch (e) { return []; }
+        }
 
         auth.onAuthStateChanged(user => {
             if (!user) {
@@ -228,22 +153,14 @@
         });
 
         function switchTab(tab) {
-            currentTab = tab;
-            if (tab === 'game') {
-                showLobby();
-            } else if (tab === 'rating-pvp') {
-                showRating('pvp');
-            } else if (tab === 'rating-pve') {
-                showRating('pve');
-            }
+            if (tab === 'game') showLobby();
+            else if (tab === 'rating-pvp') showRating('pvp');
+            else if (tab === 'rating-pve') showRating('pve');
         }
 
         function showToast(msg, type = 'info') {
-            if (typeof window.showToast === 'function') {
-                window.showToast(msg, type);
-            } else {
-                console.log(msg);
-            }
+            if (typeof window.showToast === 'function') window.showToast(msg, type);
+            else console.log(msg);
         }
 
         // ========== ЛОББИ ==========
@@ -314,22 +231,7 @@
                     html += '</tbody></table>';
                 } else html += '<p>Пока нет победителей.</p>';
                 gameContainer.innerHTML = html;
-            } catch (e) {
-                gameContainer.innerHTML = '<p>Ошибка загрузки рейтинга.</p>';
-            }
-        }
-
-        // ========== СЕРИАЛИЗАЦИЯ КОРАБЛЕЙ ==========
-        function serializeShips(ships) {
-            return JSON.stringify(ships);
-        }
-        function parseShips(shipsData) {
-            if (!shipsData) return [];
-            try {
-                return typeof shipsData === 'string' ? JSON.parse(shipsData) : shipsData;
-            } catch (e) {
-                return [];
-            }
+            } catch (e) { gameContainer.innerHTML = '<p>Ошибка загрузки рейтинга.</p>'; }
         }
 
         // ========== СОЗДАНИЕ / ПРИСОЕДИНЕНИЕ ==========
@@ -342,11 +244,9 @@
                     players: {
                         [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', shipsData: '', ready: false }
                     },
-                    boards: { [currentUser.uid]: [] },
+                    boards: { [currentUser.uid]: '' },
                     shots: {},
-                    turn: null,
-                    winner: null,
-                    setupDeadline: null,
+                    turn: null, winner: null, setupDeadline: null,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 gameId = docRef.id;
@@ -355,7 +255,7 @@
                     const aiBoard = generateAIBoard();
                     await db.collection('battles').doc(gameId).update({
                         [`players.ai`]: { username: 'Компьютер', isAI: true, shipsData: serializeShips(aiShips), ready: true },
-                        [`boards.ai`]: aiBoard,
+                        [`boards.ai`]: serializeBoard(aiBoard),
                         status: 'setup',
                         setupDeadline: firebase.firestore.Timestamp.fromMillis(Date.now() + SETUP_TIME * 1000)
                     });
@@ -376,7 +276,7 @@
                 if (Object.keys(data.players).length >= 2) { showToast('Игра заполнена', 'error'); return; }
                 await db.collection('battles').doc(id).update({
                     [`players.${currentUser.uid}`]: { username: getCurrentUser()?.username || 'Игрок', shipsData: '', ready: false },
-                    [`boards.${currentUser.uid}`]: [],
+                    [`boards.${currentUser.uid}`]: '',
                     status: 'setup',
                     setupDeadline: firebase.firestore.Timestamp.fromMillis(Date.now() + SETUP_TIME * 1000)
                 });
@@ -436,9 +336,10 @@
             return true;
         }
 
-        // ========== ОБЩИЕ ФУНКЦИИ ==========
+        // ========== ОБЩИЕ ==========
         function resetGameState() {
-            myBoard = []; enemyBoard = []; myShips = []; remainingShips = [...ALL_SHIPS];
+            myBoard = []; enemyBoard = []; myShips = [];
+            remainingShips = [...ALL_SHIPS];
             selectedShipIndex = 0; orientation = 'horizontal';
             clearSetupTimer();
         }
@@ -454,16 +355,13 @@
 
         function updateGameState() {
             if (!gameData) return;
-            const myUid = currentUser.uid;
-            const players = gameData.players;
-
             if (gameData.status === 'waiting') {
                 gameContainer.innerHTML = `<div class="lobby-panel"><h3>Ожидание соперника...</h3><p>ID игры: <strong>${gameId}</strong></p></div>`;
             } else if (gameData.status === 'setup') {
-                if (!myBoard.length) initMyBoard();
+                if (!myBoard.length) myBoard = parseBoard(gameData.boards[currentUser.uid]);
                 renderSetupScreen();
             } else if (gameData.status === 'active') {
-                if (!myBoard.length) initMyBoard();
+                if (!myBoard.length) myBoard = parseBoard(gameData.boards[currentUser.uid]);
                 if (!enemyBoard.length) initEnemyBoard();
                 clearSetupTimer();
                 renderBattleScreen();
@@ -473,10 +371,11 @@
             }
         }
 
-        function initMyBoard() { myBoard = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0)); }
-        function initEnemyBoard() { enemyBoard = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0)); }
+        function initEnemyBoard() {
+            enemyBoard = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+        }
 
-        // ========== ТАЙМЕР РАССТАНОВКИ ==========
+        // ========== ТАЙМЕР ==========
         function startSetupTimer() {
             clearSetupTimer();
             setupSecondsLeft = SETUP_TIME;
@@ -494,9 +393,7 @@
             }, 1000);
         }
 
-        function clearSetupTimer() {
-            if (setupTimer) { clearInterval(setupTimer); setupTimer = null; }
-        }
+        function clearSetupTimer() { if (setupTimer) { clearInterval(setupTimer); setupTimer = null; } }
 
         function updateTimerDisplay() {
             const el = document.getElementById('setup-timer');
@@ -539,7 +436,7 @@
             await db.collection('battles').doc(gameId).update({
                 [`players.${myUid}.shipsData`]: serializeShips(myShips),
                 [`players.${myUid}.ready`]: true,
-                [`boards.${myUid}`]: myBoard
+                [`boards.${myUid}`]: serializeBoard(myBoard)
             });
             const doc = await db.collection('battles').doc(gameId).get();
             const data = doc.data();
@@ -554,8 +451,7 @@
         // ========== РАССТАНОВКА ==========
         function renderSetupScreen() {
             const myUid = currentUser.uid;
-            const players = gameData.players;
-            const myData = players[myUid];
+            const myData = gameData.players[myUid];
             const isReady = myData?.ready;
 
             if (isReady) {
@@ -586,7 +482,6 @@
                 <div class="board-wrapper"><h4>Ваше поле</h4>${renderMyBoard(false)}</div>
                 <button class="btn" id="ready-btn" disabled>Готов</button>
             `;
-
             gameContainer.innerHTML = html;
             startSetupTimer();
 
@@ -597,7 +492,6 @@
                     btn.classList.add('active');
                 });
             });
-
             document.querySelectorAll('.orientation-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     orientation = btn.dataset.orientation;
@@ -605,15 +499,9 @@
                     btn.classList.add('active');
                 });
             });
-
             document.querySelectorAll('#my-board .cell').forEach(cell => {
-                cell.addEventListener('click', () => {
-                    const row = parseInt(cell.dataset.row);
-                    const col = parseInt(cell.dataset.col);
-                    placeShip(row, col);
-                });
+                cell.addEventListener('click', () => placeShip(parseInt(cell.dataset.row), parseInt(cell.dataset.col)));
             });
-
             const readyBtn = document.getElementById('ready-btn');
             readyBtn.disabled = myShips.length < ALL_SHIPS.length;
             readyBtn.addEventListener('click', readyUp);
@@ -621,22 +509,16 @@
 
         function renderMyBoard(readOnly = false) {
             let grid = '';
-            for (let r = 0; r < GRID_SIZE; r++) {
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    const cls = myBoard[r][c] === 1 ? 'ship' : '';
-                    grid += `<div class="cell ${cls} ${readOnly ? 'disabled' : ''}" data-row="${r}" data-col="${c}"></div>`;
-                }
-            }
+            for (let r = 0; r < GRID_SIZE; r++)
+                for (let c = 0; c < GRID_SIZE; c++)
+                    grid += `<div class="cell ${myBoard[r][c] === 1 ? 'ship' : ''} ${readOnly ? 'disabled' : ''}" data-row="${r}" data-col="${c}"></div>`;
             return `<div class="board-grid" id="my-board">${grid}</div>`;
         }
 
         function placeShip(row, col) {
             if (remainingShips.length === 0) return;
             const size = remainingShips[selectedShipIndex];
-            if (!canPlaceShip(row, col, size, orientation)) {
-                showToast('Нельзя разместить здесь', 'error');
-                return;
-            }
+            if (!canPlaceShip(row, col, size, orientation)) { showToast('Нельзя разместить здесь', 'error'); return; }
             const ship = [];
             for (let i = 0; i < size; i++) {
                 const r = orientation === 'horizontal' ? row : row + i;
@@ -655,12 +537,9 @@
                 const r = orientation === 'horizontal' ? row : row + i;
                 const c = orientation === 'horizontal' ? col + i : col;
                 if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE || myBoard[r][c] === 1) return false;
-                for (let dr = -1; dr <= 1; dr++) {
-                    for (let dc = -1; dc <= 1; dc++) {
-                        const nr = r + dr, nc = c + dc;
-                        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && myBoard[nr][nc] === 1) return false;
-                    }
-                }
+                for (let dr = -1; dr <= 1; dr++)
+                    for (let dc = -1; dc <= 1; dc++)
+                        if (r+dr >=0 && r+dr < GRID_SIZE && c+dc >=0 && c+dc < GRID_SIZE && myBoard[r+dr][c+dc] === 1) return false;
             }
             return true;
         }
@@ -668,54 +547,44 @@
         // ========== БОЙ ==========
         function renderBattleScreen() {
             const myUid = currentUser.uid;
-            const players = gameData.players;
-            const opponentUid = Object.keys(players).find(uid => uid !== myUid);
+            const opponentUid = Object.keys(gameData.players).find(uid => uid !== myUid);
             const myTurn = gameData.turn === myUid;
             const shots = gameData.shots || {};
             const myShots = shots[myUid] || [];
             const opponentShots = shots[opponentUid] || [];
 
-            for (const shot of myShots) {
-                const { row, col, hit } = shot;
-                enemyBoard[row][col] = hit ? 2 : -1;
-            }
+            for (const shot of myShots) enemyBoard[shot.row][shot.col] = shot.hit ? 2 : -1;
 
-            let html = `
+            gameContainer.innerHTML = `
                 <div class="boards-container">
                     <div class="board-wrapper"><h4>Ваше поле</h4>${renderMyBoardForBattle(opponentShots)}</div>
                     <div class="board-wrapper"><h4>Поле соперника</h4>${renderEnemyBoardForBattle(myTurn)}</div>
                 </div>
                 <p class="status-message">${myTurn ? 'Ваш ход!' : 'Ход соперника...'}</p>
             `;
-            gameContainer.innerHTML = html;
 
-            if (myTurn) {
-                document.querySelectorAll('#enemy-board .cell').forEach(cell => {
-                    cell.addEventListener('click', () => makeShot(parseInt(cell.dataset.row), parseInt(cell.dataset.col)));
-                });
-            }
+            if (myTurn)
+                document.querySelectorAll('#enemy-board .cell').forEach(cell =>
+                    cell.addEventListener('click', () => makeShot(parseInt(cell.dataset.row), parseInt(cell.dataset.col))));
 
-            if (gameData.turn === 'ai' && gameData.status === 'active') {
-                setTimeout(() => aiMove(), 1500);
-            }
+            if (gameData.turn === 'ai' && gameData.status === 'active') setTimeout(aiMove, 1500);
         }
 
         function renderMyBoardForBattle(opponentShots) {
             let grid = '';
-            for (let r = 0; r < GRID_SIZE; r++) {
+            for (let r = 0; r < GRID_SIZE; r++)
                 for (let c = 0; c < GRID_SIZE; c++) {
                     let cls = myBoard[r][c] === 1 ? 'ship' : '';
                     const shot = opponentShots.find(s => s.row === r && s.col === c);
                     if (shot) cls += shot.hit ? ' hit' : ' miss';
                     grid += `<div class="cell ${cls} disabled" data-row="${r}" data-col="${c}"></div>`;
                 }
-            }
             return `<div class="board-grid" id="my-board">${grid}</div>`;
         }
 
         function renderEnemyBoardForBattle(myTurn) {
             let grid = '';
-            for (let r = 0; r < GRID_SIZE; r++) {
+            for (let r = 0; r < GRID_SIZE; r++)
                 for (let c = 0; c < GRID_SIZE; c++) {
                     let cls = '';
                     if (enemyBoard[r][c] === 2) cls = 'hit';
@@ -723,7 +592,6 @@
                     const disabled = !myTurn || enemyBoard[r][c] !== 0 ? 'disabled' : '';
                     grid += `<div class="cell ${cls} ${disabled}" data-row="${r}" data-col="${c}"></div>`;
                 }
-            }
             return `<div class="board-grid" id="enemy-board">${grid}</div>`;
         }
 
@@ -732,12 +600,11 @@
             if (enemyBoard[row][col] !== 0) { showToast('Уже стреляли', 'info'); return; }
 
             const opponentUid = Object.keys(gameData.players).find(uid => uid !== currentUser.uid);
-            const oppBoard = gameData.boards[opponentUid];
+            const oppBoard = parseBoard(gameData.boards[opponentUid]);
             const hit = oppBoard[row][col] === 1;
             const shot = { row, col, hit };
             const shots = gameData.shots || {};
             const myShots = [...(shots[currentUser.uid] || []), shot];
-            // Парсим корабли соперника
             const oppShips = parseShips(gameData.players[opponentUid].shipsData);
             const allSunk = checkAllShipsSunk(oppShips, myShots);
 
@@ -747,7 +614,6 @@
                 status: allSunk ? 'finished' : 'active',
                 winner: allSunk ? currentUser.uid : null
             });
-
             if (allSunk) await handleGameEnd(currentUser.uid);
         }
 
@@ -755,14 +621,12 @@
             const myUid = currentUser.uid;
             const shots = gameData.shots?.ai || [];
             const available = [];
-            for (let r = 0; r < GRID_SIZE; r++) {
-                for (let c = 0; c < GRID_SIZE; c++) {
+            for (let r = 0; r < GRID_SIZE; r++)
+                for (let c = 0; c < GRID_SIZE; c++)
                     if (!shots.some(s => s.row === r && s.col === c)) available.push({row: r, col: c});
-                }
-            }
             if (!available.length) return;
             const {row, col} = available[Math.floor(Math.random() * available.length)];
-            const myBoardData = gameData.boards[myUid];
+            const myBoardData = parseBoard(gameData.boards[myUid]);
             const hit = myBoardData[row][col] === 1;
             const newShots = [...shots, { row, col, hit }];
             const myShipsData = parseShips(gameData.players[myUid].shipsData);
@@ -774,7 +638,6 @@
                 status: allSunk ? 'finished' : 'active',
                 winner: allSunk ? 'ai' : null
             });
-
             if (allSunk) await handleGameEnd('ai');
         }
 
