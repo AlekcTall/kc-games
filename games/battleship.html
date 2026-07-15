@@ -43,6 +43,7 @@
         .cell.hit { background: #e74c3c; }
         .cell.miss { background: #3498db; }
         .cell.ship.hit { background: #c0392b; }
+        .cell.auto-miss { background: #a0c4e8; } /* чуть светлее, чтобы отличать авто-промахи */
         .cell.disabled { cursor: default; }
         .btn { margin: 0.3rem; }
         .ship-selection {
@@ -81,6 +82,14 @@
             color: var(--color-primary); text-decoration: none;
         }
         .timer { font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0; }
+        .enemy-stats {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem auto;
+            display: inline-block;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -120,6 +129,8 @@
         let setupTimer = null, setupSecondsLeft = SETUP_TIME;
         let isAI = false;
         let unsubscribeGame = null, unsubscribeOpenGames = null;
+        // Клетки, автоматически помеченные как "мимо" после уничтожения корабля
+        let autoMisses = [];
 
         // Сериализация данных для Firestore (массивы запрещены)
         function serializeBoard(board) { return JSON.stringify(board); }
@@ -327,33 +338,27 @@
             return board;
         }
 
-      function canPlaceShipOnBoard(board, row, col, size, orientation) {
-    for (let i = 0; i < size; i++) {
-        const r = orientation === 'h' ? row : row + i;
-        const c = orientation === 'h' ? col + i : col;
-        // Выход за границы
-        if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) return false;
-        // Клетка занята
-        if (board[r][c] === 1) return false;
-        // Проверяем все соседние клетки (включая углы)
-        for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-                const nr = r + dr;
-                const nc = c + dc;
-                if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && board[nr][nc] === 1) {
-                    return false;
+        function canPlaceShipOnBoard(board, row, col, size, orientation) {
+            for (let i = 0; i < size; i++) {
+                const r = orientation === 'h' ? row : row + i;
+                const c = orientation === 'h' ? col + i : col;
+                if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE || board[r][c] === 1) return false;
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && board[nr][nc] === 1) return false;
+                    }
                 }
             }
+            return true;
         }
-    }
-    return true;
-}
 
         // ========== ОБЩИЕ ==========
         function resetGameState() {
             myBoard = []; enemyBoard = []; myShips = [];
             remainingShips = [...ALL_SHIPS];
             selectedShipIndex = 0; orientation = 'horizontal';
+            autoMisses = [];
             clearSetupTimer();
         }
 
@@ -558,27 +563,57 @@
         }
 
         // ========== БОЙ ==========
+        function getOpponentUid() {
+            return Object.keys(gameData.players).find(uid => uid !== currentUser.uid && uid !== 'ai' ? uid : null) || 'ai';
+        }
+
+        function getRemainingShipsInfo() {
+            const opponentUid = getOpponentUid();
+            const ships = parseShips(gameData.players[opponentUid].shipsData);
+            const shots = gameData.shots[currentUser.uid] || [];
+            const aliveShips = ships.filter(ship => !ship.every(cell => shots.some(s => s.row === cell.row && s.col === cell.col && s.hit)));
+            const aliveCells = aliveShips.flat().length;
+            return { aliveShips: aliveShips.length, aliveCells };
+        }
+
         function renderBattleScreen() {
             const myUid = currentUser.uid;
-            const opponentUid = Object.keys(gameData.players).find(uid => uid !== myUid);
+            const opponentUid = getOpponentUid();
             const myTurn = gameData.turn === myUid;
             const shots = gameData.shots || {};
             const myShots = shots[myUid] || [];
             const opponentShots = shots[opponentUid] || [];
 
-            for (const shot of myShots) enemyBoard[shot.row][shot.col] = shot.hit ? 2 : -1;
+            // Обновляем вражескую доску с учётом автоматических промахов
+            for (const shot of myShots) {
+                enemyBoard[shot.row][shot.col] = shot.hit ? 2 : -1;
+            }
+            for (const miss of autoMisses) {
+                if (enemyBoard[miss.row][miss.col] === 0) enemyBoard[miss.row][miss.col] = -2; // -2 = авто-мимо
+            }
+
+            const info = getRemainingShipsInfo();
 
             gameContainer.innerHTML = `
                 <div class="boards-container">
                     <div class="board-wrapper"><h4>Ваше поле</h4>${renderMyBoardForBattle(opponentShots)}</div>
-                    <div class="board-wrapper"><h4>Поле соперника</h4>${renderEnemyBoardForBattle(myTurn)}</div>
+                    <div class="board-wrapper">
+                        <h4>Поле соперника</h4>
+                        ${renderEnemyBoardForBattle(myTurn)}
+                        <div class="enemy-stats">
+                            🚢 Кораблей: <strong>${info.aliveShips}</strong> | 
+                            ⬜ Клеток: <strong>${info.aliveCells}</strong>
+                        </div>
+                    </div>
                 </div>
                 <p class="status-message">${myTurn ? 'Ваш ход!' : 'Ход соперника...'}</p>
             `;
 
-            if (myTurn)
-                document.querySelectorAll('#enemy-board .cell').forEach(cell =>
-                    cell.addEventListener('click', () => makeShot(parseInt(cell.dataset.row), parseInt(cell.dataset.col))));
+            if (myTurn) {
+                document.querySelectorAll('#enemy-board .cell').forEach(cell => {
+                    cell.addEventListener('click', () => makeShot(parseInt(cell.dataset.row), parseInt(cell.dataset.col)));
+                });
+            }
 
             if (gameData.turn === 'ai' && gameData.status === 'active') setTimeout(aiMove, 1500);
         }
@@ -602,6 +637,7 @@
                     let cls = '';
                     if (enemyBoard[r][c] === 2) cls = 'hit';
                     else if (enemyBoard[r][c] === -1) cls = 'miss';
+                    else if (enemyBoard[r][c] === -2) cls = 'auto-miss';
                     const disabled = !myTurn || enemyBoard[r][c] !== 0 ? 'disabled' : '';
                     grid += `<div class="cell ${cls} ${disabled}" data-row="${r}" data-col="${c}"></div>`;
                 }
@@ -612,22 +648,61 @@
             if (gameData.turn !== currentUser.uid) return;
             if (enemyBoard[row][col] !== 0) { showToast('Уже стреляли', 'info'); return; }
 
-            const opponentUid = Object.keys(gameData.players).find(uid => uid !== currentUser.uid);
+            const opponentUid = getOpponentUid();
             const oppBoard = parseBoard(gameData.boards[opponentUid]);
             const hit = oppBoard[row][col] === 1;
             const shot = { row, col, hit };
             const shots = gameData.shots || {};
             const myShots = [...(shots[currentUser.uid] || []), shot];
             const oppShips = parseShips(gameData.players[opponentUid].shipsData);
-            const allSunk = checkAllShipsSunk(oppShips, myShots);
 
-            await db.collection('battles').doc(gameId).update({
+            // Проверяем, убит ли корабль этим выстрелом
+            const sunkShip = oppShips.find(ship => 
+                ship.some(cell => cell.row === row && cell.col === col) &&
+                ship.every(cell => myShots.some(s => s.row === cell.row && s.col === cell.col && s.hit))
+            );
+
+            let toastMsg = hit ? 'Ранил!' : 'Мимо!';
+            if (sunkShip) {
+                toastMsg = 'Убил!';
+                // Добавляем соседние клетки в авто-мимо
+                addAutoMissesForShip(sunkShip);
+            }
+            showToast(toastMsg, hit ? 'success' : 'info');
+
+            const allSunk = checkAllShipsSunk(oppShips, myShots);
+            const updateData = {
                 [`shots.${currentUser.uid}`]: myShots,
                 turn: allSunk ? null : opponentUid,
                 status: allSunk ? 'finished' : 'active',
                 winner: allSunk ? currentUser.uid : null
-            });
-            if (allSunk) await handleGameEnd(currentUser.uid);
+            };
+
+            await db.collection('battles').doc(gameId).update(updateData);
+
+            if (allSunk) {
+                gameData = { ...gameData, ...updateData, status: 'finished', winner: currentUser.uid };
+                await handleGameEnd(currentUser.uid);
+                renderFinishedScreen();
+            }
+        }
+
+        function addAutoMissesForShip(ship) {
+            const occupied = new Set(ship.map(c => `${c.row},${c.col}`));
+            for (const cell of ship) {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = cell.row + dr;
+                        const nc = cell.col + dc;
+                        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !occupied.has(`${nr},${nc}`)) {
+                            if (enemyBoard[nr][nc] === 0) {
+                                enemyBoard[nr][nc] = -2; // авто-мимо
+                                autoMisses.push({ row: nr, col: nc });
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         async function aiMove() {
@@ -645,13 +720,20 @@
             const myShipsData = parseShips(gameData.players[myUid].shipsData);
             const allSunk = checkAllShipsSunk(myShipsData, newShots);
 
-            await db.collection('battles').doc(gameId).update({
+            const updateData = {
                 [`shots.ai`]: newShots,
                 turn: allSunk ? null : myUid,
                 status: allSunk ? 'finished' : 'active',
                 winner: allSunk ? 'ai' : null
-            });
-            if (allSunk) await handleGameEnd('ai');
+            };
+
+            await db.collection('battles').doc(gameId).update(updateData);
+
+            if (allSunk) {
+                gameData = { ...gameData, ...updateData, status: 'finished', winner: 'ai' };
+                await handleGameEnd('ai');
+                renderFinishedScreen();
+            }
         }
 
         function checkAllShipsSunk(ships, shots) {
