@@ -276,7 +276,7 @@
                     gameId = id;
                     subscribeToGame();
                     resetGameState();
-                    showSetupScreen();
+                    renderSetupScreen();
                     return;
                 }
                 await db.collection('battles').doc(id).update({
@@ -292,7 +292,7 @@
                 subscribeToGame();
                 showToast('Вы присоединились к игре!', 'success');
                 resetGameState();
-                showSetupScreen();
+                renderSetupScreen();
             } catch (e) {
                 showToast('Ошибка: ' + e.message, 'error');
             }
@@ -321,7 +321,7 @@
                 subscribeToGame();
                 showToast('Игра создана! ID: ' + gameId, 'success');
                 resetGameState();
-                showSetupScreen();
+                renderSetupScreen();
             } catch (e) {
                 showToast('Ошибка создания: ' + e.message, 'error');
             }
