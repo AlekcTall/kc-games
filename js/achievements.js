@@ -3,6 +3,7 @@
 // Конфигурация достижений
 function getAchievementsConfig() {
   return [
+    // Существующие (без изменений)
     { id: 'first_game', name: 'Первый блин', description: 'Сыграйте в любую игру', icon: '🎮', hidden: false },
     { id: 'clicker_100', name: 'Кликоман', description: 'Наберите 100 кликов в кликере', icon: '🖱️', hidden: false },
     { id: 'clicker_1000', name: 'Мышку сломаешь!', description: 'Наберите 1000 кликов в кликере', icon: '💥🖱️', hidden: false },
@@ -17,28 +18,36 @@ function getAchievementsConfig() {
     { id: 'memory_30sec', name: 'Спидран', description: 'Найдите все пары за ≤30 секунд', icon: '🧠', hidden: false },
     { id: 'memory_8moves', name: 'Невозможно!', description: 'Найдите все пары ровно за 8 ходов', icon: '🧠', hidden: true },
     { id: 'profile_bio', name: 'О себе', description: 'Заполните поле «О себе» (минимум 10 символов)', icon: '✏️', hidden: true },
-    // Динамические достижения (проверяются отдельно)
     { id: 'top10', name: 'В десятке', description: 'Попадите в топ‑10 общего рейтинга', icon: '🏆', hidden: false },
     { id: 'top3', name: 'Пьедестал', description: 'Займите 1, 2 или 3 место в рейтинге', icon: '🥇', hidden: false },
-    // Пасхалки
     { id: 'easter_logo', name: 'Лого‑кликер', description: 'Найдите пасхалку в логотипе', icon: '🥚', hidden: true },
     { id: 'easter_footer', name: 'Подвал', description: 'Найдите пасхалку в футере', icon: '🥚', hidden: true },
     { id: 'easter_symbol', name: 'Секретный символ', description: 'Найдите секретный символ на главной', icon: '🥚', hidden: true },
     { id: 'easter_konami', name: 'Konami', description: 'Введите Konami Code', icon: '🥚', hidden: true },
     { id: 'easter_word', name: 'Бонус', description: 'Введите секретное слово "бонус"', icon: '🥚', hidden: true },
-    // 2048
     { id: '2048_512', name: 'Это только начало', description: 'Соберите плитку 512 в 2048', icon: '🔢', hidden: false },
     { id: '2048_2048', name: 'Вот почему она так называется', description: 'Соберите плитку 2048 в 2048', icon: '🔢', hidden: false },
     { id: '2048_4096', name: 'Прошел?', description: 'Соберите плитку 4096 в 2048', icon: '🔢', hidden: false },
     { id: '2048_8192', name: 'Х4', description: 'Соберите плитку 8192 в 2048', icon: '🔢', hidden: true },
-    // Сапёр
     { id: 'minesweeper_loss', name: 'Одна нога тут, другая там', description: 'Подорвитесь на мине в сапёре', icon: '💣', hidden: false },
     { id: 'minesweeper_win', name: 'Без права на ошибку', description: 'Успешно завершите игру в сапёре', icon: '💣', hidden: false },
     { id: 'minesweeper_speed', name: 'Я скорость', description: 'Завершите сапёра за ≤10 секунд', icon: '💣', hidden: true },
-    // Ежедневный вход
     { id: 'daily_7', name: 'На связи', description: 'Заходите 7 дней подряд', icon: '📅', hidden: true },
     { id: 'daily_30', name: 'Железная воля', description: 'Заходите 30 дней подряд', icon: '📅', hidden: true },
-    { id: 'daily_100', name: 'Старожил', description: 'Заходите 100 раз', icon: '📅', hidden: true }
+    { id: 'daily_100', name: 'Старожил', description: 'Заходите 100 раз', icon: '📅', hidden: true },
+
+    // ========== Новые достижения (Морской бой) ==========
+    { id: 'battleship_5games', name: 'Морской волк', description: 'Сыграйте 5 партий в «Морской бой» (Морской бой)', icon: '🚢', hidden: false },
+    { id: 'battleship_first_win', name: 'Боевое крещение', description: 'Одержите первую победу (Морской бой)', icon: '⚔️', hidden: false },
+    { id: 'battleship_10wins', name: 'Адмирал', description: 'Одержите 10 побед (Морской бой)', icon: '🎖️', hidden: false },
+    { id: 'battleship_25wins', name: 'Флотоводец', description: 'Одержите 25 побед (Морской бой)', icon: '🏅', hidden: false },
+    { id: 'battleship_streak3', name: 'В ударе', description: 'Выиграйте 3 игры подряд (Морской бой)', icon: '🔥', hidden: true },
+    { id: 'battleship_streak5', name: 'Неудержимый', description: 'Выиграйте 5 игр подряд (Морской бой)', icon: '💥', hidden: true },
+    { id: 'battleship_sniper', name: 'Снайпер', description: 'Победите, сделав не более 30 выстрелов (Морской бой)', icon: '🎯', hidden: true },
+    { id: 'battleship_unsinkable', name: 'Непотопляемый', description: 'Победите, не потеряв ни одного корабля (Морской бой)', icon: '🛡️', hidden: true },
+    { id: 'battleship_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Морской бой)', icon: '🤝', hidden: false },
+    { id: 'battleship_pve_win', name: 'Железный человек', description: 'Победите компьютер (Морской бой)', icon: '🤖', hidden: false },
+    { id: 'battleship_sunk_4deck', name: 'Истребитель авианосцев', description: 'Потопите четырёхпалубный корабль (Морской бой)', icon: '✈️', hidden: true }
   ];
 }
 
@@ -76,6 +85,8 @@ async function checkAndAwardAchievements() {
   const easterEggs = data.easterEggsFound || [];
   const description = data.description || '';
   const dailyLogin = data.dailyLogin || {};
+  const battleshipStats = data.battleshipStats || {};
+  const winStreak = battleshipStats.currentWinStreak || 0;
 
   const config = getAchievementsConfig();
   const newlyUnlocked = [];
@@ -86,6 +97,7 @@ async function checkAndAwardAchievements() {
     let earned = false;
 
     switch (ach.id) {
+      // Существующие
       case 'first_game': earned = gameHistory.length > 0; break;
       case 'clicker_100': earned = (gameStats.clicker?.totalClicks || 0) >= 100; break;
       case 'clicker_1000': earned = (gameStats.clicker?.totalClicks || 0) >= 1000; break;
@@ -128,28 +140,60 @@ async function checkAndAwardAchievements() {
       case 'easter_konami': earned = easterEggs.includes('konami'); break;
       case 'easter_word': earned = easterEggs.includes('word'); break;
 
-      // 2048
       case '2048_512': earned = (gameStats['2048']?.maxTile || 0) >= 512; break;
       case '2048_2048': earned = (gameStats['2048']?.maxTile || 0) >= 2048; break;
       case '2048_4096': earned = (gameStats['2048']?.maxTile || 0) >= 4096; break;
       case '2048_8192': earned = (gameStats['2048']?.maxTile || 0) >= 8192; break;
 
-      // Сапёр
       case 'minesweeper_loss': earned = gameStats.minesweeper?.loss === true; break;
       case 'minesweeper_win': earned = gameStats.minesweeper?.completed === true; break;
       case 'minesweeper_speed': earned = gameStats.minesweeper?.completed && (gameStats.minesweeper.bestTime || 999) <= 10; break;
 
-      // Ежедневный вход
       case 'daily_7': earned = (dailyLogin.longestStreak || 0) >= 7; break;
       case 'daily_30': earned = (dailyLogin.longestStreak || 0) >= 30; break;
       case 'daily_100': earned = (dailyLogin.totalLogins || 0) >= 100; break;
+
+      // Новые достижения морского боя
+      case 'battleship_5games':
+        earned = (gameHistory.filter(h => h.game === 'battleship').length >= 5);
+        break;
+      case 'battleship_first_win':
+        earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 1;
+        break;
+      case 'battleship_10wins':
+        earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 10;
+        break;
+      case 'battleship_25wins':
+        earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 25;
+        break;
+      case 'battleship_streak3':
+        earned = (battleshipStats.bestWinStreak || 0) >= 3;
+        break;
+      case 'battleship_streak5':
+        earned = (battleshipStats.bestWinStreak || 0) >= 5;
+        break;
+      case 'battleship_sniper':
+        earned = (battleshipStats.sniperGame || false) === true;
+        break;
+      case 'battleship_unsinkable':
+        earned = (battleshipStats.unsinkableGame || false) === true;
+        break;
+      case 'battleship_pvp_win':
+        earned = (battleshipStats.pvpWins || 0) >= 1;
+        break;
+      case 'battleship_pve_win':
+        earned = (battleshipStats.pveWins || 0) >= 1;
+        break;
+      case 'battleship_sunk_4deck':
+        earned = (battleshipStats.sunk4Deck || false) === true;
+        break;
     }
 
     if (earned && !alreadyUnlocked) {
       unlocked.push(ach.id);
       newlyUnlocked.push(ach);
     } else if (!earned && alreadyUnlocked && toRemove.includes(ach.id)) {
-      // удалим
+      // удалим ниже
     }
   }
 
