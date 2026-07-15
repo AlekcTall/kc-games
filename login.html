@@ -94,13 +94,49 @@
     .back-link:hover {
       text-decoration: underline;
     }
-    .verify-warning {
-      background: #fff3cd;
-      color: #856404;
-      padding: 0.8rem;
-      border-radius: 6px;
-      margin-top: 1rem;
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 0.9rem;
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+      color: var(--color-primary);
+      cursor: pointer;
+    }
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
+    .faq-section {
+      margin-top: 2rem;
+      border-top: 1px solid #eee;
+      padding-top: 1.5rem;
+    }
+    .faq-section h3 {
       text-align: center;
+      margin-bottom: 1rem;
+    }
+    .faq-item {
+      margin-bottom: 0.8rem;
+    }
+    .faq-item__question {
+      font-weight: 600;
+      color: var(--color-header);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .faq-item__answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      color: #555;
+      font-size: 0.9rem;
+      padding-left: 0.5rem;
+    }
+    .faq-item.open .faq-item__answer {
+      max-height: 100px;
+      margin-top: 0.3rem;
     }
     .divider {
       text-align: center;
@@ -153,6 +189,7 @@
           <label for="login-password">Пароль</label>
           <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
         </div>
+        <div class="forgot-link" id="forgot-password-link">Забыли пароль?</div>
         <button class="login-btn" id="login-btn">Войти</button>
         <p class="auth-message" id="login-message"></p>
       </div>
@@ -179,9 +216,40 @@
         <p class="auth-message" id="register-message"></p>
       </div>
 
+      <!-- Блок FAQ -->
+      <div class="faq-section">
+        <h3>❓ Частые вопросы</h3>
+        <div class="faq-item">
+          <div class="faq-item__question">Не приходит письмо подтверждения <span>▼</span></div>
+          <div class="faq-item__answer">Проверьте папку «Спам». Если письма нет, нажмите «Забыли пароль?» — придёт новое письмо. Убедитесь, что email введён без ошибок.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-item__question">Как сменить пароль? <span>▼</span></div>
+          <div class="faq-item__answer">Нажмите «Забыли пароль?» на вкладке «Вход». На ваш email придёт ссылка для сброса пароля.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-item__question">Зачем подтверждать email? <span>▼</span></div>
+          <div class="faq-item__answer">Это необходимо для безопасности аккаунта и возможности восстановить пароль. Без подтверждения некоторые функции могут быть ограничены.</div>
+        </div>
+      </div>
+
       <a href="index.html" class="back-link">← На главную</a>
     </div>
   </main>
+
+  <!-- Модальное окно восстановления пароля -->
+  <div class="modal-overlay" id="reset-modal" style="display:none;">
+    <div class="modal" style="max-width:400px; text-align:center;">
+      <span class="modal-close" id="reset-modal-close">&times;</span>
+      <h3>Восстановление пароля</h3>
+      <p>Введите email, и мы отправим ссылку для сброса пароля.</p>
+      <div class="form-group">
+        <input type="email" id="reset-email" placeholder="example@mail.ru">
+      </div>
+      <button class="btn" id="reset-submit">Отправить</button>
+      <p id="reset-message" class="auth-message"></p>
+    </div>
+  </div>
 
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
@@ -212,7 +280,6 @@
           return;
         }
       } catch (e) { console.error(e); }
-      // Дефолтные отделы, если коллекция пуста
       const defaults = ['РБ','МСБ','ТМ','Депозиты','ОКК','ООБП','Боссы','Заблудшие души'];
       defaults.forEach(d => {
         const option = document.createElement('option');
@@ -222,7 +289,6 @@
       });
     }
 
-    // Получение параметра редиректа
     function getRedirectUrl() {
       const params = new URLSearchParams(window.location.search);
       return params.get('redirect') || 'index.html';
@@ -231,7 +297,6 @@
     document.addEventListener('DOMContentLoaded', async () => {
       await loadDepartments();
 
-      // Если пользователь уже авторизован, сразу перенаправляем
       auth.onAuthStateChanged(user => {
         if (user) {
           window.location.href = getRedirectUrl();
@@ -247,13 +312,12 @@
           tab.classList.add('active');
           forms.forEach(f => f.classList.remove('active'));
           document.getElementById(tab.dataset.tab + '-form').classList.add('active');
-          // Очищаем сообщения
           document.getElementById('login-message').textContent = '';
           document.getElementById('register-message').textContent = '';
         });
       });
 
-      // Логика входа
+      // Вход
       document.getElementById('login-btn').addEventListener('click', async () => {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
@@ -270,11 +334,9 @@
         try {
           const userData = await firebaseLogin(email, password);
           if (userData) {
-            // Обновляем lastActive
             if (typeof updateLastActive === 'function') {
               await updateLastActive(auth.currentUser.uid);
             }
-            // Проверяем подтверждение email
             if (!auth.currentUser.emailVerified) {
               msgEl.textContent = 'Пожалуйста, подтвердите email. Письмо отправлено повторно.';
               msgEl.className = 'auth-message error';
@@ -293,7 +355,7 @@
         }
       });
 
-      // Логика регистрации
+      // Регистрация
       document.getElementById('register-btn').addEventListener('click', async () => {
         const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-password').value;
@@ -319,7 +381,6 @@
           if (userData) {
             msgEl.textContent = 'Регистрация успешна! Проверьте почту для подтверждения email.';
             msgEl.className = 'auth-message success';
-            // Перенаправляем через 2 секунды, чтобы пользователь прочитал
             setTimeout(() => {
               window.location.href = getRedirectUrl();
             }, 2500);
@@ -331,7 +392,48 @@
         }
       });
 
-      // Поддержка Enter для отправки формы
+      // Восстановление пароля
+      document.getElementById('forgot-password-link').addEventListener('click', () => {
+        document.getElementById('reset-modal').style.display = 'flex';
+        document.getElementById('reset-email').value = document.getElementById('login-email').value;
+        document.getElementById('reset-message').textContent = '';
+      });
+
+      document.getElementById('reset-modal-close').addEventListener('click', () => {
+        document.getElementById('reset-modal').style.display = 'none';
+      });
+
+      document.getElementById('reset-submit').addEventListener('click', async () => {
+        const email = document.getElementById('reset-email').value.trim();
+        const msgEl = document.getElementById('reset-message');
+        if (!email) {
+          msgEl.textContent = 'Введите email.';
+          msgEl.className = 'auth-message error';
+          return;
+        }
+        try {
+          await auth.sendPasswordResetEmail(email, { url: window.location.origin + '/login.html' });
+          msgEl.textContent = 'Письмо для сброса пароля отправлено! Проверьте почту.';
+          msgEl.className = 'auth-message success';
+          setTimeout(() => {
+            document.getElementById('reset-modal').style.display = 'none';
+          }, 3000);
+        } catch (error) {
+          console.error(error);
+          msgEl.textContent = error.message || 'Ошибка отправки.';
+          msgEl.className = 'auth-message error';
+        }
+      });
+
+      // FAQ аккордеон
+      document.querySelectorAll('.faq-item__question').forEach(q => {
+        q.addEventListener('click', () => {
+          const item = q.parentElement;
+          item.classList.toggle('open');
+        });
+      });
+
+      // Enter для отправки
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           const activeForm = document.querySelector('.auth-form.active');
