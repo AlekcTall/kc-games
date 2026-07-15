@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Морской бой – КЦ Игры</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .battleship-game {
+            max-width: 800px;
+            margin: 2rem auto;
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .boards-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1rem 0;
+        }
+        .board-wrapper {
+            text-align: center;
+        }
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 30px);
+            grid-template-rows: repeat(10, 30px);
+            gap: 1px;
+            background: #ccc;
+            border: 2px solid #333;
+            margin: 0.5rem auto;
+            width: fit-content;
+        }
+        .cell {
+            width: 30px;
+            height: 30px;
+            background: #fff;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .cell.ship {
+            background: #7f8c8d;
+        }
+        .cell.hit {
+            background: #e74c3c;
+        }
+        .cell.miss {
+            background: #3498db;
+        }
+        .cell.ship.hit {
+            background: #c0392b;
+        }
+        .cell.disabled {
+            cursor: default;
+        }
+        .controls {
+            margin: 1rem 0;
+        }
+        .btn {
+            margin: 0.3rem;
+        }
+        .ship-selection {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+        .ship-selection button {
+            padding: 0.4rem 0.8rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f0f0f0;
+            cursor: pointer;
+        }
+        .ship-selection button.active {
+            background: #3498db;
+            color: white;
+        }
+        .status-message {
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        .lobby-panel {
+            max-width: 400px;
+            margin: 1rem auto;
+            padding: 1.5rem;
+            background: #f9f9fb;
+            border-radius: 12px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+        #toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+        .toast {
+            padding: 0.75rem 1.2rem;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 500;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: auto;
+            max-width: 350px;
+            word-wrap: break-word;
+        }
+        .toast--visible { opacity: 1; transform: translateX(0); }
+        .toast--success { background: #27ae60; }
+        .toast--info { background: #3498db; }
+        .toast--error { background: #e74c3c; }
+    </style>
+</head>
+<body>
+<div class="battleship-game" id="game-container">
+    <h2>🚢 Морской бой</h2>
+    <div id="game-content"></div>
+    <a href="../games.html" class="back-link">← Вернуться к играм</a>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
+<script src="../js/firebase-auth.js"></script>
+<script src="../js/storage.js"></script>
+<script src="../js/achievements.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/easter-eggs.js"></script>
+<script src="../js/main.js"></script>
+
+<script>
+    (function() {
+        const GRID_SIZE = 10;
+        const SHIPS = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]; // классический набор
+        const gameContainer = document.getElementById('game-content');
+
+        // Текущее состояние игры
+        let currentUser = null;
+        let gameId = null;
+        let gameData = null;
+        let myBoard = [];
+        let enemyBoard = [];
+        let myShips = [];
+        let selectedShipIndex = 0;
+        let orientation = 'horizontal'; // horizontal | vertical
+        let unsubscribeGame = null;
+
+        // Инициализация авторизации
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                gameContainer.innerHTML = '<p>Войдите, чтобы играть. <a href="../login.html?redirect=games/battleship.html">Войти</a></p>';
+                return;
+            }
+            currentUser = user;
+            showLobby();
+        });
+
+        function showToast(msg, type = 'info') {
+            if (typeof window.showToast === 'function') {
+                window.showToast(msg, type);
+            } else {
+                console.log(msg);
+            }
+        }
+
+        // ========== ЛОББИ ==========
+        function showLobby() {
+            gameContainer.innerHTML = `
+                <div class="lobby-panel">
+                    <h3>Морской бой</h3>
+                    <p>Сыграйте с коллегой в классический морской бой!</p>
+                    <button class="btn" id="create-game-btn">Создать игру</button>
+                    <div style="margin-top:1rem;">
+                        <input type="text" id="join-game-id" placeholder="ID игры" style="padding:0.5rem; width:200px;">
+                        <button class="btn" id="join-game-btn">Присоединиться</button>
+                    </div>
+                    <p id="lobby-message" class="auth-message"></p>
+                </div>
+            `;
+
+            document.getElementById('create-game-btn').addEventListener('click', createGame);
+            document.getElementById('join-game-btn').addEventListener('click', joinGame);
+        }
+
+        async function createGame() {
+            try {
+                const docRef = await db.collection('battles').add({
+                    status: 'waiting',
+                    players: {
+                        [currentUser.uid]: {
+                            username: getCurrentUser()?.username || 'Игрок 1',
+                            ships: [],
+                            ready: false
+                        }
+                    },
+                    boards: {
+                        [currentUser.uid]: []
+                    },
+                    shots: {},
+                    turn: null,
+                    winner: null,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                gameId = docRef.id;
+                subscribeToGame();
+                showToast('Игра создана! ID: ' + gameId, 'success');
+                showSetupScreen();
+            } catch (e) {
+                showToast('Ошибка создания: ' + e.message, 'error');
+            }
+        }
+
+        async function joinGame() {
+            const id = document.getElementById('join-game-id').value.trim();
+            if (!id) {
+                showToast('Введите ID игры', 'error');
+                return;
+            }
+            try {
+                const doc = await db.collection('battles').doc(id).get();
+                if (!doc.exists) {
+                    showToast('Игра не найдена', 'error');
+                    return;
+                }
+                const data = doc.data();
+                if (data.status !== 'waiting') {
+                    showToast('Игра уже началась или завершена', 'error');
+                    return;
+                }
+                if (Object.keys(data.players).length >= 2) {
+                    showToast('Игра уже заполнена', 'error');
+                    return;
+                }
+                if (data.players[currentUser.uid]) {
+                    // Игрок уже в игре
+                    gameId = id;
+                    subscribeToGame();
+                    showSetupScreen();
+                    return;
+                }
+                // Добавляем второго игрока
+                await db.collection('battles').doc(id).update({
+                    [`players.${currentUser.uid}`]: {
+                        username: getCurrentUser()?.username || 'Игрок 2',
+                        ships: [],
+                        ready: false
+                    },
+                    [`boards.${currentUser.uid}`]: [],
+                    status: 'setup'
+                });
+                gameId = id;
+                subscribeToGame();
+                showToast('Вы присоединились к игре!', 'success');
+                showSetupScreen();
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        }
+
+        // ========== ПОДПИСКА НА ИГРУ ==========
+        function subscribeToGame() {
+            if (unsubscribeGame) unsubscribeGame();
+            unsubscribeGame = db.collection('battles').doc(gameId).onSnapshot(doc => {
+                if (!doc.exists) {
+                    gameContainer.innerHTML = '<p>Игра не найдена.</p>';
+                    return;
+                }
+                gameData = doc.data();
+                updateGameState();
+            });
+        }
+
+        function updateGameState() {
+            if (!gameData) return;
+            const myUid = currentUser.uid;
+            const players = gameData.players;
+            const isPlayer1 = Object.keys(players)[0] === myUid;
+            const opponentUid = Object.keys(players).find(uid => uid !== myUid);
+
+            if (gameData.status === 'waiting') {
+                // Ожидание второго игрока
+                gameContainer.innerHTML = `
+                    <div class="lobby-panel">
+                        <h3>Ожидание соперника...</h3>
+                        <p>ID игры: <strong>${gameId}</strong></p>
+                        <p>Поделитесь этим ID с коллегой, чтобы он присоединился.</p>
+                    </div>
+                `;
+            } else if (gameData.status === 'setup') {
+                if (!myBoard.length) initMyBoard();
+                renderSetupScreen();
+            } else if (gameData.status === 'active') {
+                if (!myBoard.length) initMyBoard();
+                if (!enemyBoard.length) initEnemyBoard();
+                renderBattleScreen();
+            } else if (gameData.status === 'finished') {
+                renderFinishedScreen();
+            }
+        }
+
+        // ========== ИНИЦИАЛИЗАЦИЯ ДОСОК ==========
+        function initMyBoard() {
+            myBoard = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+        }
+
+        function initEnemyBoard() {
+            enemyBoard = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+        }
+
+        // ========== РАССТАНОВКА КОРАБЛЕЙ ==========
+        function renderSetupScreen() {
+            const myUid = currentUser.uid;
+            const players = gameData.players;
+            const myData = players[myUid];
+            const isReady = myData && myData.ready;
+            const opponentUid = Object.keys(players).find(uid => uid !== myUid);
+            const opponentReady = opponentUid && players[opponentUid] && players[opponentUid].ready;
+
+            if (isReady) {
+                gameContainer.innerHTML = `
+                    <h3>Расстановка завершена</h3>
+                    <p>Ожидание готовности соперника...</p>
+                    ${renderMyBoard(true)}
+                `;
+                if (opponentReady) {
+                    // Оба готовы — старт
+                    db.collection('battles').doc(gameId).update({
+                        status: 'active',
+                        turn: Object.keys(players)[0] // первый ходит создатель
+                    });
+                }
+                return;
+            }
+
+            let html = `
+                <h3>Расставьте корабли</h3>
+                <div class="ship-selection">
+                    <span>Выберите корабль:</span>
+                    ${SHIPS.map((size, index) => `<button class="ship-btn ${index === selectedShipIndex ? 'active' : ''}" data-index="${index}">${'█'.repeat(size)} (${size})</button>`).join('')}
+                </div>
+                <div>
+                    <button class="btn orientation-btn ${orientation === 'horizontal' ? 'active' : ''}" data-orientation="horizontal">Горизонтально</button>
+                    <button class="btn orientation-btn ${orientation === 'vertical' ? 'active' : ''}" data-orientation="vertical">Вертикально</button>
+                </div>
+                <div class="board-wrapper">
+                    <h4>Ваше поле</h4>
+                    ${renderMyBoard(false)}
+                </div>
+                <button class="btn" id="ready-btn" disabled>Готов</button>
+                <p class="status-message" id="setup-status"></p>
+            `;
+
+            gameContainer.innerHTML = html;
+
+            // Обработчики выбора корабля
+            document.querySelectorAll('.ship-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedShipIndex = parseInt(btn.dataset.index);
+                    document.querySelectorAll('.ship-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                });
+            });
+
+            // Ориентация
+            document.querySelectorAll('.orientation-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    orientation = btn.dataset.orientation;
+                    document.querySelectorAll('.orientation-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                });
+            });
+
+            // Клик по своей доске для размещения корабля
+            document.querySelectorAll('#my-board .cell').forEach(cell => {
+                cell.addEventListener('click', () => {
+                    if (isReady) return;
+                    const row = parseInt(cell.dataset.row);
+                    const col = parseInt(cell.dataset.col);
+                    placeShip(row, col);
+                });
+            });
+
+            // Кнопка готовности
+            document.getElementById('ready-btn').disabled = myShips.length < SHIPS.length;
+            document.getElementById('ready-btn').addEventListener('click', async () => {
+                await db.collection('battles').doc(gameId).update({
+                    [`players.${myUid}.ships`]: myShips,
+                    [`players.${myUid}.ready`]: true,
+                    [`boards.${myUid}`]: myBoard
+                });
+                showToast('Готов!', 'success');
+                renderSetupScreen(); // обновим экран
+            });
+        }
+
+        function renderMyBoard(readOnly = false) {
+            let gridHtml = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cellClass = myBoard[r][c] === 1 ? 'ship' : '';
+                    gridHtml += `<div class="cell ${cellClass} ${readOnly ? 'disabled' : ''}" data-row="${r}" data-col="${c}"></div>`;
+                }
+            }
+            return `<div class="board-grid" id="my-board">${gridHtml}</div>`;
+        }
+
+        function placeShip(row, col) {
+            if (myShips.length >= SHIPS.length) {
+                showToast('Все корабли уже расставлены', 'info');
+                return;
+            }
+            const size = SHIPS[selectedShipIndex];
+            if (!canPlaceShip(row, col, size, orientation)) {
+                showToast('Нельзя разместить корабль здесь', 'error');
+                return;
+            }
+
+            // Размещаем
+            const newShip = [];
+            for (let i = 0; i < size; i++) {
+                const r = orientation === 'horizontal' ? row : row + i;
+                const c = orientation === 'horizontal' ? col + i : col;
+                myBoard[r][c] = 1;
+                newShip.push({ row: r, col: c });
+            }
+            myShips.push(newShip);
+            // Обновляем доску и выбор корабля
+            renderSetupScreen();
+        }
+
+        function canPlaceShip(row, col, size, orientation) {
+            for (let i = 0; i < size; i++) {
+                const r = orientation === 'horizontal' ? row : row + i;
+                const c = orientation === 'horizontal' ? col + i : col;
+                if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) return false;
+                if (myBoard[r][c] === 1) return false;
+                // Проверка соседних клеток (нельзя вплотную)
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && myBoard[nr][nc] === 1) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // ========== БОЙ ==========
+        function renderBattleScreen() {
+            const myUid = currentUser.uid;
+            const players = gameData.players;
+            const opponentUid = Object.keys(players).find(uid => uid !== myUid);
+            const myTurn = gameData.turn === myUid;
+            const shots = gameData.shots || {};
+            const myShots = shots[myUid] || [];
+            const opponentShots = shots[opponentUid] || [];
+
+            // Обновляем enemyBoard на основе своих выстрелов
+            for (const shot of myShots) {
+                const { row, col, hit } = shot;
+                enemyBoard[row][col] = hit ? 2 : -1; // 2 - попадание, -1 - промах
+            }
+
+            let html = `
+                <div class="boards-container">
+                    <div class="board-wrapper">
+                        <h4>Ваше поле</h4>
+                        ${renderMyBoardForBattle(opponentShots)}
+                    </div>
+                    <div class="board-wrapper">
+                        <h4>Поле соперника</h4>
+                        ${renderEnemyBoardForBattle(myTurn)}
+                    </div>
+                </div>
+                <p class="status-message">${myTurn ? 'Ваш ход!' : 'Ход соперника...'}</p>
+                <div id="battle-info"></div>
+            `;
+
+            gameContainer.innerHTML = html;
+
+            // Обработчик клика по вражеской доске
+            if (myTurn) {
+                document.querySelectorAll('#enemy-board .cell').forEach(cell => {
+                    cell.addEventListener('click', () => {
+                        const row = parseInt(cell.dataset.row);
+                        const col = parseInt(cell.dataset.col);
+                        makeShot(row, col);
+                    });
+                });
+            }
+        }
+
+        function renderMyBoardForBattle(opponentShots) {
+            let gridHtml = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    let cellClass = myBoard[r][c] === 1 ? 'ship' : '';
+                    // Проверка выстрелов соперника
+                    const shot = opponentShots.find(s => s.row === r && s.col === c);
+                    if (shot) {
+                        if (shot.hit) {
+                            cellClass += ' hit';
+                        } else {
+                            cellClass += ' miss';
+                        }
+                    }
+                    gridHtml += `<div class="cell ${cellClass} disabled" data-row="${r}" data-col="${c}"></div>`;
+                }
+            }
+            return `<div class="board-grid" id="my-board">${gridHtml}</div>`;
+        }
+
+        function renderEnemyBoardForBattle(myTurn) {
+            let gridHtml = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    let cellClass = '';
+                    if (enemyBoard[r][c] === 2) cellClass = 'hit';
+                    else if (enemyBoard[r][c] === -1) cellClass = 'miss';
+                    const disabled = !myTurn || enemyBoard[r][c] !== 0 ? 'disabled' : '';
+                    gridHtml += `<div class="cell ${cellClass} ${disabled}" data-row="${r}" data-col="${c}"></div>`;
+                }
+            }
+            return `<div class="board-grid" id="enemy-board">${gridHtml}</div>`;
+        }
+
+        async function makeShot(row, col) {
+            if (gameData.turn !== currentUser.uid) {
+                showToast('Не ваш ход', 'error');
+                return;
+            }
+            if (enemyBoard[row][col] !== 0) {
+                showToast('Вы уже стреляли сюда', 'info');
+                return;
+            }
+
+            const opponentUid = Object.keys(gameData.players).find(uid => uid !== currentUser.uid);
+            const opponentBoard = gameData.boards[opponentUid];
+            const hit = opponentBoard[row][col] === 1;
+
+            const shot = { row, col, hit };
+            const shots = gameData.shots || {};
+            const myShots = shots[currentUser.uid] || [];
+            myShots.push(shot);
+
+            // Проверка на уничтожение всех кораблей
+            const opponentShips = gameData.players[opponentUid].ships;
+            const allSunk = checkAllShipsSunk(opponentShips, myShots);
+
+            const updateData = {
+                [`shots.${currentUser.uid}`]: myShots,
+                turn: allSunk ? null : opponentUid,
+                status: allSunk ? 'finished' : 'active',
+                winner: allSunk ? currentUser.uid : null
+            };
+
+            await db.collection('battles').doc(gameId).update(updateData);
+
+            if (allSunk) {
+                await handleWin();
+            }
+        }
+
+        function checkAllShipsSunk(ships, shots) {
+            const allShipCells = ships.flat();
+            const hitShots = shots.filter(s => s.hit).map(s => ({ row: s.row, col: s.col }));
+            return allShipCells.every(cell => hitShots.some(h => h.row === cell.row && h.col === cell.col));
+        }
+
+        async function handleWin() {
+            const myUid = currentUser.uid;
+            // Начисление очков
+            if (typeof addPointsToCurrentUser === 'function') {
+                await addPointsToCurrentUser(10, 'battleship');
+            }
+            // Локоины
+            if (auth.currentUser) {
+                const userRef = db.collection('users').doc(myUid);
+                const doc = await userRef.get();
+                const currentBalance = doc.data().lokoin_balance || 0;
+                await userRef.update({ lokoin_balance: currentBalance + 3 });
+            }
+            // Уведомление
+            if (typeof addNotification === 'function') {
+                await addNotification(myUid, '🏆 Победа в морском бою! +10 баллов, +3 локоина', 'game', 'games/battleship.html');
+            }
+            // Достижения (можно добавить в конфиг позже)
+            if (typeof checkAndAwardAchievements === 'function') {
+                await checkAndAwardAchievements();
+            }
+            showToast('Победа! +10 баллов, +3 локоина', 'success');
+        }
+
+        function renderFinishedScreen() {
+            const winnerUid = gameData.winner;
+            const winnerName = winnerUid === currentUser.uid ? 'Вы' : (gameData.players[winnerUid]?.username || 'Соперник');
+            const isWin = winnerUid === currentUser.uid;
+            gameContainer.innerHTML = `
+                <h3>${isWin ? '🎉 Победа!' : '😞 Поражение'}</h3>
+                <p>Победитель: <strong>${winnerName}</strong></p>
+                <button class="btn" id="new-game-btn">Новая игра</button>
+            `;
+            document.getElementById('new-game-btn').addEventListener('click', () => {
+                if (unsubscribeGame) unsubscribeGame();
+                gameId = null;
+                gameData = null;
+                myBoard = [];
+                enemyBoard = [];
+                myShips = [];
+                showLobby();
+            });
+        }
+    })();
+</script>
+</body>
+</html>
