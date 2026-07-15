@@ -327,14 +327,27 @@
             return board;
         }
 
-        function canPlaceShipOnBoard(board, row, col, size, orientation) {
-            for (let i = 0; i < size; i++) {
-                const r = orientation === 'h' ? row : row + i;
-                const c = orientation === 'h' ? col + i : col;
-                if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE || board[r][c] === 1) return false;
+      function canPlaceShipOnBoard(board, row, col, size, orientation) {
+    for (let i = 0; i < size; i++) {
+        const r = orientation === 'h' ? row : row + i;
+        const c = orientation === 'h' ? col + i : col;
+        // Выход за границы
+        if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) return false;
+        // Клетка занята
+        if (board[r][c] === 1) return false;
+        // Проверяем все соседние клетки (включая углы)
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                const nr = r + dr;
+                const nc = c + dc;
+                if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && board[nr][nc] === 1) {
+                    return false;
+                }
             }
-            return true;
         }
+    }
+    return true;
+}
 
         // ========== ОБЩИЕ ==========
         function resetGameState() {
