@@ -151,7 +151,7 @@
                 return;
             }
             currentUser = user;
-            // Попытка восстановить незавершённую игру
+            // Пытаемся восстановить игру
             const resumed = await autoResumeGame();
             if (!resumed) {
                 switchTab('game');
@@ -252,16 +252,23 @@
         async function autoResumeGame() {
             if (!currentUser) return false;
             try {
+                // Ищем любую игру, где текущий пользователь в participants и статус не finished
                 const snap = await db.collection('battles')
-                    .where(`players.${currentUser.uid}.ready`, '>=', false) // любой участник
-                    .where('status', '!=', 'finished')
+                    .where('participants', 'array-contains', currentUser.uid)
                     .get();
                 if (snap.empty) return false;
+                // Фильтруем на клиенте: статус не finished
+                const activeGames = [];
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status !== 'finished') activeGames.push({ id: doc.id, ...data });
+                });
+                if (activeGames.length === 0) return false;
                 // Берем первую (скорее всего одну)
-                const doc = snap.docs[0];
-                gameId = doc.id;
-                gameData = doc.data();
-                isAI = gameData.isAI || false;
+                const game = activeGames[0];
+                gameId = game.id;
+                gameData = game;
+                isAI = game.isAI || false;
                 resetGameState();
                 subscribeToGame();
                 return true;
@@ -278,6 +285,7 @@
                 const docRef = await db.collection('battles').add({
                     status: 'waiting',
                     isAI: aiMode,
+                    participants: [currentUser.uid],  // массив участников
                     players: {
                         [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', shipsData: '', ready: false }
                     },
@@ -288,11 +296,12 @@
                 });
                 gameId = docRef.id;
                 if (aiMode) {
-                    const aiShips = generateAIShips();  // генерируем ОДИН раз
+                    const aiShips = generateAIShips();
                     const aiBoard = buildBoardFromShips(aiShips);
                     await db.collection('battles').doc(gameId).update({
                         [`players.ai`]: { username: 'Компьютер', isAI: true, shipsData: serializeShips(aiShips), ready: true },
                         [`boards.ai`]: serializeBoard(aiBoard),
+                        participants: firebase.firestore.FieldValue.arrayUnion('ai'),
                         status: 'setup',
                         setupDeadline: firebase.firestore.Timestamp.fromMillis(Date.now() + SETUP_TIME * 1000)
                     });
@@ -309,11 +318,23 @@
                 const doc = await db.collection('battles').doc(id).get();
                 if (!doc.exists) { showToast('Игра не найдена', 'error'); return; }
                 const data = doc.data();
-                if (data.status !== 'waiting') { showToast('Игра уже началась', 'error'); return; }
+                // Проверяем, не участник ли уже текущий пользователь
+                if (data.participants && data.participants.includes(currentUser.uid)) {
+                    // Уже участник – просто восстанавливаем игру
+                    gameId = id;
+                    isAI = data.isAI || false;
+                    subscribeToGame();
+                    resetGameState();
+                    showToast('Игра восстановлена', 'info');
+                    return;
+                }
+                if (data.status !== 'waiting') { showToast('Игра уже началась или завершена', 'error'); return; }
                 if (Object.keys(data.players).length >= 2) { showToast('Игра заполнена', 'error'); return; }
+                // Присоединяемся
                 await db.collection('battles').doc(id).update({
                     [`players.${currentUser.uid}`]: { username: getCurrentUser()?.username || 'Игрок', shipsData: '', ready: false },
                     [`boards.${currentUser.uid}`]: '',
+                    participants: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
                     status: 'setup',
                     setupDeadline: firebase.firestore.Timestamp.fromMillis(Date.now() + SETUP_TIME * 1000)
                 });
@@ -406,7 +427,6 @@
                 if (!myBoard.length) myBoard = parseBoard(gameData.boards[currentUser.uid]);
                 if (!enemyBoard.length) initEnemyBoard();
                 clearSetupTimer();
-                // Восстановить авто-мимо из истории выстрелов
                 restoreAutoMisses();
                 renderBattleScreen();
             } else if (gameData.status === 'finished') {
@@ -609,7 +629,6 @@
             autoMisses = [];
             for (const ship of ships) {
                 if (ship.every(cell => shots.some(s => s.row === cell.row && s.col === cell.col && s.hit))) {
-                    // корабль убит, добавляем его периметр в авто-мимо
                     const occupied = new Set(ship.map(c => `${c.row},${c.col}`));
                     for (const cell of ship) {
                         for (let dr = -1; dr <= 1; dr++) {
@@ -636,7 +655,6 @@
             const myShots = shots[myUid] || [];
             const opponentShots = shots[opponentUid] || [];
 
-            // Закрашиваем доску на основе выстрелов и авто-мимо
             for (const shot of myShots) {
                 enemyBoard[shot.row][shot.col] = shot.hit ? 2 : -1;
             }
