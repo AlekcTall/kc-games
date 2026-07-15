@@ -6,29 +6,31 @@
   <title>Админ-панель – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .feedback-list { margin-top: 1rem; }
-    .feedback-item { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    .feedback-item-header { margin-bottom: 0.5rem; }
-    .feedback-item-header small { color: #999; }
-    .btn-gift { background: #9b59b6; color: white; border: none; padding: 0.3rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-left: 0.3rem; }
-    .btn-gift:hover { background: #8e44ad; }
-    .btn-small { padding: 0.25rem 0.5rem; font-size: 0.8rem; margin: 0 0.1rem; }
-    .mass-notif-form { background: #f9f9fb; padding: 1.5rem; border-radius: 12px; max-width: 600px; margin-top: 1rem; }
-    .mass-notif-form select, .mass-notif-form input, .mass-notif-form textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 6px; }
-    .progress-bar { width: 100%; background: #eee; border-radius: 8px; height: 20px; margin: 1rem 0; overflow: hidden; display: none; }
-    .progress-fill { height: 100%; background: #27ae60; width: 0%; transition: width 0.2s; }
-    .dept-list, .announcements-list, .awards-list, .requests-list { list-style: none; padding: 0; }
-    .dept-list li, .announcements-list li, .awards-list li, .requests-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
-    .dept-list li button, .announcements-list li button, .awards-list li button, .requests-list li button { margin-left: 1rem; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .admin-page { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+    .dash-card { background: var(--color-white); border-radius: 12px; padding: 1.5rem; text-decoration: none; color: var(--color-header); text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; }
+    .dash-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+    .dash-card__icon { font-size: 2rem; margin-bottom: 0.5rem; }
+    .dash-card__title { font-weight: 600; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
     .stat-card { background: #f9f9fb; border-radius: 12px; padding: 1rem; text-align: center; }
-    .stat-card .stat-value { font-size: 2rem; font-weight: bold; }
-    .export-btn { margin-top: 1rem; }
-    .award-icon-preview { width: 32px; height: 32px; vertical-align: middle; margin-right: 0.5rem; }
+    .stat-card .stat-value { font-size: 2rem; font-weight: 700; }
+    .stat-card .stat-label { font-size: 0.8rem; color: #888; }
+    .games-section { margin-top: 2rem; }
+    .games-list { list-style: none; padding: 0; }
+    .games-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
+    .add-game-form { background: #f9fafb; border-radius: 12px; padding: 1.5rem; max-width: 500px; margin-top: 1rem; }
+    .add-game-form h4 { margin-bottom: 1rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem; }
+    .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
+    .btn-small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .skeleton-cell { height: 1rem; background: #e0e0e0; border-radius: 4px; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
   </style>
 </head>
 <body>
-
   <header class="header">
     <div class="container header__inner">
       <a href="index.html" class="logo">КЦ-Игры</a>
@@ -48,33 +50,10 @@
   </header>
 
   <main class="main">
-    <div class="container" id="admin-container"></div>
+    <div class="container admin-page" id="admin-container">
+      <p>Загрузка...</p>
+    </div>
   </main>
-
-  <!-- Модальные окна (локоины, товар, подарок) -->
-  <div class="modal-overlay" id="lokoin-modal" style="display:none;">
-    <div class="modal"><span class="modal-close" id="lokoin-modal-close">&times;</span><h3>Изменить баланс локоинов</h3><div class="form-group"><label for="lokoin-amount">Количество</label><input type="number" id="lokoin-amount" step="1"></div><div class="form-group"><label for="lokoin-comment">Комментарий</label><input type="text" id="lokoin-comment"></div><button class="btn" id="lokoin-submit">Применить</button><p id="lokoin-message" class="auth-message"></p></div>
-  </div>
-
-  <div class="modal-overlay" id="shop-item-modal" style="display:none;">
-    <div class="modal" style="max-width:550px;"><span class="modal-close" id="shop-item-modal-close">&times;</span><h3>Редактировать товар</h3><div id="shop-item-id-display"></div><div class="form-group"><label>Название *</label><input type="text" id="shop-item-title" required></div><div class="form-group"><label>Описание</label><textarea id="shop-item-desc" rows="2"></textarea></div><div class="form-group"><label>Категория</label><select id="shop-item-category"><option value="Кастомизация">Кастомизация</option><option value="Реакции">Реакции</option><option value="Игровые бонусы">Игровые бонусы</option><option value="Рабочие плюшки">Рабочие плюшки</option><option value="Особые товары">Особые товары</option></select></div><div class="form-group"><label>Цена *</label><input type="number" id="shop-item-price" min="1" required></div><div class="form-group"><label>Иконка</label><input type="text" id="shop-item-icon" value="🛒"></div><div class="form-group"><label>Эффект</label><input type="text" id="shop-item-effect"></div><div class="form-group"><label>Длительность (ч, 0=бессрочно)</label><input type="number" id="shop-item-duration" value="0" min="0"></div><div class="form-group"><label>Уникальный</label><select id="shop-item-unique"><option value="true">Да</option><option value="false">Нет</option></select></div><div class="form-group"><label>Уведомить админа</label><select id="shop-item-notify-admin"><option value="false">Нет</option><option value="true">Да</option></select></div><div class="form-group"><label>Количество (пусто=∞)</label><input type="number" id="shop-item-stock"></div><button class="btn" id="shop-item-save">Сохранить</button><p id="shop-item-message" class="auth-message"></p></div>
-  </div>
-
-  <div class="modal-overlay" id="gift-modal" style="display:none;">
-    <div class="modal"><span class="modal-close" id="gift-modal-close">&times;</span><h3>Подарить товар</h3><p id="gift-user-name"></p><div class="form-group"><label for="gift-item-select">Товар</label><select id="gift-item-select"></select></div><button class="btn" id="gift-submit">Подарить</button><p id="gift-message" class="auth-message"></p></div>
-  </div>
-
-  <div class="modal-overlay" id="news-modal" style="display:none;">
-    <div class="modal" style="max-width:600px;"><span class="modal-close" id="news-modal-close">&times;</span><h3 id="news-modal-title">Новость</h3><div class="form-group"><label for="news-title">Заголовок</label><input type="text" id="news-title" required></div><div class="form-group"><label for="news-body">Текст</label><textarea id="news-body" rows="4"></textarea></div><div class="form-group"><label for="news-icon">Иконка</label><input type="text" id="news-icon" placeholder="📢"></div><div class="form-group"><label for="news-image-url">Изображение URL</label><input type="text" id="news-image-url"></div><div class="form-group"><label for="news-video-url">Видео URL</label><input type="text" id="news-video-url"></div><div class="form-group"><label for="news-link">Ссылка</label><input type="text" id="news-link"></div><div class="form-group"><label for="news-publish-at">Опубликовать с</label><input type="datetime-local" id="news-publish-at"></div><div class="form-group"><label for="news-expire-at">Скрыть после</label><input type="datetime-local" id="news-expire-at"></div><div class="form-group"><label><input type="checkbox" id="news-notify-all"> Оповестить всех</label></div><button class="btn" id="news-save-btn">Сохранить</button><p id="news-message" class="auth-message"></p></div>
-  </div>
-
-  <div class="modal-overlay" id="award-modal" style="display:none;">
-    <div class="modal" style="max-width:500px;"><span class="modal-close" id="award-modal-close">&times;</span><h3 id="award-modal-title">Награда</h3><div class="form-group"><label for="award-id">ID</label><input type="text" id="award-id" required></div><div class="form-group"><label for="award-name">Название</label><input type="text" id="award-name" required></div><div class="form-group"><label for="award-desc">Описание</label><textarea id="award-desc" rows="2"></textarea></div><div class="form-group"><label for="award-icon-file">SVG файл</label><input type="text" id="award-icon-file" placeholder="gold-star.svg" required></div><div class="form-group"><label for="award-lokoin">Локоинов</label><input type="number" id="award-lokoin" value="0" min="0"></div><button class="btn" id="award-save-btn">Сохранить</button><p id="award-message" class="auth-message"></p></div>
-  </div>
-
-  <div class="modal-overlay" id="award-user-modal" style="display:none;">
-    <div class="modal" style="max-width:450px;"><span class="modal-close" id="award-user-modal-close">&times;</span><h3>Выдать награду</h3><p id="award-user-name"></p><div class="form-group"><label for="award-select">Награда</label><select id="award-select"></select></div><div class="form-group"><label for="award-comment">Комментарий</label><textarea id="award-comment" rows="2"></textarea></div><button class="btn" id="award-user-submit">Выдать</button><p id="award-user-message" class="auth-message"></p></div>
-  </div>
 
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
@@ -92,114 +71,244 @@
   <script src="js/feedback.js"></script>
 
   <script>
-    let departmentsCache = [];
-    async function loadDepartments() { try { const s = await db.collection('departments').orderBy('name').get(); departmentsCache = []; s.forEach(d => departmentsCache.push({ id: d.id, name: d.data().name })); if (!departmentsCache.length) { const def = ['РБ','МСБ','ТМ','Депозиты','ОКК','ООБП','Боссы','Заблудшие души']; for (const n of def) await db.collection('departments').add({ name: n }); return loadDepartments(); } } catch (e) { departmentsCache = ['РБ','МСБ','ТМ','Депозиты','ОКК','ООБП','Боссы','Заблудшие души'].map((n,i)=>({id:'fb'+i,name:n})); } }
+    (function() {
+      const CACHE_STATS_KEY = 'krugames_admin_stats';
+      const CACHE_GAMES_KEY = 'krugames_admin_games';
+      const CACHE_TTL = 2 * 60 * 1000;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      const container = document.getElementById('admin-container');
-      auth.onAuthStateChanged(async fbUser => {
-        if (!fbUser) { container.innerHTML = '<p>Вы не авторизованы.</p>'; return; }
-        try { const d = await db.collection('users').doc(fbUser.uid).get(); if (!d.exists || d.data().role !== 'admin') { container.innerHTML = '<p>Доступ запрещён.</p>'; return; } await loadDepartments(); renderAdminPanel(); }
-        catch (err) { container.innerHTML = `<p>Ошибка: ${err.message}</p>`; }
-      });
-
-      function renderAdminPanel() {
-        container.innerHTML = `<h2>Административная панель</h2><div class="admin-tabs"><button class="admin-tab active" data-tab="games">Игры</button><button class="admin-tab" data-tab="users">Пользователи</button><button class="admin-tab" data-tab="requests">Заявки</button><button class="admin-tab" data-tab="feedback">Обращения</button><button class="admin-tab" data-tab="shop">Магазин</button><button class="admin-tab" data-tab="notifications">Уведомления</button><button class="admin-tab" data-tab="departments">Отделы</button><button class="admin-tab" data-tab="awards">Награды</button><button class="admin-tab" data-tab="events">🎪 Ивенты</button><button class="admin-tab" data-tab="stats">Статистика</button><button class="admin-tab" data-tab="news">Новости</button><button class="admin-tab" data-tab="export">Экспорт</button></div><div id="admin-tab-content" class="admin-tab-content"></div>`;
-        const tabs = document.querySelectorAll('.admin-tab'), content = document.getElementById('admin-tab-content');
-        tabs.forEach(t => t.addEventListener('click', () => { tabs.forEach(b => b.classList.remove('active')); t.classList.add('active'); loadTab(t.dataset.tab); }));
-        loadTab('games');
-        function loadTab(t) { switch(t) { case 'games': renderGamesTab(); break; case 'users': renderUsersTab(); break; case 'requests': renderRequestsTab(); break; case 'feedback': renderFeedbackTab(); break; case 'shop': renderShopTab(); break; case 'notifications': renderNotificationsTab(); break; case 'departments': renderDepartmentsTab(); break; case 'awards': renderAwardsTab(); break; case 'events': window.location.href = 'events-admin.html'; break; case 'stats': renderStatsTab(); break; case 'news': renderNewsTab(); break; case 'export': renderExportTab(); break; } }
+      function getCached(key) {
+        const cached = sessionStorage.getItem(key);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < CACHE_TTL) return parsed.data;
+          } catch (e) {}
+        }
+        return null;
+      }
+      function setCached(key, data) {
+        sessionStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data }));
       }
 
-      // ----- Заявки -----
-      async function renderRequestsTab() {
-        const tc = document.getElementById('admin-tab-content'); tc.innerHTML = '<p>Загрузка...</p>';
-        try {
-          const snap = await db.collection('purchaseRequests').orderBy('createdAt', 'desc').get();
-          const requests = []; snap.forEach(doc => requests.push({ id: doc.id, ...doc.data() }));
-          let html = `<h3>📋 Заявки на реализацию (${requests.length})</h3>`;
-          if (!requests.length) { html += '<p>Нет заявок.</p>'; } else {
-            html += '<table class="admin-users-table"><thead><tr><th>Пользователь</th><th>Отдел</th><th>Товар</th><th>Цена</th><th>Дата</th><th>Статус</th><th>Действия</th></tr></thead><tbody>';
-            requests.forEach(r => {
-              const statusText = r.status === 'new' ? '🆕 Новое' : r.status === 'progress' ? '🔄 В работе' : '✅ Выполнено';
-              const date = r.createdAt ? new Date(r.createdAt.seconds * 1000).toLocaleString('ru-RU') : '';
-              html += `<tr><td>${r.username}</td><td>${r.department || '—'}</td><td>${r.itemTitle}</td><td>${r.itemPrice} лок.</td><td>${date}</td><td>${statusText}</td><td><select class="request-status" data-req-id="${r.id}"><option value="new" ${r.status==='new'?'selected':''}>Новое</option><option value="progress" ${r.status==='progress'?'selected':''}>В работе</option><option value="done" ${r.status==='done'?'selected':''}>Выполнено</option></select></td></tr>`;
-            });
-            html += '</tbody></table>';
+      let gamesList = [];
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        const container = document.getElementById('admin-container');
+
+        auth.onAuthStateChanged(async fbUser => {
+          if (!fbUser) { container.innerHTML = '<p>Вы не авторизованы.</p>'; return; }
+          try {
+            const d = await db.collection('users').doc(fbUser.uid).get();
+            if (!d.exists || d.data().role !== 'admin') {
+              container.innerHTML = '<p>Доступ запрещён.</p>';
+              return;
+            }
+            renderDashboard();
+            loadStats();
+            loadGames();
+          } catch (e) { container.innerHTML = `<p>Ошибка: ${e.message}</p>`; }
+        });
+
+        function renderDashboard() {
+          container.innerHTML = `
+            <h2>📊 Административная панель</h2>
+            <div id="stats-container"></div>
+
+            <div class="dashboard-grid">
+              <a href="admin-users.html" class="dash-card">
+                <div class="dash-card__icon">👥</div>
+                <div class="dash-card__title">Пользователи</div>
+              </a>
+              <a href="admin-shop.html" class="dash-card">
+                <div class="dash-card__icon">🛒</div>
+                <div class="dash-card__title">Магазин</div>
+              </a>
+              <a href="admin-content.html" class="dash-card">
+                <div class="dash-card__icon">📝</div>
+                <div class="dash-card__title">Контент</div>
+              </a>
+              <a href="admin-feedback.html" class="dash-card">
+                <div class="dash-card__icon">💬</div>
+                <div class="dash-card__title">Обращения</div>
+              </a>
+              <a href="admin-notifications.html" class="dash-card">
+                <div class="dash-card__icon">📢</div>
+                <div class="dash-card__title">Рассылка</div>
+              </a>
+              <a href="events-admin.html" class="dash-card">
+                <div class="dash-card__icon">🎪</div>
+                <div class="dash-card__title">Ивенты</div>
+              </a>
+              <a href="metrics.html" class="dash-card">
+                <div class="dash-card__icon">📈</div>
+                <div class="dash-card__title">Метрики</div>
+              </a>
+              <button class="dash-card" id="export-csv-btn" style="border:none; cursor:pointer;">
+                <div class="dash-card__icon">📥</div>
+                <div class="dash-card__title">Экспорт CSV</div>
+              </button>
+            </div>
+
+            <div class="games-section">
+              <h3>🎮 Управление играми</h3>
+              <div id="games-list-container"></div>
+              <div class="add-game-form">
+                <h4>Добавить игру</h4>
+                <form id="add-game-form">
+                  <div class="form-group"><label>ID</label><input type="text" id="game-id" required></div>
+                  <div class="form-group"><label>Название</label><input type="text" id="game-title" required></div>
+                  <div class="form-group"><label>Описание</label><input type="text" id="game-desc" required></div>
+                  <div class="form-group"><label>Иконка</label><input type="text" id="game-icon" value="🎮"></div>
+                  <div class="form-group"><label>URL</label><input type="text" id="game-url" required></div>
+                  <button type="submit" class="btn">Сохранить</button>
+                </form>
+              </div>
+            </div>
+          `;
+
+          document.getElementById('add-game-form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const id = document.getElementById('game-id').value.trim().toLowerCase(),
+                  title = document.getElementById('game-title').value.trim(),
+                  desc = document.getElementById('game-desc').value.trim(),
+                  icon = document.getElementById('game-icon').value.trim() || '🎮',
+                  url = document.getElementById('game-url').value.trim();
+            if (!id || !title || !desc || !url) { showToast('Заполните все поля', 'error'); return; }
+            await db.collection('games').doc(id).set({ title, description: desc, icon, url });
+            showToast('Сохранена', 'success');
+            document.getElementById('add-game-form').reset();
+            loadGames();
+          });
+
+          document.getElementById('export-csv-btn').addEventListener('click', async () => {
+            try {
+              const snap = await db.collection('users').get();
+              const rows = [['UID','Имя','Email','Отдел','Баллы','Локоины','Роль','Заблокирован']];
+              snap.forEach(doc => {
+                const u = doc.data();
+                rows.push([doc.id, u.username||'', u.email||'', u.department||'', u.points||0, u.lokoin_balance||0, u.role||'user', u.disabled?'Да':'Нет']);
+              });
+              let csv = '\uFEFF' + rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'users.csv';
+              a.click();
+              URL.revokeObjectURL(url);
+              showToast('Экспорт готов', 'success');
+            } catch (err) { showToast('Ошибка', 'error'); }
+          });
+        }
+
+        async function loadStats() {
+          const statsContainer = document.getElementById('stats-container');
+          if (!statsContainer) return;
+
+          const cached = getCached(CACHE_STATS_KEY);
+          if (cached) {
+            renderStats(cached);
+          } else {
+            statsContainer.innerHTML = '<div class="stats-grid"><div class="stat-card skeleton-cell" style="height:80px;"></div><div class="stat-card skeleton-cell" style="height:80px;"></div><div class="stat-card skeleton-cell" style="height:80px;"></div><div class="stat-card skeleton-cell" style="height:80px;"></div></div>';
           }
-          tc.innerHTML = html;
-          document.querySelectorAll('.request-status').forEach(sel => sel.addEventListener('change', async function() {
-            await db.collection('purchaseRequests').doc(this.dataset.reqId).update({ status: this.value });
-            showToast('Статус обновлён', 'success');
-          }));
-        } catch (e) { tc.innerHTML = '<p>Ошибка.</p>'; }
-      }
 
-      // ----- Игры -----
-      async function renderGamesTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<p>Загрузка...</p>'; try{ const s=await db.collection('games').get(); const g=[]; s.forEach(d=>g.push({id:d.id,...d.data()})); let h='<h3>Игры</h3>'+(g.length?'<ul>'+g.map(x=>`<li style="display:flex;align-items:center;gap:1rem;"><span>${x.icon||'🎮'} <strong>${x.title}</strong> (${x.id})</span><button class="btn btn-small btn-danger remove-game-btn" data-game-id="${x.id}">Удалить</button></li>`).join('')+'</ul>':'<p>Пусто.</p>'); h+='<div class="admin-add-game"><h4>Добавить</h4><form id="add-game-form"><div class="form-group"><label>ID</label><input type="text" id="game-id" required></div><div class="form-group"><label>Название</label><input type="text" id="game-title" required></div><div class="form-group"><label>Описание</label><input type="text" id="game-desc" required></div><div class="form-group"><label>Иконка</label><input type="text" id="game-icon" value="🎮"></div><div class="form-group"><label>URL</label><input type="text" id="game-url" required></div><button type="submit" class="btn">Сохранить</button></form></div>'; tc.innerHTML=h; document.querySelectorAll('.remove-game-btn').forEach(b=>b.addEventListener('click',async e=>{if(confirm('Удалить?')){await db.collection('games').doc(e.target.dataset.gameId).delete();showToast('Удалена','success');renderGamesTab();}})); document.getElementById('add-game-form').addEventListener('submit',async e=>{e.preventDefault();const id=document.getElementById('game-id').value.trim().toLowerCase(),title=document.getElementById('game-title').value.trim(),desc=document.getElementById('game-desc').value.trim(),icon=document.getElementById('game-icon').value.trim()||'🎮',url=document.getElementById('game-url').value.trim();if(!id||!title||!desc||!url){showToast('Заполните все поля','error');return;}await db.collection('games').doc(id).set({title,description:desc,icon,url});showToast('Сохранена','success');renderGamesTab();}); }catch(e){tc.innerHTML='<p>Ошибка.</p>';} }
+          try {
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const snap = await db.collection('users').get();
+            let total = 0, activeToday = 0, totalPoints = 0;
+            const gameCounts = { clicker: 0, snake: 0, memory: 0, '2048': 0, minesweeper: 0 };
 
-      // ----- Пользователи -----
-      async function renderUsersTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<p>Загрузка...</p>'; try{ const s=await db.collection('users').get(); const u=[]; s.forEach(d=>{const x=d.data();u.push({uid:d.id,username:x.username||'Без имени',email:x.email||'',department:x.department||'',points:x.points||0,lokoin_balance:x.lokoin_balance||0,role:x.role||'user',achievements:x.achievements||[],disabled:x.disabled||false});}); u.sort((a,b)=>b.points-a.points); let h='<h3>Пользователи</h3><table class="admin-users-table"><thead><tr><th>Игрок</th><th>Email</th><th>Отдел</th><th>Баллы</th><th>Локоины</th><th>Роль</th><th>Статус</th><th>Достижения</th><th>Действия</th></tr></thead><tbody>'; u.forEach(user=>{const av=typeof renderAvatarDiv==='function'?renderAvatarDiv(user):`<div class="avatar-circle" style="background-color:${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`; h+=`<tr data-user-id="${user.uid}"><td class="player-cell">${av}<span>${user.username}</span></td><td>${user.email}</td><td class="editable" data-field="department">${user.department||'—'}</td><td class="editable" data-field="points">${user.points}</td><td><span class="lokoin-display">${user.lokoin_balance}</span></td><td class="editable" data-field="role">${user.role}</td><td>${user.disabled?'🔒':'✅'}</td><td>${user.achievements.length}</td><td><button class="btn btn-small edit-user-btn">✏️</button><button class="btn btn-small save-user-btn" style="display:none;">💾</button><button class="btn btn-small cancel-user-btn" style="display:none;">❌</button><button class="btn btn-small adjust-lokoin-btn">💰</button><button class="btn btn-small btn-gift gift-item-btn">🎁</button><button class="btn btn-small toggle-block-btn">🔓</button><button class="btn btn-small award-user-btn">🎖️</button></td></tr>`; }); h+='</tbody></table>'; tc.innerHTML=h; attachUserEditHandlers(u); attachLokoinHandlers(u); attachGiftHandlers(u); attachBlockHandlers(u); attachAwardUserHandlers(u); } catch(e){tc.innerHTML='<p>Ошибка.</p>';} }
+            snap.forEach(doc => {
+              const d = doc.data();
+              total++;
+              totalPoints += d.points || 0;
+              const history = d.gameHistory || [];
+              let active = false;
+              history.forEach(h => {
+                if (h.game && gameCounts[h.game] !== undefined) gameCounts[h.game]++;
+                if (h.timestamp >= todayStart) active = true;
+              });
+              if (active) activeToday++;
+            });
 
-      function attachUserEditHandlers(users) { document.querySelectorAll('.admin-users-table tbody tr').forEach((row,i)=>{ const user=users[i], edit=row.querySelector('.edit-user-btn'), save=row.querySelector('.save-user-btn'), cancel=row.querySelector('.cancel-user-btn'), cells=row.querySelectorAll('.editable'); cells.forEach(c=>c.dataset.original=c.innerText); edit.addEventListener('click',()=>{ cells.forEach(c=>{ const f=c.dataset.field,v=c.innerText; if(f==='role')c.innerHTML=`<select class="edit-role"><option value="user" ${v==='user'?'selected':''}>user</option><option value="admin" ${v==='admin'?'selected':''}>admin</option></select>`; else if(f==='department')c.innerHTML=`<select class="edit-department">${departmentsCache.map(d=>`<option value="${d.name}" ${v===d.name?'selected':''}>${d.name}</option>`).join('')}</select>`; else if(f==='points')c.innerHTML=`<input type="number" class="edit-points" value="${v}" min="0">`; }); edit.style.display='none';save.style.display='inline-block';cancel.style.display='inline-block'; }); save.addEventListener('click',async()=>{ const nd={}; cells.forEach(c=>{ const f=c.dataset.field; if(f==='role')nd.role=c.querySelector('select').value; else if(f==='department')nd.department=c.querySelector('select').value; else if(f==='points')nd.points=parseInt(c.querySelector('input').value,10)||0; }); try{await db.collection('users').doc(user.uid).update(nd);showToast('Обновлено','success');Object.assign(user,nd);cells.forEach(c=>{c.innerText=nd[c.dataset.field];c.dataset.original=c.innerText;});edit.style.display='inline-block';save.style.display='none';cancel.style.display='none';}catch(err){showToast('Ошибка: '+err.message,'error');}}); cancel.addEventListener('click',()=>{cells.forEach(c=>c.innerText=c.dataset.original);edit.style.display='inline-block';save.style.display='none';cancel.style.display='none';}); }); }
+            const topGame = Object.entries(gameCounts).sort((a,b) => b[1]-a[1])[0];
+            const topGameName = topGame ? { clicker: 'Кликер', snake: 'Змейка', memory: 'Найди пару', '2048': '2048', minesweeper: 'Сапёр' }[topGame[0]] : '—';
 
-      function attachLokoinHandlers(users) { document.querySelectorAll('.admin-users-table tbody tr').forEach((row,i)=>{ const u=users[i], btn=row.querySelector('.adjust-lokoin-btn'), d=row.querySelector('.lokoin-display'); if(btn) btn.addEventListener('click',()=>openLokoinModal(u,d)); }); }
-      let curLokoinUser=null, curLokoinDisp=null;
-      function openLokoinModal(u,d) { curLokoinUser=u; curLokoinDisp=d; document.getElementById('lokoin-amount').value=''; document.getElementById('lokoin-comment').value=''; document.getElementById('lokoin-message').textContent=''; document.getElementById('lokoin-modal').style.display='flex'; }
-      document.getElementById('lokoin-modal-close').addEventListener('click',()=>{document.getElementById('lokoin-modal').style.display='none';});
-      document.getElementById('lokoin-submit').addEventListener('click',async()=>{ const a=parseInt(document.getElementById('lokoin-amount').value.trim(),10); if(isNaN(a)||a===0){document.getElementById('lokoin-message').textContent='Введите число.';return;} try{ const ref=db.collection('users').doc(curLokoinUser.uid); const doc=await ref.get(); const old=doc.data().lokoin_balance||0; const nb=old+a; if(nb<0){document.getElementById('lokoin-message').textContent='Недостаточно.';return;} await ref.update({lokoin_balance:nb}); curLokoinUser.lokoin_balance=nb; curLokoinDisp.textContent=nb; document.getElementById('lokoin-modal').style.display='none'; showToast('Обновлено','success'); if(typeof addLokoinNotification==='function') addLokoinNotification(curLokoinUser.uid,a,document.getElementById('lokoin-comment').value.trim()); } catch(err){document.getElementById('lokoin-message').textContent='Ошибка: '+err.message;} });
+            const stats = { total, activeToday, totalPoints, topGameName };
+            setCached(CACHE_STATS_KEY, stats);
+            renderStats(stats);
+          } catch (e) {
+            console.error(e);
+            if (!cached) statsContainer.innerHTML = '<p>Не удалось загрузить статистику.</p>';
+          }
+        }
 
-      function attachGiftHandlers(users) { document.querySelectorAll('.admin-users-table tbody tr').forEach((row,i)=>{ const u=users[i], btn=row.querySelector('.gift-item-btn'); if(btn) btn.addEventListener('click',()=>openGiftModal(u)); }); }
-      let curGiftUser=null;
-      async function openGiftModal(u) { curGiftUser=u; document.getElementById('gift-user-name').textContent=`Пользователь: ${u.username}`; document.getElementById('gift-message').textContent=''; const s=document.getElementById('gift-item-select'); s.innerHTML='<option value="">Загрузка...</option>'; document.getElementById('gift-modal').style.display='flex'; try{ const snap=await db.collection('shopItems').get(); const items=[]; snap.forEach(d=>items.push({id:d.id,...d.data()})); s.innerHTML=items.length?items.map(i=>`<option value="${i.id}">${i.icon||'🛒'} ${i.title} (${i.price} лок.)</option>`).join(''):'<option>Нет товаров</option>'; } catch(e){s.innerHTML='<option>Ошибка</option>';} }
-      document.getElementById('gift-modal-close').addEventListener('click',()=>{document.getElementById('gift-modal').style.display='none';});
-      document.getElementById('gift-submit').addEventListener('click',async()=>{ const s=document.getElementById('gift-item-select'); const id=s.value; if(!id||!curGiftUser)return; try{ await db.collection('users').doc(curGiftUser.uid).update({purchasedItems:firebase.firestore.FieldValue.arrayUnion(id)}); if(typeof addNotification==='function') addNotification(curGiftUser.uid,`🎁 Вам подарен товар: ${s.options[s.selectedIndex].text}`,'gift','shop.html'); showToast('Подарен!','success'); document.getElementById('gift-modal').style.display='none'; } catch(err){document.getElementById('gift-message').textContent='Ошибка: '+err.message;} });
+        function renderStats(stats) {
+          const statsContainer = document.getElementById('stats-container');
+          if (!statsContainer) return;
+          statsContainer.innerHTML = `
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-value">${stats.total}</div><div class="stat-label">Пользователей</div></div>
+              <div class="stat-card"><div class="stat-value">${stats.activeToday}</div><div class="stat-label">Активных сегодня</div></div>
+              <div class="stat-card"><div class="stat-value">${stats.totalPoints}</div><div class="stat-label">Всего баллов</div></div>
+              <div class="stat-card"><div class="stat-value">${stats.topGameName}</div><div class="stat-label">Топ игра</div></div>
+            </div>
+          `;
+        }
 
-      function attachBlockHandlers(users) { document.querySelectorAll('.admin-users-table tbody tr').forEach((row,i)=>{ const u=users[i], btn=row.querySelector('.toggle-block-btn'); if(!btn)return; btn.textContent=u.disabled?'🔓':'🔒'; btn.addEventListener('click',async()=>{ const nd=!u.disabled; await db.collection('users').doc(u.uid).update({disabled:nd}); u.disabled=nd; btn.textContent=nd?'🔓':'🔒'; row.querySelector('td:nth-child(7)').textContent=nd?'🔒 Заблокирован':'✅ Активен'; showToast(nd?'Заблокирован':'Разблокирован','success'); }); }); }
+        async function loadGames() {
+          const listContainer = document.getElementById('games-list-container');
+          if (!listContainer) return;
 
-      function attachAwardUserHandlers(users) { document.querySelectorAll('.admin-users-table tbody tr').forEach((row,i)=>{ const u=users[i], btn=row.querySelector('.award-user-btn'); if(btn) btn.addEventListener('click',()=>openAwardUserModal(u)); }); }
-      let curAwardUser=null;
-      async function openAwardUserModal(u) { curAwardUser=u; document.getElementById('award-user-name').textContent=`Пользователь: ${u.username}`; document.getElementById('award-comment').value=''; document.getElementById('award-user-message').textContent=''; const s=document.getElementById('award-select'); s.innerHTML='<option value="">Загрузка...</option>'; document.getElementById('award-user-modal').style.display='flex'; try{ const snap=await db.collection('awards').get(); const a=[]; snap.forEach(d=>a.push({id:d.id,...d.data()})); s.innerHTML=a.length?a.map(x=>`<option value="${x.id}">${x.icon?`<img src="img/awards/${x.icon}" class="award-icon-preview" onerror="this.style.display='none'">`:''} ${x.name}</option>`).join(''):'<option>Нет наград</option>'; } catch(e){s.innerHTML='<option>Ошибка</option>';} }
-      document.getElementById('award-user-modal-close').addEventListener('click',()=>{document.getElementById('award-user-modal').style.display='none';});
-      document.getElementById('award-user-submit').addEventListener('click',async()=>{ const aid=document.getElementById('award-select').value, comment=document.getElementById('award-comment').value.trim(); if(!aid||!curAwardUser){document.getElementById('award-user-message').textContent='Выберите награду.';return;} try{ const adoc=await db.collection('awards').doc(aid).get(); if(!adoc.exists)throw new Error('Не найдена'); const a=adoc.data(); await db.collection('users').doc(curAwardUser.uid).collection('awarded').add({awardId:aid,awardedAt:firebase.firestore.FieldValue.serverTimestamp(),awardedBy:auth.currentUser.uid,comment}); if(a.lokoinReward>0) await db.collection('users').doc(curAwardUser.uid).update({lokoin_balance:firebase.firestore.FieldValue.increment(a.lokoinReward)}); let msg=`Вы получили награду «${a.name}»!`; if(comment)msg+=` Комментарий: ${comment}`; if(a.lokoinReward>0)msg+=` (+${a.lokoinReward} лок.)`; if(typeof addNotification==='function') addNotification(curAwardUser.uid,msg,'award','profile.html'); showToast('Награда выдана!','success'); document.getElementById('award-user-modal').style.display='none'; } catch(err){document.getElementById('award-user-message').textContent='Ошибка: '+err.message;} });
+          const cached = getCached(CACHE_GAMES_KEY);
+          if (cached) {
+            gamesList = cached;
+            renderGamesList();
+          } else {
+            listContainer.innerHTML = '<p>Загрузка...</p>';
+          }
 
-      // ----- Обращения -----
-      async function renderFeedbackTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<p>Загрузка...</p>'; try{ const s=await db.collection('feedback').orderBy('createdAt','desc').get(); const fb=[]; s.forEach(d=>{const x=d.data();fb.push({id:d.id,...x,createdAt:x.createdAt?x.createdAt.toDate():null});}); if(!fb.length){tc.innerHTML='<p>Нет обращений.</p>';return;} let h=`<h3>Обращения (${fb.length})</h3><div class="feedback-list">`; fb.forEach(f=>{h+=`<div class="feedback-item"><div class="feedback-item-header"><strong>${f.topic}</strong> от ${f.name} <small>${f.createdAt?f.createdAt.toLocaleString('ru-RU'):'—'}</small></div><p>${f.message}</p><button class="btn btn-small btn-danger delete-feedback-btn" data-fb-id="${f.id}">Удалить</button></div>`;}); h+='</div>'; tc.innerHTML=h; document.querySelectorAll('.delete-feedback-btn').forEach(b=>b.addEventListener('click',async e=>{if(confirm('Удалить?')){await db.collection('feedback').doc(e.target.dataset.fbId).delete();showToast('Удалено','success');renderFeedbackTab();}})); } catch(e){tc.innerHTML='<p>Ошибка.</p>';} }
+          try {
+            const snap = await db.collection('games').get();
+            gamesList = [];
+            snap.forEach(d => gamesList.push({ id: d.id, ...d.data() }));
+            setCached(CACHE_GAMES_KEY, gamesList);
+            renderGamesList();
+          } catch (e) {
+            console.error(e);
+            if (!gamesList.length) listContainer.innerHTML = '<p>Ошибка загрузки.</p>';
+          }
+        }
 
-      // ----- Магазин -----
-      async function renderShopTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<p>Загрузка...</p>'; try{ const s=await db.collection('shopItems').get(); const items=[]; s.forEach(d=>items.push({id:d.id,...d.data()})); let h=`<h3>Товары (${items.length})</h3>`; if(items.length){ h+='<table class="admin-users-table"><thead><tr><th>ID</th><th>Название</th><th>Категория</th><th>Цена</th><th>Эффект</th><th>Уник.</th><th>Увед.</th><th>Действия</th></tr></thead><tbody>'; items.forEach(i=>{h+=`<tr><td><code>${i.id}</code></td><td>${i.icon||'🛒'} ${i.title}</td><td>${i.category||''}</td><td>${i.price}</td><td>${i.effect||''}</td><td>${i.unique?'✓':'—'}</td><td>${i.notifyAdmin?'✓':'—'}</td><td><button class="btn btn-small edit-shop-item-btn" data-id="${i.id}">✏️</button><button class="btn btn-small btn-danger delete-shop-item-btn" data-id="${i.id}">Удалить</button></td></tr>`;}); h+='</tbody></table>'; } else h+='<p>Товаров нет.</p>'; h+='<div class="admin-add-game" style="margin-top:2rem;"><h4>Добавить</h4><form id="add-shop-item-form"><div class="form-group"><label>ID</label><input type="text" id="shop-id"></div><div class="form-group"><label>Название *</label><input type="text" id="shop-title" required></div><div class="form-group"><label>Описание</label><textarea id="shop-desc" rows="2"></textarea></div><div class="form-group"><label>Категория</label><select id="shop-category"><option value="Кастомизация">Кастомизация</option><option value="Реакции">Реакции</option><option value="Игровые бонусы">Игровые бонусы</option><option value="Рабочие плюшки">Рабочие плюшки</option><option value="Особые товары">Особые товары</option></select></div><div class="form-group"><label>Цена *</label><input type="number" id="shop-price" min="1" required></div><div class="form-group"><label>Иконка</label><input type="text" id="shop-icon" value="🛒"></div><div class="form-group"><label>Эффект</label><input type="text" id="shop-effect"></div><div class="form-group"><label>Длительность</label><input type="number" id="shop-duration" value="0" min="0"></div><div class="form-group"><label>Уникальный</label><select id="shop-unique"><option value="true">Да</option><option value="false">Нет</option></select></div><div class="form-group"><label>Уведомить админа</label><select id="shop-notify-admin"><option value="false">Нет</option><option value="true">Да</option></select></div><div class="form-group"><label>Количество</label><input type="number" id="shop-stock"></div><button type="submit" class="btn">Добавить</button></form></div>'; tc.innerHTML=h; document.querySelectorAll('.delete-shop-item-btn').forEach(b=>b.addEventListener('click',async e=>{if(confirm('Удалить?')){await db.collection('shopItems').doc(e.target.dataset.id).delete();showToast('Удалён','success');renderShopTab();}})); document.querySelectorAll('.edit-shop-item-btn').forEach(b=>b.addEventListener('click',()=>{const it=items.find(i=>i.id===b.dataset.id);if(it)openEditShopItemModal(it);})); document.getElementById('add-shop-item-form').addEventListener('submit',async e=>{e.preventDefault();const cid=document.getElementById('shop-id').value.trim();const ni={title:document.getElementById('shop-title').value.trim(),description:document.getElementById('shop-desc').value.trim(),category:document.getElementById('shop-category').value,price:parseInt(document.getElementById('shop-price').value,10),icon:document.getElementById('shop-icon').value.trim()||'🛒',effect:document.getElementById('shop-effect').value.trim(),duration:parseInt(document.getElementById('shop-duration').value,10)||0,unique:document.getElementById('shop-unique').value==='true',notifyAdmin:document.getElementById('shop-notify-admin').value==='true',stock:document.getElementById('shop-stock').value?parseInt(document.getElementById('shop-stock').value):null};if(!ni.title||!ni.price){showToast('Название и цена обязательны','error');return;}try{if(cid){const ex=await db.collection('shopItems').doc(cid).get();if(ex.exists){showToast('ID уже есть','error');return;}await db.collection('shopItems').doc(cid).set(ni);}else await db.collection('shopItems').add(ni);showToast('Добавлен','success');renderShopTab();}catch(err){showToast('Ошибка: '+err.message,'error');}}); } catch(e){tc.innerHTML='<p>Ошибка.</p>';} }
-      let curEditShopId=null;
-      function openEditShopItemModal(item) { curEditShopId=item.id; document.getElementById('shop-item-title').value=item.title||''; document.getElementById('shop-item-desc').value=item.description||''; document.getElementById('shop-item-category').value=item.category||'Кастомизация'; document.getElementById('shop-item-price').value=item.price||1; document.getElementById('shop-item-icon').value=item.icon||'🛒'; document.getElementById('shop-item-effect').value=item.effect||''; document.getElementById('shop-item-duration').value=item.duration||0; document.getElementById('shop-item-unique').value=item.unique?'true':'false'; document.getElementById('shop-item-notify-admin').value=item.notifyAdmin?'true':'false'; document.getElementById('shop-item-stock').value=item.stock||''; document.getElementById('shop-item-message').textContent=''; document.getElementById('shop-item-id-display').innerHTML=`<strong>ID:</strong> <code>${item.id}</code>`; document.getElementById('shop-item-modal').style.display='flex'; }
-      document.getElementById('shop-item-modal-close').addEventListener('click',()=>{document.getElementById('shop-item-modal').style.display='none';});
-      document.getElementById('shop-item-save').addEventListener('click',async()=>{const u={title:document.getElementById('shop-item-title').value.trim(),description:document.getElementById('shop-item-desc').value.trim(),category:document.getElementById('shop-item-category').value,price:parseInt(document.getElementById('shop-item-price').value,10),icon:document.getElementById('shop-item-icon').value.trim(),effect:document.getElementById('shop-item-effect').value.trim(),duration:parseInt(document.getElementById('shop-item-duration').value,10)||0,unique:document.getElementById('shop-item-unique').value==='true',notifyAdmin:document.getElementById('shop-item-notify-admin').value==='true',stock:document.getElementById('shop-item-stock').value?parseInt(document.getElementById('shop-item-stock').value):null};if(!u.title||!u.price){document.getElementById('shop-item-message').textContent='Название и цена обязательны.';return;}try{await db.collection('shopItems').doc(curEditShopId).update(u);showToast('Обновлён','success');document.getElementById('shop-item-modal').style.display='none';renderShopTab();}catch(err){document.getElementById('shop-item-message').textContent='Ошибка: '+err.message;}});
+        function renderGamesList() {
+          const listContainer = document.getElementById('games-list-container');
+          if (!listContainer) return;
 
-      // ----- Уведомления -----
-      function renderNotificationsTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<h3>Массовая рассылка</h3><div class="mass-notif-form"><div class="form-group"><label>Кому</label><select id="notif-target"><option value="all">Всем</option><option value="department">По отделу</option><option value="role">По роли</option><option value="user">Конкретному</option></select></div><div class="form-group" id="notif-filter-group" style="display:none;"><label>Значение</label><select id="notif-filter-value"></select></div><div class="form-group"><label>Текст</label><textarea id="notif-message" rows="3" required></textarea></div><div class="form-group"><label>Ссылка</label><input type="text" id="notif-link"></div><button class="btn" id="send-notif-btn">Отправить</button><div class="progress-bar" id="notif-progress"><div class="progress-fill" id="notif-progress-fill"></div></div><p id="notif-status" class="auth-message"></p></div>'; const ts=document.getElementById('notif-target'),fg=document.getElementById('notif-filter-group'),fv=document.getElementById('notif-filter-value'),mi=document.getElementById('notif-message'),li=document.getElementById('notif-link'),sb=document.getElementById('send-notif-btn'),pb=document.getElementById('notif-progress'),pf=document.getElementById('notif-progress-fill'),sm=document.getElementById('notif-status'); async function ufo(){const t=ts.value;fg.style.display=t==='all'?'none':'block';fv.innerHTML='';if(t==='department'){const s=await db.collection('users').get();[...new Set(s.docs.map(d=>d.data().department).filter(Boolean))].forEach(d=>fv.add(new Option(d,d)));}else if(t==='role'){['user','admin'].forEach(r=>fv.add(new Option(r,r)));}else if(t==='user'){const s=await db.collection('users').get();s.forEach(doc=>{const d=doc.data();fv.add(new Option(d.username||d.email,doc.id));});}} ts.addEventListener('change',ufo);ufo(); sb.addEventListener('click',async()=>{const msg=mi.value.trim();if(!msg){sm.textContent='Введите текст.';return;}const link=li.value.trim();sb.disabled=true;pb.style.display='block';pf.style.width='0%';sm.textContent='Отправка...';try{let users=[];const t=ts.value;if(t==='all'){const s=await db.collection('users').get();s.forEach(doc=>users.push(doc.id));}else{const field=t==='department'?'department':t==='role'?'role':'__name__';const v=fv.value;if(!v){sm.textContent='Выберите значение.';sb.disabled=false;return;}const s=await db.collection('users').where(field,'==',v).get();s.forEach(doc=>users.push(doc.id));}if(!users.length){sm.textContent='Нет пользователей.';sb.disabled=false;return;}let sent=0;for(const uid of users){await addNotification(uid,msg,'admin',link||'');sent++;pf.style.width=(sent/users.length*100)+'%';}sm.textContent=`Отправлено (${sent} шт.)`;showToast(`Разослано ${sent}`,`success`);}catch(err){sm.textContent='Ошибка: '+err.message;}finally{sb.disabled=false;pb.style.display='none';}}); }
+          if (!gamesList.length) {
+            listContainer.innerHTML = '<p>Нет игр.</p>';
+            return;
+          }
 
-      // ----- Отделы -----
-      function renderDepartmentsTab() { const tc=document.getElementById('admin-tab-content'); let h='<h3>Отделы</h3><ul class="dept-list">'; departmentsCache.forEach(d=>{h+=`<li><span>${d.name}</span><button class="btn btn-small btn-danger delete-dept-btn" data-dept-id="${d.id}">Удалить</button></li>`;}); h+='</ul><div class="form-group"><label>Новый</label><div style="display:flex;gap:0.5rem;"><input type="text" id="new-dept-name"><button class="btn" id="add-dept-btn">Добавить</button></div></div>'; tc.innerHTML=h; document.getElementById('add-dept-btn').addEventListener('click',async()=>{const n=document.getElementById('new-dept-name').value.trim();if(!n){showToast('Введите название','error');return;}await db.collection('departments').add({name:n});await loadDepartments();renderDepartmentsTab();showToast('Добавлен','success');}); document.querySelectorAll('.delete-dept-btn').forEach(b=>b.addEventListener('click',async e=>{if(confirm('Удалить?')){await db.collection('departments').doc(e.target.dataset.deptId).delete();await loadDepartments();renderDepartmentsTab();showToast('Удалён','success');}})); }
+          let html = '<ul class="games-list">';
+          gamesList.forEach(g => {
+            html += `<li style="display:flex;align-items:center;gap:1rem;"><span>${g.icon||'🎮'} <strong>${g.title}</strong> (${g.id})</span><button class="btn btn-small btn-danger remove-game-btn" data-game-id="${g.id}">Удалить</button></li>`;
+          });
+          html += '</ul>';
+          listContainer.innerHTML = html;
 
-      // ----- Награды -----
-      async function renderAwardsTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<p>Загрузка...</p>'; try{ const s=await db.collection('awards').get(); const a=[]; s.forEach(d=>a.push({id:d.id,...d.data()})); let h=`<h3>🎖️ Награды (${a.length})</h3>`; if(a.length){h+='<ul class="awards-list">'; a.forEach(x=>{h+=`<li><span><img src="img/awards/${x.icon}" class="award-icon-preview" onerror="this.style.display='none'"> <strong>${x.name}</strong> (${x.id})${x.lokoinReward>0?` — +${x.lokoinReward} лок.`:''}</span><div><button class="btn btn-small edit-award-btn" data-award-id="${x.id}">✏️</button><button class="btn btn-small btn-danger delete-award-btn" data-award-id="${x.id}">Удалить</button></div></li>`;}); h+='</ul>';} else h+='<p>Нет наград.</p>'; h+='<button class="btn" id="add-award-btn" style="margin-top:1rem;">➕ Создать</button>'; tc.innerHTML=h; document.getElementById('add-award-btn').addEventListener('click',()=>openAwardModal()); document.querySelectorAll('.edit-award-btn').forEach(b=>b.addEventListener('click',e=>{const id=e.target.dataset.awardId;const award=a.find(x=>x.id===id);if(award)openAwardModal(award);})); document.querySelectorAll('.delete-award-btn').forEach(b=>b.addEventListener('click',async e=>{if(confirm('Удалить?')){await db.collection('awards').doc(e.target.dataset.awardId).delete();showToast('Удалена','success');renderAwardsTab();}})); } catch(e){tc.innerHTML='<p>Ошибка.</p>';} }
-      let curEditAwardId=null;
-      function openAwardModal(award=null) { const m=document.getElementById('award-modal'); document.getElementById('award-message').textContent=''; if(award){curEditAwardId=award.id;document.getElementById('award-modal-title').textContent='Редактировать';document.getElementById('award-id').value=award.id;document.getElementById('award-id').disabled=true;document.getElementById('award-name').value=award.name||'';document.getElementById('award-desc').value=award.description||'';document.getElementById('award-icon-file').value=award.icon||'';document.getElementById('award-lokoin').value=award.lokoinReward||0;}else{curEditAwardId=null;document.getElementById('award-modal-title').textContent='Создать';document.getElementById('award-id').value='';document.getElementById('award-id').disabled=false;document.getElementById('award-name').value='';document.getElementById('award-desc').value='';document.getElementById('award-icon-file').value='';document.getElementById('award-lokoin').value=0;} m.style.display='flex'; }
-      document.getElementById('award-modal-close').addEventListener('click',()=>{document.getElementById('award-modal').style.display='none';});
-      document.getElementById('award-save-btn').addEventListener('click',async()=>{const id=document.getElementById('award-id').value.trim(),name=document.getElementById('award-name').value.trim(),icon=document.getElementById('award-icon-file').value.trim();if(!id||!name||!icon){document.getElementById('award-message').textContent='Заполните ID, название и файл.';return;}const data={name,description:document.getElementById('award-desc').value.trim(),icon,lokoinReward:parseInt(document.getElementById('award-lokoin').value,10)||0};try{await db.collection('awards').doc(id).set(data);showToast('Сохранена','success');document.getElementById('award-modal').style.display='none';renderAwardsTab();}catch(err){document.getElementById('award-message').textContent='Ошибка: '+err.message;}});
-
-      // ----- Статистика -----
-      async function renderStatsTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<p>Загрузка...</p>'; try{const n=new Date();const ts=new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();const wa=ts-7*86400000;const s=await db.collection('users').get();let t=0,td=0,wd=0,pts=0;const gc={clicker:0,snake:0,memory:0,'2048':0,minesweeper:0};s.forEach(doc=>{const d=doc.data();if(d.points)pts+=d.points;const h=d.gameHistory||[];let a=false,b=false;h.forEach(e=>{if(e.game&&gc[e.game]!==undefined)gc[e.game]++;if(e.timestamp>=ts)a=true;if(e.timestamp>=wa)b=true;});if(a)td++;if(b)wd++;t++;});const tg=Object.entries(gc).sort((a,b)=>b[1]-a[1])[0];const tn=tg?{'clicker':'Кликер','snake':'Змейка','memory':'Найди пару','2048':'2048','minesweeper':'Сапёр'}[tg[0]]:'—';tc.innerHTML=`<h3>Статистика <a href="metrics.html" class="btn" style="margin-left:1rem;">📊 Подробные метрики</a></h3><div class="stats-grid"><div class="stat-card"><div class="stat-value">${t}</div><div>Пользователей</div></div><div class="stat-card"><div class="stat-value">${td}</div><div>Активных сегодня</div></div><div class="stat-card"><div class="stat-value">${wd}</div><div>Активных за неделю</div></div><div class="stat-card"><div class="stat-value">${pts}</div><div>Всего баллов</div></div><div class="stat-card"><div class="stat-value">${tn}</div><div>Топ игра</div></div></div>`;}catch(e){tc.innerHTML='<p>Ошибка.</p>';} }
-
-      // ----- Новости -----
-      async function renderNewsTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<p>Загрузка...</p>'; try{const s=await db.collection('announcements').orderBy('createdAt','desc').get();const a=[];s.forEach(d=>a.push({id:d.id,...d.data()}));let h=`<h3>Новости</h3><ul class="announcements-list">`;a.forEach(x=>{const dt=x.createdAt?new Date(x.createdAt.seconds*1000).toLocaleString('ru-RU'):'';h+=`<li><div><strong>${x.title}</strong> — ${x.body?x.body.substring(0,50)+'...':''}<br><small>${dt}</small></div><div><button class="btn btn-small edit-news-btn" data-news-id="${x.id}">✏️</button><button class="btn btn-small btn-danger delete-news-btn" data-news-id="${x.id}">Удалить</button></div></li>`;});h+='</ul><button class="btn" id="add-news-btn" style="margin-top:1rem;">➕ Создать</button>';tc.innerHTML=h;document.getElementById('add-news-btn').addEventListener('click',()=>openNewsModal());document.querySelectorAll('.edit-news-btn').forEach(b=>b.addEventListener('click',e=>{const n=a.find(x=>x.id===e.target.dataset.newsId);if(n)openNewsModal(n);}));document.querySelectorAll('.delete-news-btn').forEach(b=>b.addEventListener('click',async e=>{if(confirm('Удалить?')){await db.collection('announcements').doc(e.target.dataset.newsId).delete();showToast('Удалена','success');renderNewsTab();}}));}catch(e){tc.innerHTML='<p>Ошибка.</p>';} }
-      let curNewsId=null;
-      function openNewsModal(news=null) { const m=document.getElementById('news-modal'); document.getElementById('news-message').textContent=''; if(news){curNewsId=news.id;document.getElementById('news-modal-title').textContent='Редактировать';document.getElementById('news-title').value=news.title||'';document.getElementById('news-body').value=news.body||'';document.getElementById('news-icon').value=news.icon||'📢';document.getElementById('news-image-url').value=news.imageUrl||'';document.getElementById('news-video-url').value=news.videoUrl||'';document.getElementById('news-link').value=news.link||'';document.getElementById('news-publish-at').value=news.publishAt?toDatetimeLocal(news.publishAt.toDate()):'';document.getElementById('news-expire-at').value=news.expireAt?toDatetimeLocal(news.expireAt.toDate()):'';document.getElementById('news-notify-all').checked=false;}else{curNewsId=null;document.getElementById('news-modal-title').textContent='Создать';document.getElementById('news-title').value='';document.getElementById('news-body').value='';document.getElementById('news-icon').value='📢';document.getElementById('news-image-url').value='';document.getElementById('news-video-url').value='';document.getElementById('news-link').value='';document.getElementById('news-publish-at').value='';document.getElementById('news-expire-at').value='';document.getElementById('news-notify-all').checked=false;} m.style.display='flex'; }
-      function toDatetimeLocal(date) { return date.toISOString().slice(0,16); }
-      document.getElementById('news-modal-close').addEventListener('click',()=>{document.getElementById('news-modal').style.display='none';});
-      document.getElementById('news-save-btn').addEventListener('click',async()=>{const title=document.getElementById('news-title').value.trim();if(!title){document.getElementById('news-message').textContent='Введите заголовок';return;}const data={title,body:document.getElementById('news-body').value.trim(),icon:document.getElementById('news-icon').value.trim()||'📢',imageUrl:document.getElementById('news-image-url').value.trim(),videoUrl:document.getElementById('news-video-url').value.trim(),link:document.getElementById('news-link').value.trim(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};const ps=document.getElementById('news-publish-at').value;data.publishAt=ps?firebase.firestore.Timestamp.fromDate(new Date(ps)):firebase.firestore.FieldValue.serverTimestamp();const es=document.getElementById('news-expire-at').value;data.expireAt=es?firebase.firestore.Timestamp.fromDate(new Date(es)):null;try{if(curNewsId)await db.collection('announcements').doc(curNewsId).update(data);else{data.createdAt=firebase.firestore.FieldValue.serverTimestamp();await db.collection('announcements').add(data);}if(document.getElementById('news-notify-all').checked){const s=await db.collection('users').get();const uids=[];s.forEach(d=>uids.push(d.id));for(const uid of uids)await addNotification(uid,`Новая новость: ${title}`,'system','index.html');}showToast(curNewsId?'Обновлена':'Создана','success');document.getElementById('news-modal').style.display='none';renderNewsTab();}catch(err){document.getElementById('news-message').textContent='Ошибка: '+err.message;}});
-
-      // ----- Экспорт -----
-      function renderExportTab() { const tc=document.getElementById('admin-tab-content'); tc.innerHTML='<h3>Экспорт</h3><button class="btn export-btn" id="export-csv-btn">Скачать CSV</button>'; document.getElementById('export-csv-btn').addEventListener('click',async()=>{try{const s=await db.collection('users').get();const rows=[['UID','Имя','Email','Отдел','Баллы','Локоины','Роль','Заблокирован']];s.forEach(doc=>{const u=doc.data();rows.push([doc.id,u.username||'',u.email||'',u.department||'',u.points||0,u.lokoin_balance||0,u.role||'user',u.disabled?'Да':'Нет']);});let csv='\uFEFF'+rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='users.csv';a.click();URL.revokeObjectURL(url);showToast('Экспорт готов','success');}catch(err){showToast('Ошибка','error');}}); }
-    });
+          document.querySelectorAll('.remove-game-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+              if (confirm('Удалить игру?')) {
+                await db.collection('games').doc(e.target.dataset.gameId).delete();
+                showToast('Удалена', 'success');
+                loadGames();
+              }
+            });
+          });
+        }
+      });
+    })();
   </script>
 </body>
 </html>
