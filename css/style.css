@@ -1845,3 +1845,100 @@ body.dark-theme .profile-edit {
 body.dark-theme .btn-logout {
   background: #7f8c8d;
 }
+/* Исправления для дашборда и карточек */
+body.dark-theme .dash-card {
+    background: #2c2c3e;
+    color: #eee;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+body.dark-theme .dash-card:hover {
+    background: #3a3a50;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+body.dark-theme .dash-card__title {
+    color: #fff;
+}
+
+/* Карточки статистики */
+body.dark-theme .stat-card {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme .stat-card .stat-value {
+    color: #fff;
+}
+body.dark-theme .stat-card .stat-label {
+    color: #aaa;
+}
+
+/* Форма добавления игры */
+body.dark-theme .add-game-form {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme .add-game-form label {
+    color: #ccc;
+}
+body.dark-theme .add-game-form input,
+body.dark-theme .add-game-form textarea,
+body.dark-theme .add-game-form select {
+    background: #1a1a2e;
+    color: #eee;
+    border-color: #555;
+}
+
+/* Список игр */
+body.dark-theme .games-list li {
+    color: #ccc;
+    border-bottom-color: #444;
+}
+
+/* Модальные окна: заголовки и текст */
+body.dark-theme .modal h3,
+body.dark-theme .modal p,
+body.dark-theme .modal label {
+    color: #eee;
+}
+body.dark-theme .modal input,
+body.dark-theme .modal textarea,
+body.dark-theme .modal select {
+    background: #1a1a2e;
+    color: #eee;
+    border-color: #555;
+}
+
+/* Кнопка удаления в дашборде */
+body.dark-theme .btn-danger {
+    background: #c0392b;
+    color: white;
+}
+body.dark-theme .btn-danger:hover {
+    background: #e74c3c;
+}
+
+/* Общие ссылки-карточки с bg-white */
+body.dark-theme .dash-card,
+body.dark-theme .stat-card,
+body.dark-theme .add-game-form,
+body.dark-theme .admin-users-table th {
+    color: #eee;
+}
+body.dark-theme .admin-users-table td {
+    border-bottom-color: #444;
+    color: #ccc;
+}
+body.dark-theme .admin-users-table th {
+    background: #2c2c3e;
+    color: #fff;
+}
+
+/* Сообщения об ошибках/успехах в формах */
+body.dark-theme .auth-message {
+    color: #ccc;
+}
+body.dark-theme .auth-message.error {
+    color: #e74c3c;
+}
+body.dark-theme .auth-message.success {
+    color: #27ae60;
+}
