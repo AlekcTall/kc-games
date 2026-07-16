@@ -2233,3 +2233,12 @@ body.dark-theme #award-modal .modal textarea {
     color: #eee;
     border-color: #555;
 }
+/* Таблица заявок на реализацию */
+body.dark-theme .requests-table th {
+background: #2c2c3e;
+color: #fff;
+}
+body.dark-theme .requests-table td {
+border-bottom-color: #444;
+color: #ccc;
+}
