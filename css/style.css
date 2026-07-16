@@ -1942,3 +1942,196 @@ body.dark-theme .auth-message.error {
 body.dark-theme .auth-message.success {
     color: #27ae60;
 }
+/* ========= ИСПРАВЛЕНИЯ ДЛЯ ИВЕНТОВ И МЕТРИК ========= */
+
+/* --- events-admin.html --- */
+body.dark-theme .events-tabs {
+    border-bottom-color: #444;
+}
+body.dark-theme .events-tab {
+    color: #ccc;
+    background: transparent;
+}
+body.dark-theme .events-tab.active {
+    background: var(--color-primary);
+    color: white;
+}
+body.dark-theme .events-list li {
+    background: #2c2c3e;
+    border-bottom-color: #444;
+    color: #ccc;
+}
+body.dark-theme .event-form {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme .event-form label {
+    color: #ccc;
+}
+body.dark-theme .event-form input,
+body.dark-theme .event-form select,
+body.dark-theme .event-form textarea {
+    background: #1a1a2e;
+    color: #eee;
+    border-color: #555;
+}
+body.dark-theme .monitor-grid .monitor-card {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme .monitor-card .value {
+    color: white;
+}
+body.dark-theme .monitor-card .label {
+    color: #aaa;
+}
+body.dark-theme .admin-event-item {
+    background: #33334a;
+    border-color: #555;
+    color: #ccc;
+}
+body.dark-theme .final-stats {
+    background: #2c2c3e;
+    border-color: #555;
+    color: #ccc;
+}
+body.dark-theme .final-stats table th {
+    background: #444;
+    color: white;
+}
+body.dark-theme .final-stats table td {
+    border-bottom-color: #555;
+}
+
+/* --- metrics.html --- */
+body.dark-theme .metrics-filters {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme .metrics-filters input,
+body.dark-theme .metrics-filters select {
+    background: #1a1a2e;
+    color: #eee;
+    border-color: #555;
+}
+body.dark-theme .metrics-card {
+    background: #2c2c3e;
+    color: #eee;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+body.dark-theme .metrics-card h3 {
+    color: white;
+}
+body.dark-theme .metrics-table th {
+    background: #2c2c3e;
+    color: #aaa;
+}
+body.dark-theme .metrics-table td {
+    border-bottom-color: #444;
+    color: #ccc;
+}
+body.dark-theme .summary-item {
+    background: #33334a;
+    color: #eee;
+}
+body.dark-theme .summary-value {
+    color: white;
+}
+body.dark-theme .summary-label {
+    color: #aaa;
+}
+body.dark-theme .online {
+    background: #27ae60;
+}
+body.dark-theme .offline {
+    background: #555;
+}
+
+/* --- pixel-board.html --- */
+body.dark-theme .pixel-page {
+    background: #2c2c3e;
+    color: #eee;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+body.dark-theme .pixel-canvas-container {
+    border-color: #555;
+}
+body.dark-theme .palette-color {
+    border-color: #555;
+}
+body.dark-theme .cooldown-bar {
+    color: #aaa;
+}
+body.dark-theme .top-painters table th {
+    background: #2c2c3e;
+    color: #aaa;
+}
+body.dark-theme .top-painters table td {
+    border-bottom-color: #444;
+    color: #ccc;
+}
+body.dark-theme .timer-bar {
+    color: #aaa;
+}
+
+/* --- tree.html --- */
+body.dark-theme .tree-page {
+    background: #2c2c3e;
+    color: #eee;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+body.dark-theme .tree-stats span {
+    color: #ccc;
+}
+body.dark-theme .tree-actions .tree-action-btn {
+    background: #33334a;
+    border-color: #555;
+    color: #ccc;
+}
+body.dark-theme .tree-actions .tree-action-btn:hover:not(:disabled) {
+    background: #3a3a50;
+    border-color: #3498db;
+}
+body.dark-theme .tree-action-btn .action-name {
+    color: #eee;
+}
+body.dark-theme .tree-action-btn .action-effect,
+body.dark-theme .tree-action-btn .action-limit {
+    color: #aaa;
+}
+body.dark-theme .activity-feed {
+    background: #1a1a2e;
+    color: #ccc;
+}
+body.dark-theme .activity-feed .activity-item {
+    border-bottom-color: #444;
+    color: #ccc;
+}
+body.dark-theme .admin-events-log .admin-event-item {
+    background: #33334a;
+    border-color: #555;
+    color: #ccc;
+}
+body.dark-theme .top-participants table th {
+    background: #2c2c3e;
+    color: #aaa;
+}
+body.dark-theme .top-participants table td {
+    border-bottom-color: #444;
+    color: #ccc;
+}
+body.dark-theme .stats-grid .stat-card {
+    background: #33334a;
+}
+body.dark-theme .stats-grid .stat-card .stat-value {
+    color: white;
+}
+body.dark-theme .stats-grid .stat-card .stat-label {
+    color: #aaa;
+}
+body.dark-theme .tree-message {
+    color: #ccc;
+}
+body.dark-theme .confirm-lokoin-modal .modal p {
+    color: #ccc;
+}
