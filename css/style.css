@@ -2135,3 +2135,101 @@ body.dark-theme .tree-message {
 body.dark-theme .confirm-lokoin-modal .modal p {
     color: #ccc;
 }
+/* ========= АДМИН-МАГАЗИН, ОБРАЩЕНИЯ, РАССЫЛКА ========= */
+
+/* --- admin-shop.html: форма добавления товара --- */
+body.dark-theme .add-form {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme .add-form h4 {
+    color: #fff;
+}
+body.dark-theme .add-form label {
+    color: #ccc;
+}
+body.dark-theme .add-form input,
+body.dark-theme .add-form select,
+body.dark-theme .add-form textarea {
+    background: #1a1a2e;
+    color: #eee;
+    border-color: #555;
+}
+
+/* --- admin-feedback.html: карточки обращений --- */
+body.dark-theme .feedback-list .feedback-item {
+    background: #2c2c3e;
+    border-color: #444;
+    color: #ccc;
+}
+body.dark-theme .feedback-item-header strong {
+    color: #fff;
+}
+body.dark-theme .feedback-item-header small {
+    color: #aaa;
+}
+
+/* --- admin-notifications.html: форма рассылки --- */
+body.dark-theme .mass-notif-form {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme .mass-notif-form label {
+    color: #ccc;
+}
+body.dark-theme .mass-notif-form select,
+body.dark-theme .mass-notif-form input,
+body.dark-theme .mass-notif-form textarea {
+    background: #1a1a2e;
+    color: #eee;
+    border-color: #555;
+}
+body.dark-theme .progress-bar {
+    background: #444;
+}
+
+/* --- admin-content.html: списки новостей/наград --- */
+body.dark-theme .announcements-list li,
+body.dark-theme .awards-list li,
+body.dark-theme .dept-list li {
+    background: #2c2c3e;
+    color: #ccc;
+    border-bottom-color: #444;
+}
+body.dark-theme .announcements-list li strong {
+    color: #fff;
+}
+body.dark-theme .announcements-list li small {
+    color: #aaa;
+}
+
+/* --- Модальные окна в админке (редактирование товара, новости, награды) --- */
+body.dark-theme #shop-item-modal .modal,
+body.dark-theme #news-modal .modal,
+body.dark-theme #award-modal .modal {
+    background: #2c2c3e;
+    color: #eee;
+}
+body.dark-theme #shop-item-modal .modal h3,
+body.dark-theme #news-modal .modal h3,
+body.dark-theme #award-modal .modal h3 {
+    color: #fff;
+}
+body.dark-theme #shop-item-modal .modal label,
+body.dark-theme #news-modal .modal label,
+body.dark-theme #award-modal .modal label {
+    color: #ccc;
+}
+body.dark-theme #shop-item-modal .modal input,
+body.dark-theme #shop-item-modal .modal select,
+body.dark-theme #shop-item-modal .modal textarea,
+body.dark-theme #news-modal .modal input,
+body.dark-theme #news-modal .modal select,
+body.dark-theme #news-modal .modal textarea,
+body.dark-theme #award-modal .modal input,
+body.dark-theme #award-modal .modal select,
+body.dark-theme #award-modal .modal textarea {
+    background: #1a1a2e;
+    color: #eee;
+    border-color: #555;
+}
