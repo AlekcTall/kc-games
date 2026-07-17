@@ -14,30 +14,38 @@ async function firebaseRegister(email, password, username, department) {
     // Отправляем письмо для подтверждения email
     await user.sendEmailVerification();
     
-    await db.collection('users').doc(user.uid).set({
-      username: username,
-      email: email,
-      department: department,
-      points: 0,
-      lokoin_balance: 0,
-      purchasedItems: [],
-      role: 'user',
-      description: '',
-      achievements: [],
-      easterEggsFound: [],
-      completedGames: [],
-      disabled: false,
-      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      dailyLogin: {
-        lastLoginDate: null,
-        streak: 0,
-        longestStreak: 0,
-        totalLogins: 0,
-        loginHistory: []
-      },
-      activeEffects: {}
-    });
+    // Пытаемся создать документ в Firestore
+    try {
+      await db.collection('users').doc(user.uid).set({
+        username: username,
+        email: email,
+        department: department,
+        points: 0,
+        lokoin_balance: 0,
+        purchasedItems: [],
+        role: 'user',
+        description: '',
+        achievements: [],
+        easterEggsFound: [],
+        completedGames: [],
+        disabled: false,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        dailyLogin: {
+          lastLoginDate: null,
+          streak: 0,
+          longestStreak: 0,
+          totalLogins: 0,
+          loginHistory: []
+        },
+        activeEffects: {}
+      });
+    } catch (firestoreError) {
+      // Если не удалось создать документ – удаляем пользователя из Auth и пробрасываем ошибку
+      await user.delete();
+      throw new Error('Не удалось создать профиль. Проверьте права доступа или повторите попытку.');
+    }
+    
     const userData = {
       uid: user.uid, email: email, username: username, department: department,
       points: 0, lokoin_balance: 0, purchasedItems: [], role: 'user',
@@ -235,12 +243,50 @@ async function syncGameStats(gameId, stats) {
 function updateAuthUI(firebaseUser) {
   const statusEl = document.getElementById('auth-status'); if (!statusEl) return;
   if (firebaseUser) { const user = getCurrentUser(); const name = user ? user.username : firebaseUser.email; statusEl.innerHTML = `👤 <span class="auth-greeting">${name}</span> | <a href="#" id="logout-link">Выйти</a>`; document.getElementById('logout-link')?.addEventListener('click', e => { e.preventDefault(); firebaseLogout(); }); }
-  else statusEl.innerHTML = '<a href="profile.html">Войти</a>';
+  else {
+    const currentPage = window.location.pathname + window.location.search;
+    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}">Войти</a>`;
+  }
 }
 
 function syncUserToLocal(userData) { setCurrentUser(userData); }
 
 async function updateLastActive(uid) {
   if (!uid) return;
-  try { await db.collection('users').doc(uid).update({ lastActive: Date.now() }); } catch (e) { console.error(e); }
+  try {
+    const userRef = db.collection('users').doc(uid);
+    const doc = await userRef.get();
+    if (doc.exists) {
+      await userRef.update({ lastActive: Date.now() });
+    } else {
+      // Если документа нет (например, после неудачной регистрации), создаём минимальный профиль
+      const currentAuth = auth.currentUser;
+      await userRef.set({
+        username: currentAuth?.email || 'Пользователь',
+        email: currentAuth?.email || '',
+        points: 0,
+        lokoin_balance: 0,
+        purchasedItems: [],
+        role: 'user',
+        description: '',
+        achievements: [],
+        easterEggsFound: [],
+        completedGames: [],
+        disabled: false,
+        lastActive: Date.now(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        dailyLogin: {
+          lastLoginDate: null,
+          streak: 0,
+          longestStreak: 0,
+          totalLogins: 0,
+          loginHistory: []
+        },
+        activeEffects: {}
+      }, { merge: true });
+      console.warn('Документ пользователя отсутствовал, создан заново для uid:', uid);
+    }
+  } catch (e) {
+    console.error('Ошибка в updateLastActive:', e);
+  }
 }
