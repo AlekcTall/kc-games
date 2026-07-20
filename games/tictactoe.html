@@ -364,7 +364,6 @@
                 });
                 gameId = docRef.id;
                 if (aiMode) {
-                    // Сразу добавляем ai в participants, чтобы работало восстановление
                     await db.collection('tictactoe_games').doc(gameId).update({
                         [`players.ai`]: { username: 'Компьютер', symbol: 'O' },
                         participants: firebase.firestore.FieldValue.arrayUnion('ai')
@@ -399,7 +398,7 @@
                     [`players.${currentUser.uid}`]: { username: getCurrentUser()?.username || 'Игрок', symbol: 'O' },
                     participants: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
                     status: 'active',
-                    turn: 'X' // первый ход за создателем (X)
+                    turn: 'X'
                 });
                 gameId = id;
                 isAI = false;
@@ -436,7 +435,7 @@
             }
         }
 
-        // ========== ЭКРАН ОЖИДАНИЯ ==========
+        // ========== ЭКРАН ОЖИДАНИЯ (с кнопкой «Отменить») ==========
         function renderWaitingScreen() {
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -444,8 +443,10 @@
                     <p>Вы играете <strong>крестиками ❌</strong></p>
                     <div class="game-id-display">ID игры: <strong>${gameId}</strong></div>
                     <p style="color:#888;">Поделитесь этим ID с коллегой, чтобы он присоединился.</p>
+                    <button class="btn" id="cancel-game-btn">Отменить игру</button>
                 </div>
             `;
+            document.getElementById('cancel-game-btn').addEventListener('click', cancelGame);
         }
 
         // ========== ИГРОВОЕ ПОЛЕ ==========
@@ -487,6 +488,9 @@
             }
 
             html += `<p class="status-message">${status}</p>`;
+            if (!isFinished && gameData.status === 'active') {
+                html += `<button class="btn btn-cancel" id="surrender-btn" style="margin-top:0.5rem;">Сдаться</button>`;
+            }
             if (gameData.status === 'finished') {
                 html += `<button class="btn" id="new-game-btn">Новая игра</button>`;
             }
@@ -500,6 +504,11 @@
                         makeMove(index);
                     });
                 });
+            }
+
+            const surrenderBtn = document.getElementById('surrender-btn');
+            if (surrenderBtn) {
+                surrenderBtn.addEventListener('click', surrender);
             }
 
             if (isAI && gameData.turn === enemySymbol && gameData.status === 'active') {
@@ -673,7 +682,6 @@
                 'tictactoeStats.bestWinStreak': bestStreak
             };
 
-            // ✅ Устанавливаем флаг, если игрок победил сложный ИИ
             if (isWin && isAI && aiLevel === 'hard') {
                 updateData['tictactoeStats.beatHardAI'] = true;
             }
@@ -717,6 +725,32 @@
             }
             html += '</div>';
             return html;
+        }
+
+        // ========== ВЫХОД ИЗ ИГРЫ ==========
+        async function cancelGame() {
+            if (!gameId) return;
+            await db.collection('tictactoe_games').doc(gameId).update({
+                status: 'finished',
+                winner: 'cancelled'
+            });
+            if (unsubscribeGame) unsubscribeGame();
+            gameId = null; gameData = null;
+            showLobby();
+            showToast('Игра отменена', 'info');
+        }
+
+        async function surrender() {
+            if (!gameId || !gameData) return;
+            // Победа сопернику
+            await db.collection('tictactoe_games').doc(gameId).update({
+                status: 'finished',
+                winner: enemySymbol,
+                surrendered: currentUser.uid
+            });
+            // Засчитываем поражение текущему игроку
+            await handleGameEnd(false, false);
+            // Не начисляем победу сопернику
         }
 
         window.addEventListener('beforeunload', () => {
