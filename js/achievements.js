@@ -3,7 +3,7 @@
 // Конфигурация достижений
 function getAchievementsConfig() {
   return [
-    // Существующие (без изменений)
+    // Существующие достижения (без изменений)
     { id: 'first_game', name: 'Первый блин', description: 'Сыграйте в любую игру', icon: '🎮', hidden: false },
     { id: 'clicker_100', name: 'Кликоман', description: 'Наберите 100 кликов в кликере', icon: '🖱️', hidden: false },
     { id: 'clicker_1000', name: 'Мышку сломаешь!', description: 'Наберите 1000 кликов в кликере', icon: '💥🖱️', hidden: false },
@@ -36,7 +36,7 @@ function getAchievementsConfig() {
     { id: 'daily_30', name: 'Железная воля', description: 'Заходите 30 дней подряд', icon: '📅', hidden: true },
     { id: 'daily_100', name: 'Старожил', description: 'Заходите 100 раз', icon: '📅', hidden: true },
 
-    // ========== Новые достижения (Морской бой) ==========
+    // Морской бой
     { id: 'battleship_5games', name: 'Морской волк', description: 'Сыграйте 5 партий в «Морской бой» (Морской бой)', icon: '🚢', hidden: false },
     { id: 'battleship_first_win', name: 'Боевое крещение', description: 'Одержите первую победу (Морской бой)', icon: '⚔️', hidden: false },
     { id: 'battleship_10wins', name: 'Адмирал', description: 'Одержите 10 побед (Морской бой)', icon: '🎖️', hidden: false },
@@ -47,7 +47,14 @@ function getAchievementsConfig() {
     { id: 'battleship_unsinkable', name: 'Непотопляемый', description: 'Победите, не потеряв ни одного корабля (Морской бой)', icon: '🛡️', hidden: true },
     { id: 'battleship_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Морской бой)', icon: '🤝', hidden: false },
     { id: 'battleship_pve_win', name: 'Железный человек', description: 'Победите компьютер (Морской бой)', icon: '🤖', hidden: false },
-    { id: 'battleship_sunk_4deck', name: 'Истребитель авианосцев', description: 'Потопите четырёхпалубный корабль (Морской бой)', icon: '✈️', hidden: true }
+    { id: 'battleship_sunk_4deck', name: 'Истребитель авианосцев', description: 'Потопите четырёхпалубный корабль (Морской бой)', icon: '✈️', hidden: true },
+
+    // Крестики-нолики
+    { id: 'tictactoe_first_win', name: 'Первая победа', description: 'Одержите первую победу (Крестики-нолики)', icon: '❌', hidden: false },
+    { id: 'tictactoe_streak3', name: 'На кураже', description: 'Выиграйте 3 игры подряд (Крестики-нолики)', icon: '🔥', hidden: true },
+    { id: 'tictactoe_draw', name: 'Миротворец', description: 'Сыграйте вничью (Крестики-нолики)', icon: '🤝', hidden: true },
+    { id: 'tictactoe_beat_hard', name: 'Превзойдя машину', description: 'Победите сложный ИИ (Крестики-нолики)', icon: '👑', hidden: true },
+    { id: 'tictactoe_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Крестики-нолики)', icon: '⚔️', hidden: false }
   ];
 }
 
@@ -86,7 +93,7 @@ async function checkAndAwardAchievements() {
   const description = data.description || '';
   const dailyLogin = data.dailyLogin || {};
   const battleshipStats = data.battleshipStats || {};
-  const winStreak = battleshipStats.currentWinStreak || 0;
+  const tictactoeStats = data.tictactoeStats || {};
 
   const config = getAchievementsConfig();
   const newlyUnlocked = [];
@@ -153,7 +160,7 @@ async function checkAndAwardAchievements() {
       case 'daily_30': earned = (dailyLogin.longestStreak || 0) >= 30; break;
       case 'daily_100': earned = (dailyLogin.totalLogins || 0) >= 100; break;
 
-      // Новые достижения морского боя
+      // Морской бой
       case 'battleship_5games':
         earned = (gameHistory.filter(h => h.game === 'battleship').length >= 5);
         break;
@@ -186,6 +193,23 @@ async function checkAndAwardAchievements() {
         break;
       case 'battleship_sunk_4deck':
         earned = (battleshipStats.sunk4Deck || false) === true;
+        break;
+
+      // Крестики-нолики
+      case 'tictactoe_first_win':
+        earned = ((tictactoeStats.pvpWins || 0) + (tictactoeStats.pveWins || 0)) >= 1;
+        break;
+      case 'tictactoe_streak3':
+        earned = (tictactoeStats.bestWinStreak || 0) >= 3;
+        break;
+      case 'tictactoe_draw':
+        earned = ((tictactoeStats.pvpDraws || 0) + (tictactoeStats.pveDraws || 0)) >= 1;
+        break;
+      case 'tictactoe_beat_hard':
+        earned = (tictactoeStats.beatHardAI || false) === true;
+        break;
+      case 'tictactoe_pvp_win':
+        earned = (tictactoeStats.pvpWins || 0) >= 1;
         break;
     }
 
