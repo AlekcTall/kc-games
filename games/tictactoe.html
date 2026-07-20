@@ -1,3 +1,4 @@
+<!-- Замените содержимое файла games/tictactoe.html на этот код -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -364,6 +365,7 @@
                 });
                 gameId = docRef.id;
                 if (aiMode) {
+                    // Сразу добавляем ai в participants, чтобы работало восстановление
                     await db.collection('tictactoe_games').doc(gameId).update({
                         [`players.ai`]: { username: 'Компьютер', symbol: 'O' },
                         participants: firebase.firestore.FieldValue.arrayUnion('ai')
