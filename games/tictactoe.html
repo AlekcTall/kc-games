@@ -188,6 +188,7 @@
         let isAI = false, aiLevel = 'medium';
         let unsubscribeGame = null, unsubscribeOpenGames = null;
         let winningLine = null;
+        let moveInProgress = false; // блокировка повторных ходов
 
         const WIN_LINES = [
             [0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]
@@ -420,7 +421,13 @@
                 if (!doc.exists) { gameContainer.innerHTML = '<p>Игра не найдена.</p>'; return; }
                 gameData = doc.data();
                 board = gameData.board || ['','','','','','','','',''];
+                // Синхронизируем символы с сервером на случай рассинхрона
+                if (gameData.players && gameData.players[currentUser.uid]) {
+                    mySymbol = gameData.players[currentUser.uid].symbol;
+                    enemySymbol = mySymbol === 'X' ? 'O' : 'X';
+                }
                 winningLine = getWinningLine(board);
+                moveInProgress = false; // разблокируем ход после обновления
                 updateGameState();
             });
         }
@@ -435,7 +442,7 @@
             }
         }
 
-        // ========== ЭКРАН ОЖИДАНИЯ (с кнопкой «Отменить») ==========
+        // ========== ЭКРАН ОЖИДАНИЯ ==========
         function renderWaitingScreen() {
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -453,13 +460,26 @@
         function renderBoard() {
             const myTurn = gameData.turn === mySymbol;
             const isFinished = gameData.status === 'finished';
+            const turnValid = gameData.turn === 'X' || gameData.turn === 'O';
+
+            if (!turnValid && !isFinished) {
+                // Ошибка: turn потерялся, пробуем восстановить
+                gameContainer.innerHTML = `
+                    <div class="lobby-panel">
+                        <h3>Ошибка синхронизации</h3>
+                        <p>Не удалось определить очерёдность хода. Попробуйте перезагрузить страницу.</p>
+                        <button class="btn" onclick="location.reload()">Перезагрузить</button>
+                    </div>
+                `;
+                return;
+            }
 
             let html = `
                 <div class="player-info">
-                    <div class="player-badge ${mySymbol === 'X' ? 'active' : 'inactive'}">
+                    <div class="player-badge ${mySymbol === 'X' ? (myTurn ? 'active' : 'inactive') : 'inactive'}">
                         ${mySymbol === 'X' ? 'Вы (❌)' : 'Соперник (❌)'}
                     </div>
-                    <div class="player-badge ${mySymbol === 'O' ? 'active' : 'inactive'}">
+                    <div class="player-badge ${mySymbol === 'O' ? (myTurn ? 'active' : 'inactive') : 'inactive'}">
                         ${mySymbol === 'O' ? 'Вы (⭕)' : 'Соперник (⭕)'}
                     </div>
                 </div>
@@ -470,13 +490,14 @@
                 const val = board[i];
                 let cls = val === 'X' ? 'x' : (val === 'O' ? 'o' : '');
                 if (winningLine && winningLine.includes(i)) cls += ' winning';
-                if (val || isFinished || !myTurn || (isAI && mySymbol === 'O')) cls += ' disabled';
+                const disabled = val || isFinished || !myTurn || moveInProgress || (isAI && mySymbol === 'O');
+                if (disabled) cls += ' disabled';
                 html += `<div class="cell ${cls}" data-index="${i}">${val}</div>`;
             }
             html += '</div>';
 
             let status = '';
-            if (gameData.status === 'finished') {
+            if (isFinished) {
                 const winner = gameData.winner;
                 if (winner === 'draw') status = 'Ничья!';
                 else if (winner === mySymbol) status = '🎉 Вы победили!';
@@ -491,13 +512,13 @@
             if (!isFinished && gameData.status === 'active') {
                 html += `<button class="btn btn-cancel" id="surrender-btn" style="margin-top:0.5rem;">Сдаться</button>`;
             }
-            if (gameData.status === 'finished') {
+            if (isFinished) {
                 html += `<button class="btn" id="new-game-btn">Новая игра</button>`;
             }
 
             gameContainer.innerHTML = html;
 
-            if (!isFinished && myTurn && !(isAI && mySymbol === 'O')) {
+            if (!isFinished && myTurn && !moveInProgress && !(isAI && mySymbol === 'O')) {
                 document.querySelectorAll('#board .cell:not(.disabled)').forEach(cell => {
                     cell.addEventListener('click', () => {
                         const index = parseInt(cell.dataset.index);
@@ -517,8 +538,11 @@
         }
 
         async function makeMove(index) {
+            if (moveInProgress) return;
             if (board[index] !== '') return;
             if (gameData.turn !== mySymbol) return;
+
+            moveInProgress = true; // блокируем до ответа сервера
 
             const newBoard = [...board];
             newBoard[index] = mySymbol;
@@ -526,23 +550,30 @@
             const isDraw = !winner && newBoard.every(c => c !== '');
             const nextTurn = winner || isDraw ? null : enemySymbol;
 
-            await db.collection('tictactoe_games').doc(gameId).update({
-                board: newBoard,
-                turn: nextTurn,
-                status: (winner || isDraw) ? 'finished' : 'active',
-                winner: winner || (isDraw ? 'draw' : null)
-            });
+            try {
+                await db.collection('tictactoe_games').doc(gameId).update({
+                    board: newBoard,
+                    turn: nextTurn,
+                    status: (winner || isDraw) ? 'finished' : 'active',
+                    winner: winner || (isDraw ? 'draw' : null)
+                });
 
-            if (winner === mySymbol) {
-                await handleGameEnd(true);
-            } else if (isDraw) {
-                await handleGameEnd(false, true);
-            } else if (winner === enemySymbol) {
-                await handleGameEnd(false);
+                if (winner === mySymbol) {
+                    await handleGameEnd(true);
+                } else if (isDraw) {
+                    await handleGameEnd(false, true);
+                } else if (winner === enemySymbol) {
+                    await handleGameEnd(false);
+                }
+            } catch (e) {
+                showToast('Ошибка хода: ' + e.message, 'error');
+                moveInProgress = false;
             }
         }
 
         function aiMove() {
+            if (moveInProgress) return;
+            moveInProgress = true;
             const newBoard = [...board];
             let move;
             switch (aiLevel) {
@@ -565,6 +596,7 @@
                 else if (isDraw) handleGameEnd(false, true);
                 else if (winner === mySymbol) handleGameEnd(true);
             }
+            // moveInProgress сбросится в subscribeToGame при следующем обновлении
         }
 
         // ========== ЛОГИКА ИИ ==========
@@ -742,15 +774,12 @@
 
         async function surrender() {
             if (!gameId || !gameData) return;
-            // Победа сопернику
             await db.collection('tictactoe_games').doc(gameId).update({
                 status: 'finished',
                 winner: enemySymbol,
                 surrendered: currentUser.uid
             });
-            // Засчитываем поражение текущему игроку
             await handleGameEnd(false, false);
-            // Не начисляем победу сопернику
         }
 
         window.addEventListener('beforeunload', () => {
