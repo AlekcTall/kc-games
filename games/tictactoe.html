@@ -188,7 +188,7 @@
         let isAI = false, aiLevel = 'medium';
         let unsubscribeGame = null, unsubscribeOpenGames = null;
         let winningLine = null;
-        let moveInProgress = false; // блокировка повторных ходов
+        let moveInProgress = false;
 
         const WIN_LINES = [
             [0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]
@@ -421,15 +421,29 @@
                 if (!doc.exists) { gameContainer.innerHTML = '<p>Игра не найдена.</p>'; return; }
                 gameData = doc.data();
                 board = gameData.board || ['','','','','','','','',''];
-                // Синхронизируем символы с сервером на случай рассинхрона
                 if (gameData.players && gameData.players[currentUser.uid]) {
                     mySymbol = gameData.players[currentUser.uid].symbol;
                     enemySymbol = mySymbol === 'X' ? 'O' : 'X';
                 }
+                // Если turn отсутствует в активной игре — восстанавливаем по доске
+                if (gameData.status === 'active' && (!gameData.turn || (gameData.turn !== 'X' && gameData.turn !== 'O'))) {
+                    recoverTurn();
+                }
                 winningLine = getWinningLine(board);
-                moveInProgress = false; // разблокируем ход после обновления
+                moveInProgress = false;
                 updateGameState();
             });
+        }
+
+        // Восстановление очереди хода по состоянию доски
+        function recoverTurn() {
+            const xCount = board.filter(c => c === 'X').length;
+            const oCount = board.filter(c => c === 'O').length;
+            // Первыми ходят крестики (X). Если X больше или равно O, ход O, иначе ход X.
+            const nextTurn = xCount > oCount ? 'O' : 'X';
+            gameData.turn = nextTurn;
+            // Обновляем документ, чтобы синхронизировать с сервером
+            db.collection('tictactoe_games').doc(gameId).update({ turn: nextTurn }).catch(() => {});
         }
 
         function updateGameState() {
@@ -460,19 +474,6 @@
         function renderBoard() {
             const myTurn = gameData.turn === mySymbol;
             const isFinished = gameData.status === 'finished';
-            const turnValid = gameData.turn === 'X' || gameData.turn === 'O';
-
-            if (!turnValid && !isFinished) {
-                // Ошибка: turn потерялся, пробуем восстановить
-                gameContainer.innerHTML = `
-                    <div class="lobby-panel">
-                        <h3>Ошибка синхронизации</h3>
-                        <p>Не удалось определить очерёдность хода. Попробуйте перезагрузить страницу.</p>
-                        <button class="btn" onclick="location.reload()">Перезагрузить</button>
-                    </div>
-                `;
-                return;
-            }
 
             let html = `
                 <div class="player-info">
@@ -542,7 +543,7 @@
             if (board[index] !== '') return;
             if (gameData.turn !== mySymbol) return;
 
-            moveInProgress = true; // блокируем до ответа сервера
+            moveInProgress = true;
 
             const newBoard = [...board];
             newBoard[index] = mySymbol;
@@ -596,7 +597,6 @@
                 else if (isDraw) handleGameEnd(false, true);
                 else if (winner === mySymbol) handleGameEnd(true);
             }
-            // moveInProgress сбросится в subscribeToGame при следующем обновлении
         }
 
         // ========== ЛОГИКА ИИ ==========
