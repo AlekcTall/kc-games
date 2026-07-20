@@ -48,6 +48,25 @@
             margin: 0.5rem 0;
             font-size: 1.1rem;
         }
+        .player-info {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 1rem 0;
+        }
+        .player-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .player-badge.active {
+            background: #3498db;
+            color: white;
+        }
+        .player-badge.inactive {
+            background: #f0f0f0;
+            color: #999;
+        }
         .lobby-panel {
             max-width: 550px;
             margin: 1rem auto;
@@ -124,6 +143,13 @@
             margin-top: 1rem;
             color: var(--color-primary);
             text-decoration: none;
+        }
+        .game-id-display {
+            background: #f9fafb;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
         }
         @media (max-width: 400px) {
             .cell { width: 80px; height: 80px; font-size: 2.5rem; }
@@ -311,6 +337,8 @@
                 gameData = game;
                 isAI = game.isAI || false;
                 board = game.board || ['','','','','','','','',''];
+                mySymbol = game.players[currentUser.uid]?.symbol || 'X';
+                enemySymbol = mySymbol === 'X' ? 'O' : 'X';
                 subscribeToGame();
                 return true;
             } catch (e) { return false; }
@@ -330,7 +358,7 @@
                         [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', symbol: 'X' }
                     },
                     board: ['','','','','','','','',''],
-                    turn: 'X',
+                    turn: aiMode ? 'X' : null,
                     winner: null,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
@@ -342,7 +370,11 @@
                     });
                 }
                 subscribeToGame();
-                showToast(aiMode ? 'Игра с ИИ началась!' : 'Игра создана! ID: ' + gameId, 'success');
+                if (aiMode) {
+                    showToast('Игра с ИИ началась! Вы играете крестиками ❌', 'success');
+                } else {
+                    showToast('Игра создана! ID: ' + gameId, 'success');
+                }
             } catch (e) { showToast('Ошибка создания: ' + e.message, 'error'); }
         }
 
@@ -365,14 +397,15 @@
                 await db.collection('tictactoe_games').doc(id).update({
                     [`players.${currentUser.uid}`]: { username: getCurrentUser()?.username || 'Игрок', symbol: 'O' },
                     participants: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                    status: 'active'
+                    status: 'active',
+                    turn: 'X' // первый ход за создателем (X)
                 });
                 gameId = id;
                 isAI = false;
                 mySymbol = 'O'; enemySymbol = 'X';
                 board = data.board || ['','','','','','','','',''];
                 subscribeToGame();
-                showToast('Вы присоединились!', 'success');
+                showToast('Вы присоединились! Вы играете ноликами ⭕', 'success');
             } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
         }
 
@@ -388,9 +421,30 @@
                 gameData = doc.data();
                 board = gameData.board || ['','','','','','','','',''];
                 winningLine = getWinningLine(board);
-                if (gameData.status === 'active' || gameData.status === 'waiting') renderBoard();
-                else if (gameData.status === 'finished') renderFinishedScreen();
+                updateGameState();
             });
+        }
+
+        function updateGameState() {
+            if (gameData.status === 'waiting') {
+                renderWaitingScreen();
+            } else if (gameData.status === 'active') {
+                renderBoard();
+            } else if (gameData.status === 'finished') {
+                renderFinishedScreen();
+            }
+        }
+
+        // ========== ЭКРАН ОЖИДАНИЯ ==========
+        function renderWaitingScreen() {
+            gameContainer.innerHTML = `
+                <div class="lobby-panel">
+                    <h3>Ожидание соперника...</h3>
+                    <p>Вы играете <strong>крестиками ❌</strong></p>
+                    <div class="game-id-display">ID игры: <strong>${gameId}</strong></div>
+                    <p style="color:#888;">Поделитесь этим ID с коллегой, чтобы он присоединился.</p>
+                </div>
+            `;
         }
 
         // ========== ИГРОВОЕ ПОЛЕ ==========
@@ -398,7 +452,18 @@
             const myTurn = gameData.turn === mySymbol;
             const isFinished = gameData.status === 'finished';
 
-            let html = `<div class="board-grid" id="board">`;
+            let html = `
+                <div class="player-info">
+                    <div class="player-badge ${mySymbol === 'X' ? 'active' : 'inactive'}">
+                        ${mySymbol === 'X' ? 'Вы (❌)' : 'Соперник (❌)'}
+                    </div>
+                    <div class="player-badge ${mySymbol === 'O' ? 'active' : 'inactive'}">
+                        ${mySymbol === 'O' ? 'Вы (⭕)' : 'Соперник (⭕)'}
+                    </div>
+                </div>
+            `;
+
+            html += `<div class="board-grid" id="board">`;
             for (let i = 0; i < 9; i++) {
                 const val = board[i];
                 let cls = val === 'X' ? 'x' : (val === 'O' ? 'o' : '');
@@ -415,9 +480,9 @@
                 else if (winner === mySymbol) status = '🎉 Вы победили!';
                 else status = '😞 Вы проиграли!';
             } else if (myTurn) {
-                status = 'Ваш ход!';
+                status = `Ваш ход (${mySymbol === 'X' ? '❌' : '⭕'})`;
             } else {
-                status = 'Ход соперника...';
+                status = `Ход соперника (${enemySymbol === 'X' ? '❌' : '⭕'})`;
             }
 
             html += `<p class="status-message">${status}</p>`;
@@ -427,7 +492,6 @@
 
             gameContainer.innerHTML = html;
 
-            // Обработчик клика по клетке
             if (!isFinished && myTurn && !(isAI && mySymbol === 'O')) {
                 document.querySelectorAll('#board .cell:not(.disabled)').forEach(cell => {
                     cell.addEventListener('click', () => {
@@ -437,7 +501,6 @@
                 });
             }
 
-            // Ход ИИ
             if (isAI && gameData.turn === enemySymbol && gameData.status === 'active') {
                 setTimeout(() => aiMove(), 600);
             }
@@ -501,7 +564,6 @@
         }
 
         function mediumAIMove(board) {
-            // Попытка победить
             for (let i = 0; i < 9; i++) {
                 if (board[i] === '') {
                     board[i] = enemySymbol;
@@ -509,7 +571,6 @@
                     board[i] = '';
                 }
             }
-            // Блокировка игрока
             for (let i = 0; i < 9; i++) {
                 if (board[i] === '') {
                     board[i] = mySymbol;
@@ -517,9 +578,7 @@
                     board[i] = '';
                 }
             }
-            // Центр
             if (board[4] === '') return 4;
-            // Углы
             const corners = [0,2,6,8].filter(i => board[i] === '');
             if (corners.length) return corners[Math.floor(Math.random() * corners.length)];
             return randomMove(board);
@@ -618,9 +677,7 @@
             if (isWin) {
                 const points = isAI ? 3 : 5;
                 if (typeof addPointsToCurrentUser === 'function') await addPointsToCurrentUser(points, 'tictactoe');
-                const balance = (userData.lokoin_balance || 0) + (isAI ? 1 : 2);
-                await userRef.update({ lokoin_balance: balance });
-                showToast(`Победа! +${points} баллов, +${isAI ? 1 : 2} лок.`, 'success');
+                showToast(`Победа! +${points} баллов`, 'success');
             }
             if (typeof checkAndAwardAchievements === 'function') await checkAndAwardAchievements();
         }
