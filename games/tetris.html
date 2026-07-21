@@ -1,238 +1,501 @@
-// js/achievements.js
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Тетрис – КЦ Игры</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .tetris-game {
+            max-width: 700px;
+            margin: 2rem auto;
+            text-align: center;
+            background: white;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #fafafa;
+            display: block;
+            margin: 0 auto 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .tetris-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 0.5rem 0 1rem;
+            font-weight: 600;
+        }
+        .next-piece {
+            margin: 0.5rem 0;
+        }
+        .mobile-controls {
+            display: none;
+            grid-template-areas:
+                ". up ."
+                "left . right"
+                ". down ."
+                ". space .";
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        .mobile-controls button {
+            width: 55px;
+            height: 55px;
+            font-size: 1.5rem;
+            background: #cdc1b4;
+            border: none;
+            border-radius: 10px;
+            color: #776e65;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .mobile-controls button:active {
+            background: #bbada0;
+            color: white;
+        }
+        .up { grid-area: up; }
+        .down { grid-area: down; }
+        .left { grid-area: left; }
+        .right { grid-area: right; }
+        .space { grid-area: space; }
+        @media (max-width: 600px) {
+            .mobile-controls { display: grid; }
+        }
+        .leaderboard-tetris { margin-top: 1.5rem; text-align: left; }
+        .leaderboard-tetris h3 { text-align: center; }
+        .leaderboard-tetris table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .leaderboard-tetris th, .leaderboard-tetris td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; }
+        .leaderboard-tetris th { background: #f5f5f5; font-weight: 600; }
+        .leaderboard-tetris .me { background: #e6f7ff; font-weight: 600; }
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
+        .tab { background: none; border: none; padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; border-radius: 4px 4px 0 0; }
+        .tab.active { background: var(--color-primary); color: white; }
+        .back-link { display: inline-block; margin-top: 1rem; color: var(--color-primary); text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="tetris-game" id="game-container">
+    <h2>🧱 Тетрис</h2>
+    <div class="tabs">
+        <button class="tab active" data-tab="game">Игра</button>
+        <button class="tab" data-tab="leaderboard">Рекорды</button>
+    </div>
+    <div id="tab-content"></div>
+    <a href="../games.html" class="back-link">← Вернуться к играм</a>
+</div>
 
-function getAchievementsConfig() {
-  return [
-    // Существующие (без изменений)
-    { id: 'first_game', name: 'Первый блин', description: 'Сыграйте в любую игру', icon: '🎮', hidden: false },
-    { id: 'clicker_100', name: 'Кликоман', description: 'Наберите 100 кликов в кликере', icon: '🖱️', hidden: false },
-    { id: 'clicker_1000', name: 'Мышку сломаешь!', description: 'Наберите 1000 кликов в кликере', icon: '💥🖱️', hidden: false },
-    { id: 'snake_start', name: 'Змеелов', description: 'Начните игру в змейку', icon: '🐍', hidden: false },
-    { id: 'snake_100', name: 'Удав', description: 'Съешьте 100 яблок в змейке', icon: '🐍', hidden: false },
-    { id: 'snake_200', name: 'Анаконда', description: 'Съешьте 200 яблок в змейке', icon: '🐍', hidden: false },
-    { id: 'snake_self', name: 'Самоед', description: 'Врежьтесь в себя в змейке', icon: '🐍', hidden: true },
-    { id: 'snake_wall', name: 'Ауч!', description: 'Врежьтесь в стену в змейке', icon: '🐍', hidden: true },
-    { id: 'memory_first', name: 'Помню', description: 'Откройте первую карту в найди пару', icon: '🧠', hidden: false },
-    { id: 'memory_complete', name: 'Идеальная память', description: 'Завершите игру найди пару', icon: '🧠', hidden: false },
-    { id: 'memory_12moves', name: 'Эконом', description: 'Найдите все пары за ≤12 ходов', icon: '🧠', hidden: false },
-    { id: 'memory_30sec', name: 'Спидран', description: 'Найдите все пары за ≤30 секунд', icon: '🧠', hidden: false },
-    { id: 'memory_8moves', name: 'Невозможно!', description: 'Найдите все пары ровно за 8 ходов', icon: '🧠', hidden: true },
-    { id: 'profile_bio', name: 'О себе', description: 'Заполните поле «О себе» (минимум 10 символов)', icon: '✏️', hidden: true },
-    { id: 'top10', name: 'В десятке', description: 'Попадите в топ‑10 общего рейтинга', icon: '🏆', hidden: false },
-    { id: 'top3', name: 'Пьедестал', description: 'Займите 1, 2 или 3 место в рейтинге', icon: '🥇', hidden: false },
-    { id: 'easter_logo', name: 'Лого‑кликер', description: 'Найдите пасхалку в логотипе', icon: '🥚', hidden: true },
-    { id: 'easter_footer', name: 'Подвал', description: 'Найдите пасхалку в футере', icon: '🥚', hidden: true },
-    { id: 'easter_symbol', name: 'Секретный символ', description: 'Найдите секретный символ на главной', icon: '🥚', hidden: true },
-    { id: 'easter_konami', name: 'Konami', description: 'Введите Konami Code', icon: '🥚', hidden: true },
-    { id: 'easter_word', name: 'Бонус', description: 'Введите секретное слово "бонус"', icon: '🥚', hidden: true },
-    { id: '2048_512', name: 'Это только начало', description: 'Соберите плитку 512 в 2048', icon: '🔢', hidden: false },
-    { id: '2048_2048', name: 'Вот почему она так называется', description: 'Соберите плитку 2048 в 2048', icon: '🔢', hidden: false },
-    { id: '2048_4096', name: 'Прошел?', description: 'Соберите плитку 4096 в 2048', icon: '🔢', hidden: false },
-    { id: '2048_8192', name: 'Х4', description: 'Соберите плитку 8192 в 2048', icon: '🔢', hidden: true },
-    { id: 'minesweeper_loss', name: 'Одна нога тут, другая там', description: 'Подорвитесь на мине в сапёре', icon: '💣', hidden: false },
-    { id: 'minesweeper_win', name: 'Без права на ошибку', description: 'Успешно завершите игру в сапёре', icon: '💣', hidden: false },
-    { id: 'minesweeper_speed', name: 'Я скорость', description: 'Завершите сапёра за ≤10 секунд', icon: '💣', hidden: true },
-    { id: 'daily_7', name: 'На связи', description: 'Заходите 7 дней подряд', icon: '📅', hidden: true },
-    { id: 'daily_30', name: 'Железная воля', description: 'Заходите 30 дней подряд', icon: '📅', hidden: true },
-    { id: 'daily_100', name: 'Старожил', description: 'Заходите 100 раз', icon: '📅', hidden: true },
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+<script src="../js/firebase-config.js"></script>
+<script src="../js/firebase-auth.js"></script>
+<script src="../js/storage.js"></script>
+<script src="../js/achievements.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/easter-eggs.js"></script>
+<script src="../js/main.js"></script>
 
-    // Морской бой
-    { id: 'battleship_5games', name: 'Морской волк', description: 'Сыграйте 5 партий в «Морской бой» (Морской бой)', icon: '🚢', hidden: false },
-    { id: 'battleship_first_win', name: 'Боевое крещение', description: 'Одержите первую победу (Морской бой)', icon: '⚔️', hidden: false },
-    { id: 'battleship_10wins', name: 'Адмирал', description: 'Одержите 10 побед (Морской бой)', icon: '🎖️', hidden: false },
-    { id: 'battleship_25wins', name: 'Флотоводец', description: 'Одержите 25 побед (Морской бой)', icon: '🏅', hidden: false },
-    { id: 'battleship_streak3', name: 'В ударе', description: 'Выиграйте 3 игры подряд (Морской бой)', icon: '🔥', hidden: true },
-    { id: 'battleship_streak5', name: 'Неудержимый', description: 'Выиграйте 5 игр подряд (Морской бой)', icon: '💥', hidden: true },
-    { id: 'battleship_sniper', name: 'Снайпер', description: 'Победите, сделав не более 30 выстрелов (Морской бой)', icon: '🎯', hidden: true },
-    { id: 'battleship_unsinkable', name: 'Непотопляемый', description: 'Победите, не потеряв ни одного корабля (Морской бой)', icon: '🛡️', hidden: true },
-    { id: 'battleship_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Морской бой)', icon: '🤝', hidden: false },
-    { id: 'battleship_pve_win', name: 'Железный человек', description: 'Победите компьютер (Морской бой)', icon: '🤖', hidden: false },
-    { id: 'battleship_sunk_4deck', name: 'Истребитель авианосцев', description: 'Потопите четырёхпалубный корабль (Морской бой)', icon: '✈️', hidden: true },
+<script>
+    (function() {
+        // ---------- КОНСТАНТЫ ----------
+        const COLS = 10;
+        const ROWS = 20;
+        const CELL_SIZE = 30;
+        const COLORS = ['#00f0f0', '#f0f000', '#a000f0', '#00f000', '#f00000', '#0000f0', '#f0a000'];
+        const SHAPES = [
+            [[1,1,1,1]],                         // I
+            [[1,1],[1,1]],                       // O
+            [[0,1,0],[1,1,1]],                   // T
+            [[1,0,0],[1,1,1]],                   // J
+            [[0,0,1],[1,1,1]],                   // L
+            [[0,1,1],[1,1,0]],                   // S
+            [[1,1,0],[0,1,1]]                    // Z
+        ];
 
-    // Крестики-нолики
-    { id: 'tictactoe_first_win', name: 'Первая победа', description: 'Одержите первую победу (Крестики-нолики)', icon: '❌', hidden: false },
-    { id: 'tictactoe_streak3', name: 'На кураже', description: 'Выиграйте 3 игры подряд (Крестики-нолики)', icon: '🔥', hidden: true },
-    { id: 'tictactoe_draw', name: 'Миротворец', description: 'Сыграйте вничью (Крестики-нолики)', icon: '🤝', hidden: true },
-    { id: 'tictactoe_beat_hard', name: 'Превзойдя машину', description: 'Победите сложный ИИ (Крестики-нолики)', icon: '👑', hidden: true },
-    { id: 'tictactoe_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Крестики-нолики)', icon: '⚔️', hidden: false },
+        const gameContainer = document.getElementById('tab-content');
+        let canvas, ctx, nextCanvas, nextCtx;
+        let board = [], currentPiece = null, nextPiece = null;
+        let score = 0, lines = 0, level = 1;
+        let gameActive = false, gamePaused = false;
+        let gameInterval = null, fallSpeed = 500;
+        let bestScore = 0, bestLines = 0, bestLevel = 1;
+        let currentUid = null;
 
-    // Камень-ножницы-бумага
-    { id: 'rps_first_win', name: 'Первая победа', description: 'Одержите первую победу (Камень-ножницы-бумага)', icon: '✊', hidden: false },
-    { id: 'rps_streak3', name: 'На кураже', description: 'Выиграйте 3 игры подряд (Камень-ножницы-бумага)', icon: '🔥', hidden: true },
-    { id: 'rps_beat_hard', name: 'Превзойдя машину', description: 'Победите сложный ИИ (Камень-ножницы-бумага)', icon: '👑', hidden: true },
-    { id: 'rps_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Камень-ножницы-бумага)', icon: '⚔️', hidden: false },
-
-    // Тетрис (новые)
-    { id: 'tetris_5games', name: 'Тетрис-любитель', description: 'Сыграйте 5 игр в Тетрис', icon: '🧱', hidden: false },
-    { id: 'tetris_1line', name: 'Первая линия', description: 'Соберите 1 линию в Тетрисе', icon: '📏', hidden: false },
-    { id: 'tetris_tetris', name: 'Тетрис', description: 'Соберите 4 линии одновременно (Тетрис)', icon: '🔥', hidden: true },
-    { id: 'tetris_20lines', name: 'Строитель', description: 'Соберите 20 линий за одну игру (Тетрис)', icon: '🏗️', hidden: true },
-    { id: 'tetris_5000score', name: 'Скоростной режим', description: 'Наберите 5000 очков в Тетрисе', icon: '⚡', hidden: false },
-    { id: 'tetris_10000score', name: 'Ниндзя', description: 'Наберите 10000 очков в Тетрисе', icon: '🥷', hidden: true },
-    { id: 'tetris_level10', name: 'Неудержимый', description: 'Достигните 10-го уровня в Тетрисе', icon: '💪', hidden: true }
-  ];
-}
-
-// Получение глобальной статистики достижения (процент игроков)
-async function getAchievementStats(achievementId) {
-  try {
-    const snap = await db.collection('users').get();
-    let total = 0;
-    let unlocked = 0;
-    snap.forEach(doc => {
-      const d = doc.data();
-      if (d.role === 'admin') return;
-      total++;
-      if ((d.achievements || []).includes(achievementId)) unlocked++;
-    });
-    if (total === 0) return 0;
-    return Math.round((unlocked / total) * 100);
-  } catch (e) {
-    console.error('Ошибка получения статистики достижения:', e);
-    return 0;
-  }
-}
-
-// Асинхронная проверка достижений
-async function checkAndAwardAchievements() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const userDoc = await db.collection('users').doc(user.uid).get();
-  if (!userDoc.exists) return;
-  const data = userDoc.data();
-  let unlocked = data.achievements || [];
-  const gameStats = data.gameStats || {};
-  const gameHistory = data.gameHistory || [];
-  const easterEggs = data.easterEggsFound || [];
-  const description = data.description || '';
-  const dailyLogin = data.dailyLogin || {};
-  const battleshipStats = data.battleshipStats || {};
-  const tictactoeStats = data.tictactoeStats || {};
-  const rpsStats = data.rpsStats || {};
-
-  const config = getAchievementsConfig();
-  const newlyUnlocked = [];
-  const toRemove = [];
-
-  for (const ach of config) {
-    const alreadyUnlocked = unlocked.includes(ach.id);
-    let earned = false;
-
-    switch (ach.id) {
-      // Существующие
-      case 'first_game': earned = gameHistory.length > 0; break;
-      case 'clicker_100': earned = (gameStats.clicker?.totalClicks || 0) >= 100; break;
-      case 'clicker_1000': earned = (gameStats.clicker?.totalClicks || 0) >= 1000; break;
-      case 'snake_start': earned = gameStats.snake?.maxScore !== undefined; break;
-      case 'snake_100': earned = (gameStats.snake?.maxScore || 0) >= 100; break;
-      case 'snake_200': earned = (gameStats.snake?.maxScore || 0) >= 200; break;
-      case 'snake_self': earned = gameStats.snake?.selfEaten === true; break;
-      case 'snake_wall': earned = gameStats.snake?.wallCrash === true; break;
-      case 'memory_first': earned = gameStats.memory?.openedFirst === true; break;
-      case 'memory_complete': earned = gameStats.memory?.completed === true; break;
-      case 'memory_12moves': earned = gameStats.memory?.completed && gameStats.memory.bestMoves <= 12; break;
-      case 'memory_30sec': earned = gameStats.memory?.completed && gameStats.memory.bestTime <= 30; break;
-      case 'memory_8moves': earned = gameStats.memory?.completed && gameStats.memory.bestMoves === 8; break;
-      case 'profile_bio': earned = description.length >= 10; break;
-
-      case 'top10':
-      case 'top3': {
-        const snap = await db.collection('users').get();
-        const allPlayers = [];
-        snap.forEach(doc => {
-          const d = doc.data();
-          if (d.role !== 'admin') allPlayers.push({ uid: doc.id, points: d.points || 0 });
+        // ---------- ИНИЦИАЛИЗАЦИЯ ----------
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUid = user.uid;
+                loadBestResults();
+            } else {
+                currentUid = null;
+            }
+            switchTab('game');
         });
-        allPlayers.sort((a, b) => b.points - a.points);
-        const rank = allPlayers.findIndex(p => p.uid === user.uid) + 1;
-        if (ach.id === 'top10') {
-          earned = (rank > 0 && rank <= 10);
-          if (!earned && alreadyUnlocked) toRemove.push(ach.id);
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                switchTab(tab.dataset.tab);
+            });
+        });
+
+        function switchTab(tab) {
+            if (tab === 'game') renderGameTab();
+            else if (tab === 'leaderboard') renderLeaderboardTab();
         }
-        if (ach.id === 'top3') {
-          earned = (rank > 0 && rank <= 3);
-          if (!earned && alreadyUnlocked) toRemove.push(ach.id);
+
+        async function loadBestResults() {
+            if (!auth.currentUser) return;
+            try {
+                const doc = await db.collection('users').doc(auth.currentUser.uid).get();
+                if (doc.exists) {
+                    const stats = doc.data().gameStats?.tetris || {};
+                    if (stats.maxScore) bestScore = stats.maxScore;
+                    if (stats.maxLines) bestLines = stats.maxLines;
+                    if (stats.maxLevel) bestLevel = stats.maxLevel;
+                }
+            } catch (e) { console.error(e); }
         }
-        break;
-      }
 
-      case 'easter_logo': earned = easterEggs.includes('logo'); break;
-      case 'easter_footer': earned = easterEggs.includes('footer'); break;
-      case 'easter_symbol': earned = easterEggs.includes('symbol'); break;
-      case 'easter_konami': earned = easterEggs.includes('konami'); break;
-      case 'easter_word': earned = easterEggs.includes('word'); break;
+        function renderGameTab() {
+            gameContainer.innerHTML = `
+                <div class="tetris-stats">
+                    <span>🏆 Очки: <span id="score">0</span></span>
+                    <span>📏 Линии: <span id="lines">0</span></span>
+                    <span>⬆️ Уровень: <span id="level">1</span></span>
+                </div>
+                <div style="display:flex; justify-content:center; gap:1.5rem; flex-wrap:wrap;">
+                    <div>
+                        <canvas id="tetris-canvas" width="${COLS * CELL_SIZE}" height="${ROWS * CELL_SIZE}"></canvas>
+                    </div>
+                    <div>
+                        <div class="next-piece">
+                            <strong>Следующая</strong><br>
+                            <canvas id="next-canvas" width="${4 * CELL_SIZE}" height="${4 * CELL_SIZE}"></canvas>
+                        </div>
+                        <div style="margin-top:0.5rem;">
+                            <button class="btn" id="new-game-btn">Новая игра</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="mobile-controls" id="mobile-controls">
+                    <button class="up">▲</button>
+                    <button class="left">◀</button>
+                    <button class="right">▶</button>
+                    <button class="down">▼</button>
+                    <button class="space">⏬</button>
+                </div>
+            `;
 
-      case '2048_512': earned = (gameStats['2048']?.maxTile || 0) >= 512; break;
-      case '2048_2048': earned = (gameStats['2048']?.maxTile || 0) >= 2048; break;
-      case '2048_4096': earned = (gameStats['2048']?.maxTile || 0) >= 4096; break;
-      case '2048_8192': earned = (gameStats['2048']?.maxTile || 0) >= 8192; break;
+            canvas = document.getElementById('tetris-canvas');
+            ctx = canvas.getContext('2d');
+            nextCanvas = document.getElementById('next-canvas');
+            nextCtx = nextCanvas.getContext('2d');
 
-      case 'minesweeper_loss': earned = gameStats.minesweeper?.loss === true; break;
-      case 'minesweeper_win': earned = gameStats.minesweeper?.completed === true; break;
-      case 'minesweeper_speed': earned = gameStats.minesweeper?.completed && (gameStats.minesweeper.bestTime || 999) <= 10; break;
+            document.getElementById('new-game-btn').addEventListener('click', newGame);
+            document.getElementById('mobile-controls').addEventListener('click', (e) => {
+                if (!gameActive || gamePaused) return;
+                if (e.target.classList.contains('up')) rotatePiece();
+                else if (e.target.classList.contains('down')) moveDown();
+                else if (e.target.classList.contains('left')) moveLeft();
+                else if (e.target.classList.contains('right')) moveRight();
+                else if (e.target.classList.contains('space')) hardDrop();
+            });
 
-      case 'daily_7': earned = (dailyLogin.longestStreak || 0) >= 7; break;
-      case 'daily_30': earned = (dailyLogin.longestStreak || 0) >= 30; break;
-      case 'daily_100': earned = (dailyLogin.totalLogins || 0) >= 100; break;
+            document.addEventListener('keydown', handleKeyDown);
+            newGame();
+        }
 
-      // Морской бой
-      case 'battleship_5games': earned = (gameHistory.filter(h => h.game === 'battleship').length >= 5); break;
-      case 'battleship_first_win': earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 1; break;
-      case 'battleship_10wins': earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 10; break;
-      case 'battleship_25wins': earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 25; break;
-      case 'battleship_streak3': earned = (battleshipStats.bestWinStreak || 0) >= 3; break;
-      case 'battleship_streak5': earned = (battleshipStats.bestWinStreak || 0) >= 5; break;
-      case 'battleship_sniper': earned = (battleshipStats.sniperGame || false) === true; break;
-      case 'battleship_unsinkable': earned = (battleshipStats.unsinkableGame || false) === true; break;
-      case 'battleship_pvp_win': earned = (battleshipStats.pvpWins || 0) >= 1; break;
-      case 'battleship_pve_win': earned = (battleshipStats.pveWins || 0) >= 1; break;
-      case 'battleship_sunk_4deck': earned = (battleshipStats.sunk4Deck || false) === true; break;
+        function handleKeyDown(e) {
+            if (!gameActive || gamePaused) {
+                if (e.code === 'KeyN' || e.code === 'Space') {
+                    e.preventDefault();
+                    newGame();
+                }
+                return;
+            }
+            switch (e.code) {
+                case 'ArrowLeft': e.preventDefault(); moveLeft(); break;
+                case 'ArrowRight': e.preventDefault(); moveRight(); break;
+                case 'ArrowDown': e.preventDefault(); moveDown(); break;
+                case 'ArrowUp': e.preventDefault(); rotatePiece(); break;
+                case 'Space': e.preventDefault(); hardDrop(); break;
+                case 'KeyP': e.preventDefault(); togglePause(); break;
+            }
+        }
 
-      // Крестики-нолики
-      case 'tictactoe_first_win': earned = ((tictactoeStats.pvpWins || 0) + (tictactoeStats.pveWins || 0)) >= 1; break;
-      case 'tictactoe_streak3': earned = (tictactoeStats.bestWinStreak || 0) >= 3; break;
-      case 'tictactoe_draw': earned = ((tictactoeStats.pvpDraws || 0) + (tictactoeStats.pveDraws || 0)) >= 1; break;
-      case 'tictactoe_beat_hard': earned = (tictactoeStats.beatHardAI || false) === true; break;
-      case 'tictactoe_pvp_win': earned = (tictactoeStats.pvpWins || 0) >= 1; break;
+        function newGame() {
+            board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+            score = 0; lines = 0; level = 1; fallSpeed = 500;
+            gameActive = true; gamePaused = false;
+            updateStats();
+            spawnPiece();
+            startGameLoop();
+        }
 
-      // Камень-ножницы-бумага
-      case 'rps_first_win': earned = ((rpsStats.pvpWins || 0) + (rpsStats.pveWins || 0)) >= 1; break;
-      case 'rps_streak3': earned = (rpsStats.bestWinStreak || 0) >= 3; break;
-      case 'rps_beat_hard': earned = (rpsStats.beatHardAI || false) === true; break;
-      case 'rps_pvp_win': earned = (rpsStats.pvpWins || 0) >= 1; break;
+        function startGameLoop() {
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(() => {
+                if (gameActive && !gamePaused) {
+                    if (!moveDown()) lockPiece();
+                }
+                draw();
+            }, fallSpeed);
+        }
 
-      // Тетрис
-      case 'tetris_5games': earned = (gameHistory.filter(h => h.game === 'tetris').length >= 5); break;
-      case 'tetris_1line': earned = (gameStats.tetris?.maxLines || 0) >= 1; break;
-      case 'tetris_tetris': earned = (gameStats.tetris?.tetrisCleared || false) === true; break;
-      case 'tetris_20lines': earned = (gameStats.tetris?.maxLines || 0) >= 20; break;
-      case 'tetris_5000score': earned = (gameStats.tetris?.maxScore || 0) >= 5000; break;
-      case 'tetris_10000score': earned = (gameStats.tetris?.maxScore || 0) >= 10000; break;
-      case 'tetris_level10': earned = (gameStats.tetris?.maxLevel || 0) >= 10; break;
-    }
+        function spawnPiece() {
+            if (!nextPiece) {
+                currentPiece = randomPiece();
+                nextPiece = randomPiece();
+            } else {
+                currentPiece = nextPiece;
+                nextPiece = randomPiece();
+            }
+            currentPiece.x = Math.floor((COLS - currentPiece.shape[0].length) / 2);
+            currentPiece.y = 0;
 
-    if (earned && !alreadyUnlocked) {
-      unlocked.push(ach.id);
-      newlyUnlocked.push(ach);
-    } else if (!earned && alreadyUnlocked && toRemove.includes(ach.id)) {
-      // удалим ниже
-    }
-  }
+            if (!isValidPosition(currentPiece.shape, currentPiece.x, currentPiece.y)) {
+                gameActive = false;
+                clearInterval(gameInterval);
+                endGame();
+            }
+        }
 
-  if (toRemove.length > 0) {
-    unlocked = unlocked.filter(id => !toRemove.includes(id));
-  }
+        function randomPiece() {
+            const idx = Math.floor(Math.random() * SHAPES.length);
+            return { shape: SHAPES[idx], color: idx, x: 0, y: 0 };
+        }
 
-  if (newlyUnlocked.length > 0 || toRemove.length > 0) {
-    await db.collection('users').doc(user.uid).update({ achievements: unlocked });
-    const current = getCurrentUser();
-    if (current) {
-      current.achievements = unlocked;
-      setCurrentUser(current);
-    }
+        function isValidPosition(shape, x, y) {
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c]) {
+                        const boardX = x + c;
+                        const boardY = y + r;
+                        if (boardX < 0 || boardX >= COLS || boardY >= ROWS || (boardY >= 0 && board[boardY][boardX])) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
 
-    for (const ach of newlyUnlocked) {
-      await addNotification(user.uid, `Получено достижение: ${ach.icon} ${ach.name}`, 'achievement', 'profile.html');
-    }
-  }
-}
+        function moveLeft() {
+            if (isValidPosition(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
+                currentPiece.x--;
+                draw();
+            }
+        }
+
+        function moveRight() {
+            if (isValidPosition(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
+                currentPiece.x++;
+                draw();
+            }
+        }
+
+        function moveDown() {
+            if (isValidPosition(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
+                currentPiece.y++;
+                return true;
+            }
+            return false;
+        }
+
+        function rotatePiece() {
+            const shape = currentPiece.shape;
+            const rotated = shape[0].map((_, idx) => shape.map(row => row[idx]).reverse());
+            if (isValidPosition(rotated, currentPiece.x, currentPiece.y)) {
+                currentPiece.shape = rotated;
+            }
+            draw();
+        }
+
+        function hardDrop() {
+            while (isValidPosition(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
+                currentPiece.y++;
+            }
+            lockPiece();
+        }
+
+        function lockPiece() {
+            const { shape, x, y, color } = currentPiece;
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c]) {
+                        const boardY = y + r;
+                        const boardX = x + c;
+                        if (boardY >= 0) board[boardY][boardX] = color + 1;
+                    }
+                }
+            }
+            clearLines();
+            spawnPiece();
+        }
+
+        function clearLines() {
+            let cleared = 0;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(cell => cell !== 0)) {
+                    board.splice(r, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    cleared++;
+                    r++;
+                }
+            }
+            if (cleared > 0) {
+                const linePoints = [0, 100, 300, 500, 800];
+                score += linePoints[cleared] || 0;
+                lines += cleared;
+                level = Math.floor(lines / 10) + 1;
+                fallSpeed = Math.max(50, 500 - (level - 1) * 50);
+                updateStats();
+                startGameLoop();
+
+                // Записываем флаг "Тетрис" (4 линии одновременно)
+                if (cleared >= 4 && auth.currentUser) {
+                    syncGameStats('tetris', { tetrisCleared: true });
+                }
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('lines').textContent = lines;
+            document.getElementById('level').textContent = level;
+        }
+
+        function togglePause() {
+            gamePaused = !gamePaused;
+            showToast(gamePaused ? 'Пауза' : 'Продолжить', 'info');
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c]) {
+                        ctx.fillStyle = COLORS[board[r][c] - 1];
+                        ctx.fillRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                    }
+                }
+            }
+            if (currentPiece && gameActive) {
+                ctx.fillStyle = COLORS[currentPiece.color];
+                for (let r = 0; r < currentPiece.shape.length; r++) {
+                    for (let c = 0; c < currentPiece.shape[r].length; c++) {
+                        if (currentPiece.shape[r][c]) {
+                            ctx.fillRect((currentPiece.x + c) * CELL_SIZE, (currentPiece.y + r) * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                        }
+                    }
+                }
+            }
+            nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+            if (nextPiece) {
+                nextCtx.fillStyle = COLORS[nextPiece.color];
+                const offX = Math.floor((4 - nextPiece.shape[0].length) / 2);
+                const offY = Math.floor((4 - nextPiece.shape.length) / 2);
+                for (let r = 0; r < nextPiece.shape.length; r++) {
+                    for (let c = 0; c < nextPiece.shape[r].length; c++) {
+                        if (nextPiece.shape[r][c]) {
+                            nextCtx.fillRect((offX + c) * CELL_SIZE, (offY + r) * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
+                        }
+                    }
+                }
+            }
+        }
+
+        async function endGame() {
+            gameActive = false;
+            if (gameInterval) clearInterval(gameInterval);
+            document.removeEventListener('keydown', handleKeyDown);
+
+            const newBestScore = score > bestScore;
+            const newBestLines = lines > bestLines;
+            const newBestLevel = level > bestLevel;
+
+            if (newBestScore || newBestLines || newBestLevel) {
+                if (newBestScore) bestScore = score;
+                if (newBestLines) bestLines = lines;
+                if (newBestLevel) bestLevel = level;
+                if (auth.currentUser) {
+                    await syncGameStats('tetris', { maxScore: bestScore, maxLines: bestLines, maxLevel: bestLevel });
+                }
+            }
+
+            // Начисляем баллы: 1 балл за каждые 500 очков (как в 2048)
+            if (auth.currentUser && typeof addPointsToCurrentUser === 'function') {
+                const pointsEarned = Math.floor(score / 500);
+                if (pointsEarned > 0) {
+                    await addPointsToCurrentUser(pointsEarned, 'tetris');
+                }
+            }
+
+            if (typeof checkAndAwardAchievements === 'function') {
+                await checkAndAwardAchievements();
+            }
+
+            let msg = '';
+            if (newBestScore) msg += 'Новый рекорд очков! ';
+            if (newBestLines) msg += 'Новый рекорд линий! ';
+            if (newBestLevel) msg += 'Новый рекорд уровня! ';
+            const earned = Math.floor(score / 500);
+            if (earned > 0) msg += `Заработано ${earned} балл(ов). `;
+            showToast(msg + `Игра окончена. Очки: ${score}`, 'info');
+            draw();
+        }
+
+        async function renderLeaderboardTab() {
+            gameContainer.innerHTML = '<p>Загрузка...</p>';
+            try {
+                const snap = await db.collection('users').get();
+                const scoreList = [];
+                const linesList = [];
+                const levelList = [];
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    if (d.role === 'admin') return;
+                    const stats = d.gameStats?.tetris || {};
+                    if (stats.maxScore > 0) scoreList.push({ username: d.username || 'Аноним', value: stats.maxScore, uid: doc.id });
+                    if (stats.maxLines > 0) linesList.push({ username: d.username || 'Аноним', value: stats.maxLines, uid: doc.id });
+                    if (stats.maxLevel > 1) levelList.push({ username: d.username || 'Аноним', value: stats.maxLevel, uid: doc.id });
+                });
+                scoreList.sort((a,b) => b.value - a.value);
+                linesList.sort((a,b) => b.value - a.value);
+                levelList.sort((a,b) => b.value - a.value);
+
+                let html = '';
+                html += buildTable('🏆 Лучшие очки', scoreList.slice(0, 10), 'очк.');
+                html += buildTable('📏 Лучшие линии', linesList.slice(0, 10), 'лин.');
+                html += buildTable('⬆️ Лучший уровень', levelList.slice(0, 10), 'ур.');
+                gameContainer.innerHTML = html || '<p>Нет рекордов.</p>';
+            } catch (e) { gameContainer.innerHTML = '<p>Ошибка загрузки.</p>'; }
+        }
+
+        function buildTable(title, data, suffix) {
+            if (!data.length) return '';
+            let html = `<div class="leaderboard-tetris"><h3>${title}</h3><table><tr><th>#</th><th>Игрок</th><th>${suffix}</th></tr>`;
+            data.forEach((p, i) => {
+                const me = p.uid === currentUid ? ' class="me"' : '';
+                html += `<tr${me}><td>${i+1}</td><td>${p.username}</td><td>${p.value}</td></tr>`;
+            });
+            html += '</table></div>';
+            return html;
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (gameInterval) clearInterval(gameInterval);
+            document.removeEventListener('keydown', handleKeyDown);
+        });
+    })();
+</script>
+</body>
+</html>
