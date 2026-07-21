@@ -186,7 +186,6 @@
         let myUid = null, opponentUid = null;
         let isAI = false, aiLevel = 'medium';
         let unsubscribeGame = null, unsubscribeOpenGames = null;
-        let moveInProgress = false;
         let myScore = 0, opponentScore = 0;
         let myChoice = null, opponentChoice = null;
         let roundResolved = false;
@@ -229,7 +228,6 @@
             myScore = 0; opponentScore = 0;
             myChoice = null; opponentChoice = null;
             roundResolved = false;
-            moveInProgress = false;
 
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -344,7 +342,6 @@
                 opponentScore = game.players[opponentUid]?.score || 0;
                 myChoice = game.currentRound?.[currentUser.uid] || null;
                 opponentChoice = game.currentRound?.[opponentUid] || null;
-                moveInProgress = false;
                 roundResolved = false;
                 subscribeToGame();
                 return true;
@@ -355,8 +352,6 @@
         async function createGame(aiMode = false) {
             try {
                 isAI = aiMode;
-                moveInProgress = false;
-                roundResolved = false;
                 const players = {
                     [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', score: 0 }
                 };
@@ -400,8 +395,6 @@
                     opponentUid = Object.keys(data.players).find(uid => uid !== currentUser.uid) || 'ai';
                     myScore = data.players[currentUser.uid]?.score || 0;
                     opponentScore = data.players[opponentUid]?.score || 0;
-                    moveInProgress = false;
-                    roundResolved = false;
                     subscribeToGame();
                     showToast('Игра восстановлена', 'info');
                     return;
@@ -416,8 +409,6 @@
                 isAI = false;
                 opponentUid = Object.keys((await db.collection('rps_games').doc(id).get()).data().players).find(uid => uid !== currentUser.uid);
                 myScore = 0; opponentScore = 0;
-                moveInProgress = false;
-                roundResolved = false;
                 subscribeToGame();
                 showToast('Вы присоединились!', 'success');
             } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
@@ -442,16 +433,18 @@
             const players = gameData.players || {};
             myUid = currentUser.uid;
             opponentUid = Object.keys(players).find(uid => uid !== myUid) || 'ai';
-
-            myScore = players[myUid]?.score || 0;
-            opponentScore = players[opponentUid]?.score || 0;
-            myChoice = gameData.currentRound?.[myUid] || null;
-            opponentChoice = gameData.currentRound?.[opponentUid] || null;
-
+            // Если противник ещё не появился (PvP waiting)
             if (gameData.status === 'waiting') {
                 renderWaitingScreen();
-            } else if (gameData.status === 'active') {
-                // Если оба уже выбрали и раунд еще не разрешён
+                return;
+            }
+
+            myScore = players[myUid]?.score || 0;
+            opponentScore = opponentUid ? (players[opponentUid]?.score || 0) : 0;
+            myChoice = gameData.currentRound?.[myUid] || null;
+            opponentChoice = opponentUid ? (gameData.currentRound?.[opponentUid] || null) : null;
+
+            if (gameData.status === 'active') {
                 if (myChoice && opponentChoice && !roundResolved) {
                     roundResolved = true;
                     resolveRound().finally(() => { roundResolved = false; });
@@ -492,12 +485,11 @@
                 const emoji = { rock: '✊', scissors: '✌️', paper: '✋' };
                 choices.forEach(c => {
                     const selected = myChoice === c ? ' selected' : '';
-                    const disabled = (myChoice !== null || moveInProgress || waitingOpponent) ? ' disabled' : '';
+                    const disabled = (myChoice !== null || waitingOpponent) ? ' disabled' : '';
                     html += `<button class="choice-btn${selected}" data-choice="${c}"${disabled}>${emoji[c]}</button>`;
                 });
                 html += '</div>';
             } else {
-                // Показываем результаты раунда
                 html += '<div style="display:flex; justify-content:center; gap:2rem; margin:1rem 0;">';
                 html += `<div><div style="font-size:3rem;">${emojiFor(myChoice)}</div>Вы</div>`;
                 html += `<div style="font-size:2rem; align-self:center;">VS</div>`;
@@ -513,7 +505,7 @@
 
             gameContainer.innerHTML = html;
 
-            if (!myChoice && !moveInProgress && !waitingOpponent && gameData.status === 'active') {
+            if (!myChoice && gameData.status === 'active') {
                 document.querySelectorAll('.choice-btn:not([disabled])').forEach(btn => {
                     btn.addEventListener('click', () => {
                         const choice = btn.dataset.choice;
@@ -525,8 +517,7 @@
             const surrenderBtn = document.getElementById('surrender-btn');
             if (surrenderBtn) surrenderBtn.addEventListener('click', surrender);
 
-            // Ход ИИ, если он еще не выбрал и игра активна и это не режим ожидания выбора игрока
-            if (isAI && !opponentChoice && gameData.status === 'active' && !moveInProgress && !roundResolved) {
+            if (isAI && !opponentChoice && gameData.status === 'active' && !roundResolved) {
                 setTimeout(() => aiMove(), 600 + Math.random() * 800);
             }
         }
@@ -536,17 +527,14 @@
         }
 
         async function makeChoice(choice) {
-            if (moveInProgress || myChoice) return;
-            moveInProgress = true;
+            if (myChoice) return;
             try {
                 await db.collection('rps_games').doc(gameId).update({
                     [`currentRound.${currentUser.uid}`]: choice
                 });
             } catch (e) {
                 showToast('Ошибка выбора: ' + e.message, 'error');
-                moveInProgress = false;
             }
-            // Не сбрасываем moveInProgress здесь, он сбросится при следующем onSnapshot
         }
 
         function getRoundResult(my, opponent) {
@@ -559,33 +547,42 @@
 
         async function resolveRound() {
             if (!myChoice || !opponentChoice || gameData.status !== 'active') return;
-            const result = getRoundResult(myChoice, opponentChoice);
-            const newScores = { ...gameData.players };
-            let winnerUid = null;
-            if (result === 'win') {
-                newScores[currentUser.uid].score = (newScores[currentUser.uid].score || 0) + 1;
-                if (newScores[currentUser.uid].score >= WIN_SCORE) winnerUid = currentUser.uid;
-            } else if (result === 'lose') {
-                newScores[opponentUid].score = (newScores[opponentUid].score || 0) + 1;
-                if (newScores[opponentUid].score >= WIN_SCORE) winnerUid = opponentUid;
-            }
-            const newHistory = [...(gameData.roundsHistory || []), { [currentUser.uid]: myChoice, [opponentUid]: opponentChoice, result }];
-            const updateData = {
-                players: newScores,
-                currentRound: {},
-                roundsHistory: newHistory,
-                status: winnerUid ? 'finished' : 'active',
-                winner: winnerUid || null
-            };
-            await db.collection('rps_games').doc(gameId).update(updateData);
-            if (winnerUid) {
-                await handleGameEnd(winnerUid === currentUser.uid);
+            try {
+                await db.runTransaction(async (transaction) => {
+                    const docRef = db.collection('rps_games').doc(gameId);
+                    const doc = await transaction.get(docRef);
+                    if (!doc.exists) return;
+                    const data = doc.data();
+                    const cur = data.currentRound || {};
+                    // Проверяем, что ходы всё ещё на месте и раунд не был разрешён
+                    if (!cur[myUid] || !cur[opponentUid]) return;
+                    const result = getRoundResult(cur[myUid], cur[opponentUid]);
+                    const newScores = { ...data.players };
+                    let winnerUid = null;
+                    if (result === 'win') {
+                        newScores[myUid].score = (newScores[myUid].score || 0) + 1;
+                        if (newScores[myUid].score >= WIN_SCORE) winnerUid = myUid;
+                    } else if (result === 'lose') {
+                        newScores[opponentUid].score = (newScores[opponentUid].score || 0) + 1;
+                        if (newScores[opponentUid].score >= WIN_SCORE) winnerUid = opponentUid;
+                    }
+                    const newHistory = [...(data.roundsHistory || []), { [myUid]: cur[myUid], [opponentUid]: cur[opponentUid], result }];
+                    const updateData = {
+                        players: newScores,
+                        currentRound: {},
+                        roundsHistory: newHistory,
+                        status: winnerUid ? 'finished' : 'active',
+                        winner: winnerUid || null
+                    };
+                    transaction.update(docRef, updateData);
+                });
+            } catch (e) {
+                console.error('Транзакция раунда не удалась:', e);
             }
         }
 
         async function aiMove() {
-            if (moveInProgress || opponentChoice) return;
-            moveInProgress = true;
+            if (opponentChoice) return;
             let aiChoice;
             switch (aiLevel) {
                 case 'easy':
@@ -614,7 +611,6 @@
             } catch (e) {
                 console.error(e);
             }
-            moveInProgress = false;
         }
 
         // ========== ЗАВЕРШЕНИЕ ==========
@@ -680,10 +676,19 @@
         // ========== ВЫХОД ==========
         async function cancelGame() {
             if (!gameId) return;
-            await db.collection('rps_games').doc(gameId).update({
-                status: 'finished',
-                winner: 'cancelled'
-            });
+            try {
+                await db.runTransaction(async (transaction) => {
+                    const docRef = db.collection('rps_games').doc(gameId);
+                    const doc = await transaction.get(docRef);
+                    if (!doc.exists) return;
+                    if (doc.data().status === 'waiting') {
+                        transaction.update(docRef, {
+                            status: 'finished',
+                            winner: 'cancelled'
+                        });
+                    }
+                });
+            } catch (e) { /* игра уже изменилась */ }
             if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
             gameId = null; gameData = null;
             showLobby();
@@ -691,12 +696,21 @@
         }
 
         async function surrender() {
-            if (!gameId || !gameData) return;
-            await db.collection('rps_games').doc(gameId).update({
-                status: 'finished',
-                winner: opponentUid,
-                surrendered: currentUser.uid
-            });
+            if (!gameId || !gameData || gameData.status !== 'active') return;
+            try {
+                await db.runTransaction(async (transaction) => {
+                    const docRef = db.collection('rps_games').doc(gameId);
+                    const doc = await transaction.get(docRef);
+                    if (!doc.exists) return;
+                    if (doc.data().status !== 'active') return;
+                    transaction.update(docRef, {
+                        status: 'finished',
+                        winner: opponentUid,
+                        surrendered: currentUser.uid
+                    });
+                });
+            } catch (e) { /* игра уже завершилась */ }
+            // Обновим статистику
             await handleGameEnd(false);
         }
 
