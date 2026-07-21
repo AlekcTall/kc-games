@@ -54,7 +54,13 @@ function getAchievementsConfig() {
     { id: 'tictactoe_streak3', name: 'На кураже', description: 'Выиграйте 3 игры подряд (Крестики-нолики)', icon: '🔥', hidden: true },
     { id: 'tictactoe_draw', name: 'Миротворец', description: 'Сыграйте вничью (Крестики-нолики)', icon: '🤝', hidden: true },
     { id: 'tictactoe_beat_hard', name: 'Превзойдя машину', description: 'Победите сложный ИИ (Крестики-нолики)', icon: '👑', hidden: true },
-    { id: 'tictactoe_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Крестики-нолики)', icon: '⚔️', hidden: false }
+    { id: 'tictactoe_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Крестики-нолики)', icon: '⚔️', hidden: false },
+
+    // Камень-ножницы-бумага
+    { id: 'rps_first_win', name: 'Первая победа', description: 'Одержите первую победу (Камень-ножницы-бумага)', icon: '✊', hidden: false },
+    { id: 'rps_streak3', name: 'На кураже', description: 'Выиграйте 3 игры подряд (Камень-ножницы-бумага)', icon: '🔥', hidden: true },
+    { id: 'rps_beat_hard', name: 'Превзойдя машину', description: 'Победите сложный ИИ (Камень-ножницы-бумага)', icon: '👑', hidden: true },
+    { id: 'rps_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Камень-ножницы-бумага)', icon: '⚔️', hidden: false }
   ];
 }
 
@@ -94,6 +100,7 @@ async function checkAndAwardAchievements() {
   const dailyLogin = data.dailyLogin || {};
   const battleshipStats = data.battleshipStats || {};
   const tictactoeStats = data.tictactoeStats || {};
+  const rpsStats = data.rpsStats || {};
 
   const config = getAchievementsConfig();
   const newlyUnlocked = [];
@@ -210,6 +217,20 @@ async function checkAndAwardAchievements() {
         break;
       case 'tictactoe_pvp_win':
         earned = (tictactoeStats.pvpWins || 0) >= 1;
+        break;
+
+      // Камень-ножницы-бумага
+      case 'rps_first_win':
+        earned = ((rpsStats.pvpWins || 0) + (rpsStats.pveWins || 0)) >= 1;
+        break;
+      case 'rps_streak3':
+        earned = (rpsStats.bestWinStreak || 0) >= 3;
+        break;
+      case 'rps_beat_hard':
+        earned = (rpsStats.beatHardAI || false) === true;
+        break;
+      case 'rps_pvp_win':
+        earned = (rpsStats.pvpWins || 0) >= 1;
         break;
     }
 
