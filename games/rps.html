@@ -229,6 +229,7 @@
             myScore = 0; opponentScore = 0;
             myChoice = null; opponentChoice = null;
             roundResolved = false;
+            moveInProgress = false;
 
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -343,6 +344,8 @@
                 opponentScore = game.players[opponentUid]?.score || 0;
                 myChoice = game.currentRound?.[currentUser.uid] || null;
                 opponentChoice = game.currentRound?.[opponentUid] || null;
+                moveInProgress = false;
+                roundResolved = false;
                 subscribeToGame();
                 return true;
             } catch (e) { return false; }
@@ -352,6 +355,8 @@
         async function createGame(aiMode = false) {
             try {
                 isAI = aiMode;
+                moveInProgress = false;
+                roundResolved = false;
                 const players = {
                     [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', score: 0 }
                 };
@@ -378,6 +383,12 @@
                 subscribeToGame();
                 if (aiMode) {
                     showToast('Игра с ИИ началась!', 'success');
+                    // Принудительно отрисовываем игровой экран после короткой паузы
+                    setTimeout(() => {
+                        if (gameData && gameData.status === 'active') {
+                            renderGameScreen();
+                        }
+                    }, 150);
                 } else {
                     showToast('Игра создана! ID: ' + gameId, 'success');
                 }
@@ -395,6 +406,8 @@
                     opponentUid = Object.keys(data.players).find(uid => uid !== currentUser.uid) || 'ai';
                     myScore = data.players[currentUser.uid]?.score || 0;
                     opponentScore = data.players[opponentUid]?.score || 0;
+                    moveInProgress = false;
+                    roundResolved = false;
                     subscribeToGame();
                     showToast('Игра восстановлена', 'info');
                     return;
@@ -409,6 +422,8 @@
                 isAI = false;
                 opponentUid = Object.keys((await db.collection('rps_games').doc(id).get()).data().players).find(uid => uid !== currentUser.uid);
                 myScore = 0; opponentScore = 0;
+                moveInProgress = false;
+                roundResolved = false;
                 subscribeToGame();
                 showToast('Вы присоединились!', 'success');
             } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
@@ -442,11 +457,10 @@
             if (gameData.status === 'waiting') {
                 renderWaitingScreen();
             } else if (gameData.status === 'active') {
-                // Проверяем, завершен ли раунд (оба выбрали)
                 if (myChoice && opponentChoice && !roundResolved) {
                     roundResolved = true;
                     resolveRound().finally(() => { roundResolved = false; });
-                    return; // resolveRound вызовет обновление данных, которое снова вызовет updateGameState
+                    return;
                 }
                 renderGameScreen();
             } else if (gameData.status === 'finished') {
@@ -488,7 +502,6 @@
                 });
                 html += '</div>';
             } else {
-                // Показываем результаты раунда
                 html += '<div style="display:flex; justify-content:center; gap:2rem; margin:1rem 0;">';
                 html += `<div><div style="font-size:3rem;">${emojiFor(myChoice)}</div>Вы</div>`;
                 html += `<div style="font-size:2rem; align-self:center;">VS</div>`;
@@ -504,8 +517,7 @@
 
             gameContainer.innerHTML = html;
 
-            // Обработчики кнопок выбора
-            if (!myChoice && !moveInProgress && !waitingOpponent) {
+            if (!myChoice && !moveInProgress && !waitingOpponent && gameData.status === 'active') {
                 document.querySelectorAll('.choice-btn:not([disabled])').forEach(btn => {
                     btn.addEventListener('click', () => {
                         const choice = btn.dataset.choice;
@@ -517,8 +529,7 @@
             const surrenderBtn = document.getElementById('surrender-btn');
             if (surrenderBtn) surrenderBtn.addEventListener('click', surrender);
 
-            // Ход ИИ
-            if (isAI && !opponentChoice && gameData.status === 'active' && !moveInProgress && !roundResolved) {
+            if (isAI && !opponentChoice && gameData.status === 'active' && !moveInProgress && !roundResolved && !myChoice) {
                 setTimeout(() => aiMove(), 600 + Math.random() * 800);
             }
         }
@@ -538,8 +549,6 @@
                 showToast('Ошибка выбора: ' + e.message, 'error');
                 moveInProgress = false;
             }
-            // Блокировка снимется при следующем обновлении onSnapshot
-            moveInProgress = false;
         }
 
         function getRoundResult(my, opponent) {
@@ -565,7 +574,7 @@
             const newHistory = [...(gameData.roundsHistory || []), { [currentUser.uid]: myChoice, [opponentUid]: opponentChoice, result }];
             const updateData = {
                 players: newScores,
-                currentRound: {}, // сбрасываем
+                currentRound: {},
                 roundsHistory: newHistory,
                 status: winnerUid ? 'finished' : 'active',
                 winner: winnerUid || null
