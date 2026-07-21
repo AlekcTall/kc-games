@@ -1,9 +1,8 @@
 // js/achievements.js
 
-// Конфигурация достижений
 function getAchievementsConfig() {
   return [
-    // Существующие достижения (без изменений)
+    // Существующие (без изменений)
     { id: 'first_game', name: 'Первый блин', description: 'Сыграйте в любую игру', icon: '🎮', hidden: false },
     { id: 'clicker_100', name: 'Кликоман', description: 'Наберите 100 кликов в кликере', icon: '🖱️', hidden: false },
     { id: 'clicker_1000', name: 'Мышку сломаешь!', description: 'Наберите 1000 кликов в кликере', icon: '💥🖱️', hidden: false },
@@ -60,7 +59,16 @@ function getAchievementsConfig() {
     { id: 'rps_first_win', name: 'Первая победа', description: 'Одержите первую победу (Камень-ножницы-бумага)', icon: '✊', hidden: false },
     { id: 'rps_streak3', name: 'На кураже', description: 'Выиграйте 3 игры подряд (Камень-ножницы-бумага)', icon: '🔥', hidden: true },
     { id: 'rps_beat_hard', name: 'Превзойдя машину', description: 'Победите сложный ИИ (Камень-ножницы-бумага)', icon: '👑', hidden: true },
-    { id: 'rps_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Камень-ножницы-бумага)', icon: '⚔️', hidden: false }
+    { id: 'rps_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Камень-ножницы-бумага)', icon: '⚔️', hidden: false },
+
+    // Тетрис (новые)
+    { id: 'tetris_5games', name: 'Тетрис-любитель', description: 'Сыграйте 5 игр в Тетрис', icon: '🧱', hidden: false },
+    { id: 'tetris_1line', name: 'Первая линия', description: 'Соберите 1 линию в Тетрисе', icon: '📏', hidden: false },
+    { id: 'tetris_tetris', name: 'Тетрис', description: 'Соберите 4 линии одновременно (Тетрис)', icon: '🔥', hidden: true },
+    { id: 'tetris_20lines', name: 'Строитель', description: 'Соберите 20 линий за одну игру (Тетрис)', icon: '🏗️', hidden: true },
+    { id: 'tetris_5000score', name: 'Скоростной режим', description: 'Наберите 5000 очков в Тетрисе', icon: '⚡', hidden: false },
+    { id: 'tetris_10000score', name: 'Ниндзя', description: 'Наберите 10000 очков в Тетрисе', icon: '🥷', hidden: true },
+    { id: 'tetris_level10', name: 'Неудержимый', description: 'Достигните 10-го уровня в Тетрисе', icon: '💪', hidden: true }
   ];
 }
 
@@ -168,70 +176,39 @@ async function checkAndAwardAchievements() {
       case 'daily_100': earned = (dailyLogin.totalLogins || 0) >= 100; break;
 
       // Морской бой
-      case 'battleship_5games':
-        earned = (gameHistory.filter(h => h.game === 'battleship').length >= 5);
-        break;
-      case 'battleship_first_win':
-        earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 1;
-        break;
-      case 'battleship_10wins':
-        earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 10;
-        break;
-      case 'battleship_25wins':
-        earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 25;
-        break;
-      case 'battleship_streak3':
-        earned = (battleshipStats.bestWinStreak || 0) >= 3;
-        break;
-      case 'battleship_streak5':
-        earned = (battleshipStats.bestWinStreak || 0) >= 5;
-        break;
-      case 'battleship_sniper':
-        earned = (battleshipStats.sniperGame || false) === true;
-        break;
-      case 'battleship_unsinkable':
-        earned = (battleshipStats.unsinkableGame || false) === true;
-        break;
-      case 'battleship_pvp_win':
-        earned = (battleshipStats.pvpWins || 0) >= 1;
-        break;
-      case 'battleship_pve_win':
-        earned = (battleshipStats.pveWins || 0) >= 1;
-        break;
-      case 'battleship_sunk_4deck':
-        earned = (battleshipStats.sunk4Deck || false) === true;
-        break;
+      case 'battleship_5games': earned = (gameHistory.filter(h => h.game === 'battleship').length >= 5); break;
+      case 'battleship_first_win': earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 1; break;
+      case 'battleship_10wins': earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 10; break;
+      case 'battleship_25wins': earned = ((battleshipStats.pvpWins || 0) + (battleshipStats.pveWins || 0)) >= 25; break;
+      case 'battleship_streak3': earned = (battleshipStats.bestWinStreak || 0) >= 3; break;
+      case 'battleship_streak5': earned = (battleshipStats.bestWinStreak || 0) >= 5; break;
+      case 'battleship_sniper': earned = (battleshipStats.sniperGame || false) === true; break;
+      case 'battleship_unsinkable': earned = (battleshipStats.unsinkableGame || false) === true; break;
+      case 'battleship_pvp_win': earned = (battleshipStats.pvpWins || 0) >= 1; break;
+      case 'battleship_pve_win': earned = (battleshipStats.pveWins || 0) >= 1; break;
+      case 'battleship_sunk_4deck': earned = (battleshipStats.sunk4Deck || false) === true; break;
 
       // Крестики-нолики
-      case 'tictactoe_first_win':
-        earned = ((tictactoeStats.pvpWins || 0) + (tictactoeStats.pveWins || 0)) >= 1;
-        break;
-      case 'tictactoe_streak3':
-        earned = (tictactoeStats.bestWinStreak || 0) >= 3;
-        break;
-      case 'tictactoe_draw':
-        earned = ((tictactoeStats.pvpDraws || 0) + (tictactoeStats.pveDraws || 0)) >= 1;
-        break;
-      case 'tictactoe_beat_hard':
-        earned = (tictactoeStats.beatHardAI || false) === true;
-        break;
-      case 'tictactoe_pvp_win':
-        earned = (tictactoeStats.pvpWins || 0) >= 1;
-        break;
+      case 'tictactoe_first_win': earned = ((tictactoeStats.pvpWins || 0) + (tictactoeStats.pveWins || 0)) >= 1; break;
+      case 'tictactoe_streak3': earned = (tictactoeStats.bestWinStreak || 0) >= 3; break;
+      case 'tictactoe_draw': earned = ((tictactoeStats.pvpDraws || 0) + (tictactoeStats.pveDraws || 0)) >= 1; break;
+      case 'tictactoe_beat_hard': earned = (tictactoeStats.beatHardAI || false) === true; break;
+      case 'tictactoe_pvp_win': earned = (tictactoeStats.pvpWins || 0) >= 1; break;
 
       // Камень-ножницы-бумага
-      case 'rps_first_win':
-        earned = ((rpsStats.pvpWins || 0) + (rpsStats.pveWins || 0)) >= 1;
-        break;
-      case 'rps_streak3':
-        earned = (rpsStats.bestWinStreak || 0) >= 3;
-        break;
-      case 'rps_beat_hard':
-        earned = (rpsStats.beatHardAI || false) === true;
-        break;
-      case 'rps_pvp_win':
-        earned = (rpsStats.pvpWins || 0) >= 1;
-        break;
+      case 'rps_first_win': earned = ((rpsStats.pvpWins || 0) + (rpsStats.pveWins || 0)) >= 1; break;
+      case 'rps_streak3': earned = (rpsStats.bestWinStreak || 0) >= 3; break;
+      case 'rps_beat_hard': earned = (rpsStats.beatHardAI || false) === true; break;
+      case 'rps_pvp_win': earned = (rpsStats.pvpWins || 0) >= 1; break;
+
+      // Тетрис
+      case 'tetris_5games': earned = (gameHistory.filter(h => h.game === 'tetris').length >= 5); break;
+      case 'tetris_1line': earned = (gameStats.tetris?.maxLines || 0) >= 1; break;
+      case 'tetris_tetris': earned = (gameStats.tetris?.tetrisCleared || false) === true; break;
+      case 'tetris_20lines': earned = (gameStats.tetris?.maxLines || 0) >= 20; break;
+      case 'tetris_5000score': earned = (gameStats.tetris?.maxScore || 0) >= 5000; break;
+      case 'tetris_10000score': earned = (gameStats.tetris?.maxScore || 0) >= 10000; break;
+      case 'tetris_level10': earned = (gameStats.tetris?.maxLevel || 0) >= 10; break;
     }
 
     if (earned && !alreadyUnlocked) {
