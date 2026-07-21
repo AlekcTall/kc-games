@@ -118,7 +118,6 @@
             [[1,1,0],[0,1,1]]                    // Z
         ];
 
-        // ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
         const gameContainer = document.getElementById('tab-content');
         let canvas, ctx, nextCanvas, nextCtx;
         let board = [], currentPiece = null, nextPiece = null;
@@ -152,7 +151,6 @@
             else if (tab === 'leaderboard') renderLeaderboardTab();
         }
 
-        // ---------- ЗАГРУЗКА РЕКОРДОВ ----------
         async function loadBestResults() {
             if (!auth.currentUser) return;
             try {
@@ -166,7 +164,6 @@
             } catch (e) { console.error(e); }
         }
 
-        // ---------- ВКЛАДКА ИГРЫ ----------
         function renderGameTab() {
             gameContainer.innerHTML = `
                 <div class="tetris-stats">
@@ -203,8 +200,6 @@
             nextCtx = nextCanvas.getContext('2d');
 
             document.getElementById('new-game-btn').addEventListener('click', newGame);
-
-            // Мобильное управление
             document.getElementById('mobile-controls').addEventListener('click', (e) => {
                 if (!gameActive || gamePaused) return;
                 if (e.target.classList.contains('up')) rotatePiece();
@@ -214,9 +209,7 @@
                 else if (e.target.classList.contains('space')) hardDrop();
             });
 
-            // Клавиатура
             document.addEventListener('keydown', handleKeyDown);
-
             newGame();
         }
 
@@ -238,7 +231,6 @@
             }
         }
 
-        // ---------- ИГРОВАЯ ЛОГИКА ----------
         function newGame() {
             board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
             score = 0; lines = 0; level = 1; fallSpeed = 500;
@@ -252,9 +244,7 @@
             if (gameInterval) clearInterval(gameInterval);
             gameInterval = setInterval(() => {
                 if (gameActive && !gamePaused) {
-                    if (!moveDown()) {
-                        lockPiece();
-                    }
+                    if (!moveDown()) lockPiece();
                 }
                 draw();
             }, fallSpeed);
@@ -358,7 +348,7 @@
                     board.splice(r, 1);
                     board.unshift(Array(COLS).fill(0));
                     cleared++;
-                    r++; // проверить ту же строку снова
+                    r++;
                 }
             }
             if (cleared > 0) {
@@ -385,7 +375,6 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Сетка
             for (let r = 0; r < ROWS; r++) {
                 for (let c = 0; c < COLS; c++) {
                     if (board[r][c]) {
@@ -394,7 +383,6 @@
                     }
                 }
             }
-            // Текущая фигура
             if (currentPiece && gameActive) {
                 ctx.fillStyle = COLORS[currentPiece.color];
                 for (let r = 0; r < currentPiece.shape.length; r++) {
@@ -405,7 +393,6 @@
                     }
                 }
             }
-            // Следующая фигура
             nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
             if (nextPiece) {
                 nextCtx.fillStyle = COLORS[nextPiece.color];
@@ -439,25 +426,28 @@
                 }
             }
 
-            if (auth.currentUser) {
-                const pointsEarned = Math.floor(score / 10);
-                if (pointsEarned > 0 && typeof addPointsToCurrentUser === 'function') {
+            // Начисляем баллы: 1 балл за каждые 500 очков (как в 2048)
+            if (auth.currentUser && typeof addPointsToCurrentUser === 'function') {
+                const pointsEarned = Math.floor(score / 500);
+                if (pointsEarned > 0) {
                     await addPointsToCurrentUser(pointsEarned, 'tetris');
                 }
-                if (typeof checkAndAwardAchievements === 'function') {
-                    await checkAndAwardAchievements();
-                }
+            }
+
+            if (typeof checkAndAwardAchievements === 'function') {
+                await checkAndAwardAchievements();
             }
 
             let msg = '';
             if (newBestScore) msg += 'Новый рекорд очков! ';
             if (newBestLines) msg += 'Новый рекорд линий! ';
             if (newBestLevel) msg += 'Новый рекорд уровня! ';
+            const earned = Math.floor(score / 500);
+            if (earned > 0) msg += `Заработано ${earned} балл(ов). `;
             showToast(msg + `Игра окончена. Очки: ${score}`, 'info');
             draw();
         }
 
-        // ---------- ВКЛАДКА РЕКОРДОВ ----------
         async function renderLeaderboardTab() {
             gameContainer.innerHTML = '<p>Загрузка...</p>';
             try {
