@@ -225,9 +225,13 @@
 
         // ========== ЛОББИ ==========
         function showLobby() {
+            // Полная очистка предыдущей игры
             if (unsubscribeOpenGames) unsubscribeOpenGames();
             if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
-            gameId = null; gameData = null; board = ['','','','','','','','','']; winningLine = null;
+            gameId = null; gameData = null;
+            board = ['','','','','','','','',''];
+            winningLine = null;
+            moveInProgress = false;
 
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -425,7 +429,6 @@
                     mySymbol = gameData.players[currentUser.uid].symbol;
                     enemySymbol = mySymbol === 'X' ? 'O' : 'X';
                 }
-                // Если turn отсутствует в активной игре — восстанавливаем по доске
                 if (gameData.status === 'active' && (!gameData.turn || (gameData.turn !== 'X' && gameData.turn !== 'O'))) {
                     recoverTurn();
                 }
@@ -435,14 +438,11 @@
             });
         }
 
-        // Восстановление очереди хода по состоянию доски
         function recoverTurn() {
             const xCount = board.filter(c => c === 'X').length;
             const oCount = board.filter(c => c === 'O').length;
-            // Первыми ходят крестики (X). Если X больше или равно O, ход O, иначе ход X.
             const nextTurn = xCount > oCount ? 'O' : 'X';
             gameData.turn = nextTurn;
-            // Обновляем документ, чтобы синхронизировать с сервером
             db.collection('tictactoe_games').doc(gameId).update({ turn: nextTurn }).catch(() => {});
         }
 
@@ -726,6 +726,13 @@
                 showToast(`Победа! +${points} баллов`, 'success');
             }
             if (typeof checkAndAwardAchievements === 'function') await checkAndAwardAchievements();
+
+            // Завершаем подписку, чтобы не было фоновых обновлений
+            if (unsubscribeGame) {
+                unsubscribeGame();
+                unsubscribeGame = null;
+            }
+            gameId = null;  // явно обнуляем, чтобы кнопка "Новая игра" не восстановила эту же игру
         }
 
         function renderFinishedScreen() {
@@ -741,9 +748,10 @@
                 <button class="btn" id="new-game-btn">Новая игра</button>
             `;
             document.getElementById('new-game-btn').addEventListener('click', () => {
-                if (unsubscribeGame) unsubscribeGame();
+                // Принудительная очистка и возврат в лобби
+                if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
                 gameId = null; gameData = null;
-                switchTab('game');
+                showLobby();
             });
         }
 
@@ -766,7 +774,7 @@
                 status: 'finished',
                 winner: 'cancelled'
             });
-            if (unsubscribeGame) unsubscribeGame();
+            if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
             gameId = null; gameData = null;
             showLobby();
             showToast('Игра отменена', 'info');
@@ -779,6 +787,7 @@
                 winner: enemySymbol,
                 surrendered: currentUser.uid
             });
+            // handleGameEnd отпишется и обнулит gameId
             await handleGameEnd(false, false);
         }
 
