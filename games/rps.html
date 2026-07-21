@@ -383,12 +383,6 @@
                 subscribeToGame();
                 if (aiMode) {
                     showToast('Игра с ИИ началась!', 'success');
-                    // Принудительно отрисовываем игровой экран после короткой паузы
-                    setTimeout(() => {
-                        if (gameData && gameData.status === 'active') {
-                            renderGameScreen();
-                        }
-                    }, 150);
                 } else {
                     showToast('Игра создана! ID: ' + gameId, 'success');
                 }
@@ -457,6 +451,7 @@
             if (gameData.status === 'waiting') {
                 renderWaitingScreen();
             } else if (gameData.status === 'active') {
+                // Если оба уже выбрали и раунд еще не разрешён
                 if (myChoice && opponentChoice && !roundResolved) {
                     roundResolved = true;
                     resolveRound().finally(() => { roundResolved = false; });
@@ -502,6 +497,7 @@
                 });
                 html += '</div>';
             } else {
+                // Показываем результаты раунда
                 html += '<div style="display:flex; justify-content:center; gap:2rem; margin:1rem 0;">';
                 html += `<div><div style="font-size:3rem;">${emojiFor(myChoice)}</div>Вы</div>`;
                 html += `<div style="font-size:2rem; align-self:center;">VS</div>`;
@@ -529,7 +525,8 @@
             const surrenderBtn = document.getElementById('surrender-btn');
             if (surrenderBtn) surrenderBtn.addEventListener('click', surrender);
 
-            if (isAI && !opponentChoice && gameData.status === 'active' && !moveInProgress && !roundResolved && !myChoice) {
+            // Ход ИИ, если он еще не выбрал и игра активна и это не режим ожидания выбора игрока
+            if (isAI && !opponentChoice && gameData.status === 'active' && !moveInProgress && !roundResolved) {
                 setTimeout(() => aiMove(), 600 + Math.random() * 800);
             }
         }
@@ -549,6 +546,7 @@
                 showToast('Ошибка выбора: ' + e.message, 'error');
                 moveInProgress = false;
             }
+            // Не сбрасываем moveInProgress здесь, он сбросится при следующем onSnapshot
         }
 
         function getRoundResult(my, opponent) {
