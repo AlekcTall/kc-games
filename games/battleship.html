@@ -731,4 +731,199 @@
             const hit = oppBoard[row][col] === 1;
             const shot = { row, col, hit };
             const shots = gameData.shots || {};
-           
+            const myShots = [...(shots[currentUser.uid] || []), shot];
+            const oppShips = parseShips(gameData.players[opponentUid].shipsData);
+
+            const sunkShip = oppShips.find(ship => 
+                ship.some(cell => cell.row === row && cell.col === col) &&
+                ship.every(cell => myShots.some(s => s.row === cell.row && s.col === cell.col && s.hit))
+            );
+
+            let toastMsg = hit ? 'Ранил!' : 'Мимо!';
+            if (sunkShip) {
+                toastMsg = 'Убил!';
+                addAutoMissesForShip(sunkShip);
+                if (sunkShip.length === 4) {
+                    db.collection('users').doc(currentUser.uid).update({
+                        'battleshipStats.sunk4Deck': true
+                    }).catch(console.error);
+                }
+            }
+            showToast(toastMsg, hit ? 'success' : 'info');
+
+            const allSunk = checkAllShipsSunk(oppShips, myShots);
+            const updateData = {
+                [`shots.${currentUser.uid}`]: myShots,
+                turn: allSunk ? null : opponentUid,
+                status: allSunk ? 'finished' : 'active',
+                winner: allSunk ? currentUser.uid : null
+            };
+
+            await db.collection('battles').doc(gameId).update(updateData);
+
+            if (allSunk) {
+                gameData = { ...gameData, ...updateData, status: 'finished', winner: currentUser.uid };
+                await handleGameEnd(currentUser.uid);
+                renderFinishedScreen();
+            }
+        }
+
+        function addAutoMissesForShip(ship) {
+            const occupied = new Set(ship.map(c => `${c.row},${c.col}`));
+            for (const cell of ship) {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = cell.row + dr, nc = cell.col + dc;
+                        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !occupied.has(`${nr},${nc}`)) {
+                            if (enemyBoard[nr][nc] === 0) {
+                                enemyBoard[nr][nc] = -2;
+                                autoMisses.push({ row: nr, col: nc });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        async function aiMove() {
+            const myUid = currentUser.uid;
+            const shots = gameData.shots?.ai || [];
+            const available = [];
+            for (let r = 0; r < GRID_SIZE; r++)
+                for (let c = 0; c < GRID_SIZE; c++)
+                    if (!shots.some(s => s.row === r && s.col === c)) available.push({row: r, col: c});
+            if (!available.length) return;
+            const {row, col} = available[Math.floor(Math.random() * available.length)];
+            const myBoardData = parseBoard(gameData.boards[myUid]);
+            const hit = myBoardData[row][col] === 1;
+            const newShots = [...shots, { row, col, hit }];
+            const myShipsData = parseShips(gameData.players[myUid].shipsData);
+            const allSunk = checkAllShipsSunk(myShipsData, newShots);
+
+            const updateData = {
+                [`shots.ai`]: newShots,
+                turn: allSunk ? null : myUid,
+                status: allSunk ? 'finished' : 'active',
+                winner: allSunk ? 'ai' : null
+            };
+
+            await db.collection('battles').doc(gameId).update(updateData);
+
+            if (allSunk) {
+                gameData = { ...gameData, ...updateData, status: 'finished', winner: 'ai' };
+                await handleGameEnd('ai');
+                renderFinishedScreen();
+            }
+        }
+
+        function checkAllShipsSunk(ships, shots) {
+            const allCells = ships.flat();
+            const hitShots = shots.filter(s => s.hit).map(s => ({ row: s.row, col: s.col }));
+            return allCells.every(cell => hitShots.some(h => h.row === cell.row && h.col === cell.col));
+        }
+
+        async function handleGameEnd(winnerUid) {
+            const myUid = currentUser.uid;
+            const isWin = winnerUid === myUid;
+            const mode = isAI ? 'pve' : 'pvp';
+
+            const userRef = db.collection('users').doc(myUid);
+            const userDoc = await userRef.get();
+            const userData = userDoc.data() || {};
+            const stats = userData.battleshipStats || {};
+
+            let newStreak = stats.currentWinStreak || 0;
+            let bestStreak = stats.bestWinStreak || 0;
+            if (isWin) {
+                newStreak++;
+                if (newStreak > bestStreak) bestStreak = newStreak;
+            } else {
+                newStreak = 0;
+            }
+
+            const myShots = gameData.shots[currentUser.uid] || [];
+            const sniper = isWin && myShots.length <= 30;
+            const opponentUid = getOpponentUid();
+            const opponentShots = gameData.shots[opponentUid] || [];
+            const unsinkable = isWin && opponentShots.length > 0 && !opponentShots.some(s => s.hit);
+
+            const updateData = {
+                [`battleshipStats.${mode}Wins`]: firebase.firestore.FieldValue.increment(isWin ? 1 : 0),
+                [`battleshipStats.${mode}Losses`]: firebase.firestore.FieldValue.increment(isWin ? 0 : 1),
+                'battleshipStats.currentWinStreak': newStreak,
+                'battleshipStats.bestWinStreak': bestStreak
+            };
+
+            if (sniper) updateData['battleshipStats.sniperGame'] = true;
+            if (unsinkable) updateData['battleshipStats.unsinkableGame'] = true;
+
+            await userRef.update(updateData);
+
+            if (isWin) {
+                if (typeof addPointsToCurrentUser === 'function') await addPointsToCurrentUser(10, 'battleship');
+                const balance = (userData.lokoin_balance || 0) + 3;
+                await userRef.update({ lokoin_balance: balance });
+                showToast('Победа! +10 баллов, +3 локоина', 'success');
+            }
+
+            if (typeof checkAndAwardAchievements === 'function') await checkAndAwardAchievements();
+
+            // Завершаем подписку и таймер, обнуляем gameId
+            clearSetupTimer();
+            if (unsubscribeGame) {
+                unsubscribeGame();
+                unsubscribeGame = null;
+            }
+            gameId = null;
+        }
+
+        function renderFinishedScreen() {
+            const winner = gameData.winner === currentUser.uid ? 'Вы' : (gameData.players[gameData.winner]?.username || 'Соперник');
+            gameContainer.innerHTML = `
+                <h3>${gameData.winner === currentUser.uid ? '🎉 Победа!' : '😞 Поражение'}</h3>
+                <p>Победитель: <strong>${winner}</strong></p>
+                <button class="btn" id="new-game-btn">Новая игра</button>
+            `;
+            document.getElementById('new-game-btn').addEventListener('click', () => {
+                if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
+                gameId = null; gameData = null;
+                clearSetupTimer();
+                showLobby();
+            });
+        }
+
+        // ========== ВЫХОД ИЗ ИГРЫ ==========
+        async function cancelGame() {
+            if (!gameId) return;
+            await db.collection('battles').doc(gameId).update({
+                status: 'finished',
+                winner: 'cancelled'
+            });
+            clearSetupTimer();
+            if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
+            gameId = null; gameData = null;
+            showLobby();
+            showToast('Игра отменена', 'info');
+        }
+
+        async function surrender() {
+            if (!gameId || !gameData) return;
+            const opponentUid = getOpponentUid();
+            await db.collection('battles').doc(gameId).update({
+                status: 'finished',
+                winner: opponentUid,
+                surrendered: currentUser.uid
+            });
+            clearSetupTimer();
+            await handleGameEnd(opponentUid);
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (unsubscribeGame) unsubscribeGame();
+            if (unsubscribeOpenGames) unsubscribeOpenGames();
+            clearSetupTimer();
+        });
+    })();
+</script>
+</body>
+</html>
