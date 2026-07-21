@@ -180,7 +180,7 @@
 
 <script>
     (function() {
-        const WIN_SCORE = 3; // до скольки побед
+        const WIN_SCORE = 3;
         const gameContainer = document.getElementById('tab-content');
         let currentUser = null, gameId = null, gameData = null;
         let myUid = null, opponentUid = null;
@@ -189,6 +189,7 @@
         let moveInProgress = false;
         let myScore = 0, opponentScore = 0;
         let myChoice = null, opponentChoice = null;
+        let roundResolved = false;
 
         auth.onAuthStateChanged(async user => {
             if (!user) {
@@ -227,6 +228,7 @@
             gameId = null; gameData = null;
             myScore = 0; opponentScore = 0;
             myChoice = null; opponentChoice = null;
+            roundResolved = false;
 
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -440,6 +442,12 @@
             if (gameData.status === 'waiting') {
                 renderWaitingScreen();
             } else if (gameData.status === 'active') {
+                // Проверяем, завершен ли раунд (оба выбрали)
+                if (myChoice && opponentChoice && !roundResolved) {
+                    roundResolved = true;
+                    resolveRound().finally(() => { roundResolved = false; });
+                    return; // resolveRound вызовет обновление данных, которое снова вызовет updateGameState
+                }
                 renderGameScreen();
             } else if (gameData.status === 'finished') {
                 renderFinishedScreen();
@@ -461,12 +469,10 @@
 
         // ========== ИГРОВОЙ ЭКРАН ==========
         function renderGameScreen() {
-            const roundActive = !myChoice && !opponentChoice; // никто еще не выбрал
             const waitingOpponent = myChoice && !opponentChoice;
             const bothChosen = myChoice && opponentChoice;
 
-            let html = '';
-            html += '<div class="scoreboard">';
+            let html = '<div class="scoreboard">';
             html += `<div class="player-score"><div>Вы</div><div class="score">${myScore}</div></div>`;
             html += `<div class="player-score"><div>Соперник</div><div class="score">${opponentScore}</div></div>`;
             html += '</div>';
@@ -498,7 +504,7 @@
 
             gameContainer.innerHTML = html;
 
-            // Кнопки выбора
+            // Обработчики кнопок выбора
             if (!myChoice && !moveInProgress && !waitingOpponent) {
                 document.querySelectorAll('.choice-btn:not([disabled])').forEach(btn => {
                     btn.addEventListener('click', () => {
@@ -511,8 +517,8 @@
             const surrenderBtn = document.getElementById('surrender-btn');
             if (surrenderBtn) surrenderBtn.addEventListener('click', surrender);
 
-            // ИИ ходит, если его очередь
-            if (isAI && !opponentChoice && gameData.status === 'active' && !moveInProgress) {
+            // Ход ИИ
+            if (isAI && !opponentChoice && gameData.status === 'active' && !moveInProgress && !roundResolved) {
                 setTimeout(() => aiMove(), 600 + Math.random() * 800);
             }
         }
@@ -528,12 +534,12 @@
                 await db.collection('rps_games').doc(gameId).update({
                     [`currentRound.${currentUser.uid}`]: choice
                 });
-                // Если после этого оба выбрали (в onSnapshot обновится), то обработается автоматически
             } catch (e) {
                 showToast('Ошибка выбора: ' + e.message, 'error');
                 moveInProgress = false;
             }
             // Блокировка снимется при следующем обновлении onSnapshot
+            moveInProgress = false;
         }
 
         function getRoundResult(my, opponent) {
@@ -544,7 +550,6 @@
             return 'lose';
         }
 
-        // Вызывается при onSnapshot, когда оба выбора сделаны
         async function resolveRound() {
             if (!myChoice || !opponentChoice || gameData.status !== 'active') return;
             const result = getRoundResult(myChoice, opponentChoice);
@@ -569,19 +574,6 @@
             if (winnerUid) {
                 await handleGameEnd(winnerUid === currentUser.uid);
             }
-            // Сбросим локальные переменные (они обновятся в onSnapshot)
-        }
-
-        // Проверка в updateGameState: если оба выбраны и игра активна, вызываем resolveRound
-        // Но нужно избежать повторного вызова. Добавим флаг roundResolved.
-        let roundResolved = false;
-        function updateGameState() {
-            // ... (как выше, но после обновления переменных)
-            if (gameData.status === 'active' && myChoice && opponentChoice && !roundResolved) {
-                roundResolved = true;
-                resolveRound().finally(() => { roundResolved = false; });
-            }
-            // ... остальной рендер
         }
 
         async function aiMove() {
@@ -593,13 +585,11 @@
                     aiChoice = ['rock', 'scissors', 'paper'][Math.floor(Math.random() * 3)];
                     break;
                 case 'medium':
-                    // Простейшая эвристика: повторяет последний ход игрока с вероятностью 50%
                     const history = gameData.roundsHistory || [];
                     const last = history.length > 0 ? history[history.length-1][currentUser.uid] : null;
                     aiChoice = last && Math.random() < 0.5 ? last : ['rock', 'scissors', 'paper'][Math.floor(Math.random() * 3)];
                     break;
                 case 'hard':
-                    // Контр-ход на наиболее частый ход игрока
                     const counts = { rock: 0, scissors: 0, paper: 0 };
                     gameData.roundsHistory?.forEach(r => {
                         const p = r[currentUser.uid];
@@ -657,7 +647,6 @@
             }
             if (typeof checkAndAwardAchievements === 'function') await checkAndAwardAchievements();
 
-            // Очистка
             if (unsubscribeGame) {
                 unsubscribeGame();
                 unsubscribeGame = null;
