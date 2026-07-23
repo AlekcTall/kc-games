@@ -61,7 +61,7 @@ function getAchievementsConfig() {
     { id: 'rps_beat_hard', name: 'Превзойдя машину', description: 'Победите сложный ИИ (Камень-ножницы-бумага)', icon: '👑', hidden: true },
     { id: 'rps_pvp_win', name: 'Дуэлянт', description: 'Победите живого игрока (Камень-ножницы-бумага)', icon: '⚔️', hidden: false },
 
-    // Тетрис (новые)
+    // Тетрис
     { id: 'tetris_5games', name: 'Тетрис-любитель', description: 'Сыграйте 5 игр в Тетрис', icon: '🧱', hidden: false },
     { id: 'tetris_1line', name: 'Первая линия', description: 'Соберите 1 линию в Тетрисе', icon: '📏', hidden: false },
     { id: 'tetris_tetris', name: 'Тетрис', description: 'Соберите 4 линии одновременно (Тетрис)', icon: '🔥', hidden: true },
@@ -195,7 +195,7 @@ async function checkAndAwardAchievements() {
       case 'tictactoe_beat_hard': earned = (tictactoeStats.beatHardAI || false) === true; break;
       case 'tictactoe_pvp_win': earned = (tictactoeStats.pvpWins || 0) >= 1; break;
 
-      // Камень-ножницы-бумага
+      // Камень-ножницы-бумага (исправлено)
       case 'rps_first_win': earned = ((rpsStats.pvpWins || 0) + (rpsStats.pveWins || 0)) >= 1; break;
       case 'rps_streak3': earned = (rpsStats.bestWinStreak || 0) >= 3; break;
       case 'rps_beat_hard': earned = (rpsStats.beatHardAI || false) === true; break;
