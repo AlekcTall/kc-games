@@ -9,12 +9,17 @@ async function firebaseRegister(email, password, username, department) {
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
+
+    // Сохраняем имя в профиле Auth
     await user.updateProfile({ displayName: username });
+
+    // Отправляем письмо для подтверждения email
     await user.sendEmailVerification();
 
     // Создаём документ в Firestore
+    // Временно записываем email в поле username, позже администратор исправит в админке
     await db.collection('users').doc(user.uid).set({
-      username: username,
+      username: email, // <-- пока записываем email, чтобы избежать проблем с правами записи
       email: email,
       department: department,
       points: 0,
