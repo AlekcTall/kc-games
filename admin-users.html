@@ -103,7 +103,7 @@
             return loadDepartments();
           }
         } catch (e) {
-          departmentsCache = ['РБ','МСБ','ТМ','Депозиты','ОКК','ООБП','Боссы','Заблудшие души'].map((n, i) => ({ id: 'fb' + i, name: n }));
+          departmentsCache = def.map((n,i)=>({id:'fb'+i, name:n}));
         }
       }
 
@@ -230,7 +230,7 @@
               ? renderAvatarDiv(user)
               : `<div class="avatar-circle" style="background-color:${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
             html += `<tr data-user-id="${user.uid}">
-              <td class="player-cell">${av}<span>${user.username}</span></td>
+              <td class="player-cell">${av}<span class="editable" data-field="username">${user.username}</span></td>
               <td>${user.email}</td>
               <td class="editable" data-field="department">${user.department || '—'}</td>
               <td class="editable" data-field="points">${user.points}</td>
@@ -272,7 +272,8 @@
               cells.forEach(c => {
                 const f = c.dataset.field,
                       v = c.innerText;
-                if (f === 'role') c.innerHTML = `<select class="edit-role"><option value="user" ${v === 'user' ? 'selected' : ''}>user</option><option value="admin" ${v === 'admin' ? 'selected' : ''}>admin</option></select>`;
+                if (f === 'username') c.innerHTML = `<input type="text" class="edit-username" value="${v}" style="width:150px;">`;
+                else if (f === 'role') c.innerHTML = `<select class="edit-role"><option value="user" ${v === 'user' ? 'selected' : ''}>user</option><option value="admin" ${v === 'admin' ? 'selected' : ''}>admin</option></select>`;
                 else if (f === 'department') c.innerHTML = `<select class="edit-department">${departmentsCache.map(d => `<option value="${d.name}" ${v === d.name ? 'selected' : ''}>${d.name}</option>`).join('')}</select>`;
                 else if (f === 'points') c.innerHTML = `<input type="number" class="edit-points" value="${v}" min="0">`;
               });
@@ -285,7 +286,8 @@
               const nd = {};
               cells.forEach(c => {
                 const f = c.dataset.field;
-                if (f === 'role') nd.role = c.querySelector('select').value;
+                if (f === 'username') nd.username = c.querySelector('input').value.trim();
+                else if (f === 'role') nd.role = c.querySelector('select').value;
                 else if (f === 'department') nd.department = c.querySelector('select').value;
                 else if (f === 'points') nd.points = parseInt(c.querySelector('input').value, 10) || 0;
               });
@@ -294,9 +296,13 @@
                 showToast('Обновлено', 'success');
                 Object.assign(user, nd);
                 cells.forEach(c => {
-                  c.innerText = nd[c.dataset.field];
+                  if (c.dataset.field === 'username') c.innerText = nd.username || user.username;
+                  else c.innerText = nd[c.dataset.field] !== undefined ? nd[c.dataset.field] : user[c.dataset.field];
                   c.dataset.original = c.innerText;
                 });
+                // Обновляем имя в первой ячейке (аватар)
+                const nameSpan = row.querySelector('.editable[data-field="username"]');
+                if (nameSpan) nameSpan.innerText = nd.username || user.username;
                 edit.style.display = 'inline-block';
                 save.style.display = 'none';
                 cancel.style.display = 'none';
