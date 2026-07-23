@@ -84,6 +84,19 @@
     .login-prompt { text-align: center; padding: 3rem 1rem; }
     .login-prompt h3 { margin-bottom: 0.5rem; color: var(--color-header); }
     .login-prompt p { margin-bottom: 1.5rem; color: #666; }
+    /* Скелетоны */
+    .skeleton-block { animation: shimmer 1.5s infinite; }
+    .skeleton-inline { display: inline-block; background: #e0e0e0; border-radius: 4px; height: 1rem; }
+    .skeleton-avatar { width: 80px; height: 80px; border-radius: 50%; background: #e0e0e0; }
+    .skeleton-name { width: 150px; height: 1.5rem; background: #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem; }
+    .skeleton-badge { width: 60px; height: 1rem; background: #e0e0e0; border-radius: 4px; display: inline-block; }
+    .skeleton-text { height: 0.9rem; width: 100%; background: #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem; }
+    .skeleton-stat { height: 60px; background: #e0e0e0; border-radius: 12px; }
+    .skeleton-achievement { display: inline-block; width: 80px; height: 30px; background: #e0e0e0; border-radius: 6px; margin: 0.2rem; }
+    .skeleton-calendar-day { width: 48px; height: 64px; background: #e0e0e0; border-radius: 10px; display: inline-block; }
+    @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+    .error-message { color: #e74c3c; font-style: italic; }
+    .loading-note { font-size: 0.8rem; color: #888; text-align: center; }
   </style>
 </head>
 <body>
@@ -107,153 +120,426 @@
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
   <script>
-    let departmentsList = [];
-    async function loadDepartments() { try { const s = await db.collection('departments').orderBy('name').get(); departmentsList = []; s.forEach(d => departmentsList.push(d.data().name)); if (!departmentsList.length) departmentsList = ['РБ','МСБ','ТМ','Депозиты','ОКК','ООБП','Боссы','Заблудшие души']; } catch (e) { departmentsList = ['Не удалось загрузить']; } }
-    function getInitials(f){if(!f)return'?';const p=f.trim().split(/\s+/);return p.length>1?(p[0][0]+p[p.length-1][0]).toUpperCase():f[0].toUpperCase();}
-    function getColorFromUid(u){let h=0;for(let i=0;i<u.length;i++)h=u.charCodeAt(i)+((h<<5)-h);return`hsl(${Math.abs(h%360)},60%,70%)`;}
-    function renderAvatarDiv(user, extraClass=''){ const i=getInitials(user.username),c=getColorFromUid(user.uid); return `<div class="avatar-circle ${extraClass}" style="background-color:${c};" title="${user.username}">${i}</div>`; }
-    function buildStatsHTML(u){ const h=u.gameHistory||[]; const d={},g={}; h.forEach(e=>{ const dt=new Date(e.timestamp).toISOString().slice(0,10); d[dt]=(d[dt]||0)+e.points; const gn=e.game==='clicker'?'🖱️ Кликер':e.game==='memory'?'🧠 Найди пару':e.game==='snake'?'🐍 Змейка':e.game; g[gn]=(g[gn]||0)+e.points; }); const days=Object.values(d),t=days.reduce((a,b)=>a+b,0),bd=Math.max(...days),bdd=Object.keys(d).find(x=>d[x]===bd),av=days.length?Math.round(t/days.length):0,bg=Object.entries(g).sort((a,b)=>b[1]-a[1])[0]; return `<div class="stats-grid"><div class="stat-card"><span class="stat-icon">⭐</span><div class="stat-detail"><div class="stat-value">${t}</div><div class="stat-label">Всего баллов</div></div></div><div class="stat-card"><span class="stat-icon">💰</span><div class="stat-detail"><div class="stat-value">${u.lokoin_balance||0}</div><div class="stat-label">Локоинов</div></div></div><div class="stat-card"><span class="stat-icon">📅</span><div class="stat-detail"><div class="stat-value">${bdd?new Date(bdd).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}):'—'}</div><div class="stat-label">Лучший день (${bd||0} балл.)</div></div></div><div class="stat-card"><span class="stat-icon">📊</span><div class="stat-detail"><div class="stat-value">${av}</div><div class="stat-label">Средний заработок</div></div></div><div class="stat-card"><span class="stat-icon">🎮</span><div class="stat-detail"><div class="stat-value">${bg?bg[0]:'—'}</div><div class="stat-label">Топ игра (${bg?bg[1]:0} балл.)</div></div></div></div>`; }
-    function buildDailyCalendar(dl){ const lh=dl?.loginHistory||[],s=dl?.streak||0,lo=dl?.longestStreak||0,to=dl?.totalLogins||0; const days=[],n=new Date(); for(let i=6;i>=0;i--){ const d=new Date(n.getTime()+3*3600000);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10),done=lh.includes(ds),today=ds===getMoscowDate(),rw=getDailyReward(s>0&&done?Math.min(s,7):1);days.push({ds,done,today,dayNum:d.getDate(),reward:done?rw:null});} let h='<div class="daily-calendar"><h3 class="section-title">📅 Ежедневный вход</h3><div class="daily-streak-info"><span>🔥 Серия: '+s+' дн.</span><span>🏆 Рекорд: '+lo+' дн.</span><span>📊 Всего: '+to+' вх.</span></div><div class="daily-calendar-grid">'; const dn=['Пн','Вт','Ср','Чт','Пт','Сб','Вс']; days.forEach((day,idx)=>{ const d=new Date(n.getTime()+3*3600000);d.setDate(d.getDate()-(6-idx));const dayName=dn[d.getDay()===0?6:d.getDay()-1];let cls='';if(day.today&&day.done)cls='completed today';else if(day.today)cls='today';else if(day.done)cls='completed';else cls='missed';h+=`<div class="daily-day ${cls}" title="${day.ds}"><div>${dayName}</div><div class="day-num">${day.dayNum}</div>${day.reward?`<div class="day-reward">+${day.reward.points}</div>`:''}</div>`; }); h+='</div></div>';return h; }
-    function getMoscowDate(){ return new Date(Date.now()+3*3600000).toISOString().slice(0,10); }
-    function getDailyReward(day){ const r={1:{points:2,lokoin:1},2:{points:3,lokoin:1},3:{points:5,lokoin:2},4:{points:5,lokoin:2},5:{points:8,lokoin:3},6:{points:8,lokoin:3},7:{points:12,lokoin:5}}; return day>7?r[7]:r[day]||r[1]; }
-    async function loadUserAwards(uid){ try{ const s=await db.collection('users').doc(uid).collection('awarded').get();if(s.empty)return[];const a=[];for(const doc of s.docs){const ad=doc.data();const adoc=await db.collection('awards').doc(ad.awardId).get();if(adoc.exists)a.push({...adoc.data(),id:adoc.id,comment:ad.comment,awardedAt:ad.awardedAt});}a.sort((x,y)=>(y.awardedAt?.seconds||0)-(x.awardedAt?.seconds||0));return a;}catch(e){return[];} }
+    (function() {
+      const CACHE_KEY = 'krugames_profile_cache';
+      const CACHE_TTL = 2 * 60 * 1000; // 2 минуты
+      let departmentsList = [];
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      await loadDepartments();
-      const container=document.getElementById('profile-container');
-      const achModal=document.getElementById('ach-modal'),achModalClose=document.getElementById('ach-modal-close'),achModalIcon=document.getElementById('ach-modal-icon'),achModalTitle=document.getElementById('ach-modal-title'),achModalDesc=document.getElementById('ach-modal-desc'),achModalStatus=document.getElementById('ach-modal-status');
-      async function showAchievementModal(ach, unlocked){ achModalIcon.textContent=ach.hidden&&!unlocked?'❓':ach.icon;achModalTitle.textContent=ach.hidden&&!unlocked?'???':ach.name;achModalDesc.textContent=ach.hidden&&!unlocked?'Откройте, чтобы узнать':ach.description;let st='';if(!ach.hidden||unlocked){const p=typeof getAchievementStats==='function'?await getAchievementStats(ach.id):0;st=`<br><small style="color:#888;">Получили ${p}% пользователей</small>`;}achModalStatus.innerHTML=unlocked?'<span class="ach-unlocked-status">✅ Получено</span>'+st:'<span class="ach-locked-status">🔒 Ещё не получено</span>'+st;achModal.style.display='flex'; }
-      achModalClose.addEventListener('click',()=>{achModal.style.display='none';});window.addEventListener('click',e=>{if(e.target===achModal)achModal.style.display='none';});
-      const awardDetailModal=document.getElementById('award-detail-modal');document.getElementById('award-detail-close').addEventListener('click',()=>{awardDetailModal.style.display='none';});window.addEventListener('click',e=>{if(e.target===awardDetailModal)awardDetailModal.style.display='none';});
-      function showAwardDetailModal(award){document.getElementById('award-detail-icon').innerHTML=`<img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'">`;document.getElementById('award-detail-title').textContent=award.name;document.getElementById('award-detail-desc').textContent=award.description||'';document.getElementById('award-detail-comment').textContent=award.comment?`«${award.comment}»`:'';awardDetailModal.style.display='flex';}
-      const dailyRewardModal=document.getElementById('daily-reward-modal');document.getElementById('daily-reward-close').addEventListener('click',()=>{dailyRewardModal.style.display='none';});document.getElementById('daily-reward-claim-btn').addEventListener('click',()=>{dailyRewardModal.style.display='none';});window.addEventListener('click',e=>{if(e.target===dailyRewardModal)dailyRewardModal.style.display='none';});
-      function showDailyRewardModal(rd){document.getElementById('daily-reward-streak').textContent=`День ${rd.streak} подряд`;document.getElementById('daily-reward-points').textContent=`+${rd.points}`;document.getElementById('daily-reward-lokoin').textContent=`+${rd.lokoin}`;dailyRewardModal.style.display='flex';}
-
-      auth.onAuthStateChanged(async (firebaseUser) => {
-        if (firebaseUser) {
-          const loginResult = await processDailyLogin(firebaseUser.uid);
-          const doc = await db.collection('users').doc(firebaseUser.uid).get();
-          if (doc.exists) {
-            const u = doc.data();
-            const user = { uid: firebaseUser.uid, email: firebaseUser.email, ...u };
-            syncUserToLocal(user);
-            if (user.activeTheme === 'dark') document.body.classList.add('dark-theme');
-            else document.body.classList.remove('dark-theme');
-            if (loginResult) setTimeout(() => showDailyRewardModal(loginResult), 500);
-            renderProfile(user);
-          } else {
-            auth.signOut();
-            renderLoginPrompt();
-          }
-        } else {
-          renderLoginPrompt();
-        }
-      });
-
-      function renderLoginPrompt() {
-        container.innerHTML = `<div class="login-prompt"><h3>🔒 Вы не авторизованы</h3><p>Войдите в профиль, чтобы отслеживать баллы, достижения и участвовать в ивентах.</p><a href="login.html?redirect=profile.html" class="btn">Войти</a></div>`;
+      async function loadDepartments() {
+        try { const s = await db.collection('departments').orderBy('name').get(); departmentsList = []; s.forEach(d => departmentsList.push(d.data().name)); if (!departmentsList.length) departmentsList = ['РБ','МСБ','ТМ','Депозиты','ОКК','ООБП','Боссы','Заблудшие души']; }
+        catch (e) { departmentsList = ['Не удалось загрузить']; }
       }
 
-      async function renderProfile(user){
-        const achCfg=getAchievementsConfig(),gh=user.gameHistory||[],purchased=user.purchasedItems||[],hasTheme=purchased.includes('dark_theme'),emailVerified=auth.currentUser?auth.currentUser.emailVerified:false,dailyLogin=user.dailyLogin||{},userAwards=await loadUserAwards(user.uid);
-        const hasGoldFrame=purchased.includes('gold_frame'),hasAnimatedAvatar=purchased.includes('animated_avatar'),hasCustomStatus=purchased.includes('custom_status');
-        const showGoldFrame=user.showGoldFrame!==false; const showAnimatedAvatar=user.showAnimatedAvatar!==false;
-        let avatarClass='';
-        if(hasGoldFrame&&hasAnimatedAvatar&&showGoldFrame&&showAnimatedAvatar)avatarClass='gold-frame animated-avatar';
-        else if(hasGoldFrame&&showGoldFrame)avatarClass='gold-frame';
-        else if(hasAnimatedAvatar&&showAnimatedAvatar)avatarClass='animated-avatar';
-        const customStatus=user.customStatus||'';
+      function getCachedProfile() {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < CACHE_TTL) {
+              return parsed.data;
+            }
+          } catch (e) {}
+        }
+        return null;
+      }
 
-        container.innerHTML=`<div class="profile-box">
-          <div class="profile-header">${renderAvatarDiv(user,avatarClass)}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${hasCustomStatus&&customStatus?`<div class="custom-status-text">«${customStatus}»</div>`:''}${user.department?`<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>`:''}<p><small>${user.email}</small></p></div></div>
-          ${!emailVerified?'<div class="verify-warning">⚠️ Email не подтверждён. <button class="btn" id="resend-verify-btn">Отправить письмо</button></div>':''}
-          <div class="profile-details"><p><strong>Баллы:</strong> ${user.points||0}</p><p><strong>Локоины:</strong> ${user.lokoin_balance||0}</p><p><strong>О себе:</strong> ${user.description||'—'}</p></div>
+      function setCachedProfile(profileData) {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+          timestamp: Date.now(),
+          data: profileData
+        }));
+      }
+
+      function buildStatsHTML(history) {
+        if (!history || history.length === 0) return '<p class="no-data">Нет данных для статистики.</p>';
+        const d = {}, g = {};
+        history.forEach(e => {
+          const dt = new Date(e.timestamp).toISOString().slice(0, 10);
+          d[dt] = (d[dt] || 0) + e.points;
+          const gn = e.game === 'clicker' ? '🖱️ Кликер' : e.game === 'memory' ? '🧠 Найди пару' : e.game === 'snake' ? '🐍 Змейка' : e.game;
+          g[gn] = (g[gn] || 0) + e.points;
+        });
+        const days = Object.values(d),
+              t = days.reduce((a, b) => a + b, 0),
+              bd = Math.max(...days),
+              bdd = Object.keys(d).find(x => d[x] === bd) || '—',
+              av = days.length ? Math.round(t / days.length) : 0,
+              bg = Object.entries(g).sort((a, b) => b[1] - a[1])[0];
+        return `<div class="stats-grid">
+          <div class="stat-card"><span class="stat-icon">⭐</span><div class="stat-detail"><div class="stat-value">${t}</div><div class="stat-label">Всего баллов</div></div></div>
+          <div class="stat-card"><span class="stat-icon">📅</span><div class="stat-detail"><div class="stat-value">${bdd !== '—' ? new Date(bdd).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div><div class="stat-label">Лучший день (${bd} балл.)</div></div></div>
+          <div class="stat-card"><span class="stat-icon">📊</span><div class="stat-detail"><div class="stat-value">${av}</div><div class="stat-label">Средний заработок</div></div></div>
+          <div class="stat-card"><span class="stat-icon">🎮</span><div class="stat-detail"><div class="stat-value">${bg ? bg[0] : '—'}</div><div class="stat-label">Самая результативная (${bg ? bg[1] : 0} балл.)</div></div></div>
+        </div>`;
+      }
+
+      function buildDailyCalendar(dailyLogin) {
+        const lh = dailyLogin?.loginHistory || [],
+              s = dailyLogin?.streak || 0,
+              lo = dailyLogin?.longestStreak || 0,
+              to = dailyLogin?.totalLogins || 0;
+        const days = [], n = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(n.getTime() + 3*3600000);
+          d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0,10),
+                done = lh.includes(ds),
+                today = ds === getMoscowDate(),
+                rw = getDailyReward(s > 0 && done ? Math.min(s, 7) : 1);
+          days.push({ ds, done, today, dayNum: d.getDate(), reward: done ? rw : null });
+        }
+        let html = '<div class="daily-calendar"><h3 class="section-title">📅 Ежедневный вход</h3><div class="daily-streak-info"><span>🔥 Серия: '+s+' дн.</span><span>🏆 Рекорд: '+lo+' дн.</span><span>📊 Всего: '+to+' вх.</span></div><div class="daily-calendar-grid">';
+        const dn = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+        days.forEach((day, idx) => {
+          const d = new Date(n.getTime() + 3*3600000);
+          d.setDate(d.getDate() - (6 - idx));
+          const dayName = dn[d.getDay() === 0 ? 6 : d.getDay() - 1];
+          let cls = '';
+          if (day.today && day.done) cls = 'completed today';
+          else if (day.today) cls = 'today';
+          else if (day.done) cls = 'completed';
+          else cls = 'missed';
+          html += `<div class="daily-day ${cls}" title="${day.ds}"><div>${dayName}</div><div class="day-num">${day.dayNum}</div>${day.reward ? `<div class="day-reward">+${day.reward.points}</div>` : ''}</div>`;
+        });
+        html += '</div></div>';
+        return html;
+      }
+
+      function getMoscowDate(){ return new Date(Date.now()+3*3600000).toISOString().slice(0,10); }
+      function getDailyReward(day){ const r={1:{points:2,lokoin:1},2:{points:3,lokoin:1},3:{points:5,lokoin:2},4:{points:5,lokoin:2},5:{points:8,lokoin:3},6:{points:8,lokoin:3},7:{points:12,lokoin:5}}; return day>7?r[7]:r[day]||r[1]; }
+
+      async function loadUserAwards(uid) {
+        try {
+          const s = await db.collection('users').doc(uid).collection('awarded').get();
+          if (s.empty) return [];
+          const a = [];
+          for (const doc of s.docs) {
+            const ad = doc.data();
+            const adoc = await db.collection('awards').doc(ad.awardId).get();
+            if (adoc.exists) a.push({ ...adoc.data(), id: adoc.id, comment: ad.comment, awardedAt: ad.awardedAt });
+          }
+          a.sort((x, y) => (y.awardedAt?.seconds || 0) - (x.awardedAt?.seconds || 0));
+          return a;
+        } catch (e) { return []; }
+      }
+
+      // Рендер скелетонов для всей страницы
+      function renderFullSkeleton(container) {
+        container.innerHTML = `<div class="profile-box skeleton-block">
+          <div class="profile-header" style="display:flex; align-items:center; gap:1rem;">
+            <div class="skeleton-avatar"></div>
+            <div><div class="skeleton-name"></div><div class="skeleton-badge"></div></div>
+          </div>
+          <div style="margin-top:1rem;"><div class="skeleton-text" style="width:60%;"></div><div class="skeleton-text" style="width:40%;"></div></div>
+          <h3 class="section-title">Календарь</h3>
+          <div class="skeleton-calendar-day"></div> <div class="skeleton-calendar-day"></div> <div class="skeleton-calendar-day"></div> <div class="skeleton-calendar-day"></div> <div class="skeleton-calendar-day"></div> <div class="skeleton-calendar-day"></div> <div class="skeleton-calendar-day"></div>
+          <h3 class="section-title">Награды</h3>
+          <div class="skeleton-text" style="width:50%;"></div>
+          <h3 class="section-title">Достижения</h3>
+          <div>${Array.from({length:5}, () => '<span class="skeleton-achievement"></span>').join('')}</div>
+          <h3 class="section-title">История игр</h3>
+          <div><div class="skeleton-text" style="width:100%;"></div><div class="skeleton-text" style="width:90%;"></div><div class="skeleton-text" style="width:80%;"></div></div>
+          <h3 class="section-title">Статистика</h3>
+          <div class="stats-grid" style="grid-template-columns: repeat(2,1fr);">
+            <div class="skeleton-stat"></div><div class="skeleton-stat"></div><div class="skeleton-stat"></div><div class="skeleton-stat"></div>
+          </div>
+          <p class="loading-note">Загрузка профиля...</p>
+        </div>`;
+      }
+
+      // Основная функция отрисовки данных
+      async function renderProfile(user, awards, isCached = false) {
+        const container = document.getElementById('profile-container');
+        if (!container) return;
+
+        const achCfg = getAchievementsConfig();
+        const purchased = user.purchasedItems || [];
+        const hasTheme = purchased.includes('dark_theme');
+        const emailVerified = auth.currentUser ? auth.currentUser.emailVerified : false;
+        const dailyLogin = user.dailyLogin || {};
+        const gameHistory = user.gameHistory || [];
+        const achievements = user.achievements || [];
+        const hasGoldFrame = purchased.includes('gold_frame');
+        const hasAnimatedAvatar = purchased.includes('animated_avatar');
+        const hasCustomStatus = purchased.includes('custom_status');
+        const showGoldFrame = user.showGoldFrame !== false;
+        const showAnimatedAvatar = user.showAnimatedAvatar !== false;
+        let avatarClass = '';
+        if (hasGoldFrame && hasAnimatedAvatar && showGoldFrame && showAnimatedAvatar) avatarClass = 'gold-frame animated-avatar';
+        else if (hasGoldFrame && showGoldFrame) avatarClass = 'gold-frame';
+        else if (hasAnimatedAvatar && showAnimatedAvatar) avatarClass = 'animated-avatar';
+        const customStatus = user.customStatus || '';
+        const avatarHtml = typeof renderAvatarDiv === 'function' ? renderAvatarDiv({ username: user.username, uid: user.uid }, avatarClass) : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
+
+        let html = `<div class="profile-box">
+          <div class="profile-header">${avatarHtml}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${hasCustomStatus && customStatus ? `<div class="custom-status-text">«${customStatus}»</div>` : ''}${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}<p><small>${user.email}</small></p></div></div>
+          ${!emailVerified ? '<div class="verify-warning">⚠️ Email не подтверждён. <button class="btn" id="resend-verify-btn">Отправить письмо</button></div>' : ''}
+          <div class="profile-details"><p><strong>Баллы:</strong> ${user.points || 0}</p><p><strong>Локоины:</strong> ${user.lokoin_balance || 0}</p><p><strong>О себе:</strong> ${user.description || '—'}</p></div>
           ${buildDailyCalendar(dailyLogin)}
-          ${userAwards.length>0?`<div class="awards-section"><h3 class="section-title">🎖️ Награды</h3><div class="awards-grid">${userAwards.map(a=>`<div class="award-card" data-award-id="${a.id}"><div class="award-card-icon"><img src="img/awards/${a.icon}" alt="${a.name}"></div><div class="award-card-info"><div class="award-card-name">${a.name}</div>${a.comment?`<div class="award-card-comment">${a.comment}</div>`:''}</div></div>`).join('')}</div></div>`:''}
-          <h3 class="section-title">Достижения (${(user.achievements||[]).length}/${achCfg.length})</h3>
-          <div class="achievements-grid">${achCfg.map(ach=>{const unl=(user.achievements||[]).includes(ach.id),hid=ach.hidden&&!unl;return`<div class="achievement-item ${unl?'unlocked':'locked'}" data-ach-id="${ach.id}"><span class="ach-icon">${hid?'❓':ach.icon}</span><span class="ach-name">${hid?'???':ach.name}</span></div>`;}).join('')}</div>
-          <h3 class="section-title">История игр</h3><div id="history-container">${gh.length===0?'<p class="no-data">Пока не сыграно ни одной игры.</p>':`<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container"></div>`}</div>
-          <h3 class="section-title">Статистика</h3><div id="stats-container"></div>
-          ${hasTheme?`<div class="accordion"><button class="accordion-header"><span>🎨 Тема</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div><div class="theme-btns"><button class="theme-btn ${user.activeTheme!=='dark'?'active':''}" data-theme="light">☀️ Светлая</button><button class="theme-btn ${user.activeTheme==='dark'?'active':''}" data-theme="dark">🌙 Тёмная</button></div></div></div></div>`:''}
-          ${hasGoldFrame||hasAnimatedAvatar?`<div class="accordion"><button class="accordion-header"><span>✨ Эффекты профиля</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div>${hasGoldFrame?`<div class="effect-toggle"><label><input type="checkbox" id="toggle-gold-frame" ${showGoldFrame?'checked':''}> 🖼️ Золотая рамка</label></div>`:''}${hasAnimatedAvatar?`<div class="effect-toggle"><label><input type="checkbox" id="toggle-animated-avatar" ${showAnimatedAvatar?'checked':''}> ✨ Анимация аватара</label></div>`:''}</div></div></div>`:''}
-          <div class="accordion"><button class="accordion-header"><span>✏️ Редактировать профиль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-edit"><div class="form-group"><label for="desc">О себе</label><textarea id="desc" rows="3">${user.description||''}</textarea></div>${hasCustomStatus?`<div class="form-group"><label for="custom-status">Кастомный статус</label><input type="text" id="custom-status" value="${customStatus}"></div>`:''}<button class="btn" id="save-profile-btn">Сохранить</button></div></div></div>
+          <div class="awards-section" id="awards-container">
+            ${awards ? `<h3 class="section-title">🎖️ Награды</h3>
+              <div class="awards-grid">${awards.map(a => `<div class="award-card" data-award-id="${a.id}"><div class="award-card-icon"><img src="img/awards/${a.icon}" alt="${a.name}" onerror="this.parentElement.innerHTML='🎖️'"></div><div class="award-card-info"><div class="award-card-name">${a.name}</div>${a.comment ? `<div class="award-card-comment">${a.comment}</div>` : ''}</div></div>`).join('')}</div>` :
+              (awards === undefined ? '<p class="loading-note">Загрузка наград...</p>' : '<p class="no-data">Нет наград.</p>')}
+          </div>
+          <h3 class="section-title">Достижения (${achievements.length}/${achCfg.length})</h3>
+          <div class="achievements-grid">${achCfg.map(ach => {
+            const unl = achievements.includes(ach.id);
+            const hid = ach.hidden && !unl;
+            return `<div class="achievement-item ${unl ? 'unlocked' : 'locked'}" data-ach-id="${ach.id}"><span class="ach-icon">${hid ? '❓' : ach.icon}</span><span class="ach-name">${hid ? '???' : ach.name}</span></div>`;
+          }).join('')}</div>
+          <h3 class="section-title">История игр</h3><div id="history-container">${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container" style="text-align:center;"></div>`}</div>
+          <h3 class="section-title">Статистика</h3><div id="stats-container">${buildStatsHTML(gameHistory)}</div>
+          ${hasTheme ? `<div class="accordion"><button class="accordion-header"><span>🎨 Тема</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div><div class="theme-btns"><button class="theme-btn ${user.activeTheme !== 'dark' ? 'active' : ''}" data-theme="light">☀️ Светлая</button><button class="theme-btn ${user.activeTheme === 'dark' ? 'active' : ''}" data-theme="dark">🌙 Тёмная</button></div></div></div></div>` : ''}
+          ${hasGoldFrame || hasAnimatedAvatar ? `<div class="accordion"><button class="accordion-header"><span>✨ Эффекты профиля</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div>${hasGoldFrame ? `<div class="effect-toggle"><label><input type="checkbox" id="toggle-gold-frame" ${showGoldFrame ? 'checked' : ''}> 🖼️ Золотая рамка</label></div>` : ''}${hasAnimatedAvatar ? `<div class="effect-toggle"><label><input type="checkbox" id="toggle-animated-avatar" ${showAnimatedAvatar ? 'checked' : ''}> ✨ Анимация аватара</label></div>` : ''}</div></div></div>` : ''}
+          <div class="accordion"><button class="accordion-header"><span>✏️ Редактировать профиль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-edit"><div class="form-group"><label for="desc">О себе</label><textarea id="desc" rows="3">${user.description || ''}</textarea></div>${hasCustomStatus ? `<div class="form-group"><label for="custom-status">Кастомный статус</label><input type="text" id="custom-status" value="${customStatus}"></div>` : ''}<button class="btn" id="save-profile-btn">Сохранить</button></div></div></div>
           <div class="accordion"><button class="accordion-header"><span>🔒 Сменить пароль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-password-change"><div class="form-group"><label for="old-password">Старый пароль</label><input type="password" id="old-password"></div><div class="form-group"><label for="new-password">Новый пароль</label><input type="password" id="new-password"></div><button class="btn" id="change-password-btn">Сменить</button></div></div></div>
           <button class="btn btn-logout" id="logout-btn">Выйти</button>
         </div>`;
 
-        // Обработчики для наград (теперь data-award-id присутствует)
-        document.querySelectorAll('.award-card').forEach(c=>c.addEventListener('click',()=>{
-          const a=userAwards.find(x=>x.id===c.dataset.awardId);
-          if(a)showAwardDetailModal(a);
-        }));
-        document.querySelectorAll('.achievement-item').forEach(i=>i.addEventListener('click',async()=>{
-          const ach=achCfg.find(x=>x.id===i.dataset.achId);
-          if(ach){
-            const unl=(user.achievements||[]).includes(ach.id);
-            await showAchievementModal(ach,unl);
-          }
-        }));
-        document.querySelectorAll('.accordion-header').forEach(h=>h.addEventListener('click',()=>{h.parentElement.classList.toggle('open');}));
-        document.getElementById('stats-container').innerHTML=buildStatsHTML(user);
-        if(gh.length>0){
-          const s=[...gh].reverse(),tb=document.getElementById('history-body'),mc=document.getElementById('more-container');
-          let disp=5;
-          function rr(){
-            const sl=s.slice(0,disp);
-            tb.innerHTML=sl.map(e=>{
-              const dt=new Date(e.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-              return`<tr><td>${e.game==='clicker'?'🖱️ Кликер':e.game==='memory'?'🧠 Найди пару':e.game==='snake'?'🐍 Змейка':e.game}</td><td>+${e.points}</td><td>${dt}</td></tr>`;
-            }).join('');
-            if(disp<s.length){
-              mc.innerHTML='<button class="btn-more" id="load-more-btn">Загрузить ещё</button>';
-              document.getElementById('load-more-btn').addEventListener('click',()=>{disp=Math.min(disp+10,s.length);rr();});
-            }else mc.innerHTML='';
-          }
-          rr();
-        }
-        if(hasTheme){
-          document.querySelectorAll('.theme-btn').forEach(b=>b.addEventListener('click',async()=>{
-            const t=b.dataset.theme;
-            await firebaseUpdateProfile(user.uid,{activeTheme:t});
-            document.body.classList.toggle('dark-theme',t==='dark');
-            document.querySelectorAll('.theme-btn').forEach(x=>x.classList.remove('active'));
-            b.classList.add('active');
-            showToast(`Тема изменена`,'info');
-          }));
-        }
-        const resendBtn=document.getElementById('resend-verify-btn');
-        if(resendBtn)resendBtn.addEventListener('click',async()=>{
-          try{await auth.currentUser.sendEmailVerification();showToast('Письмо отправлено!','success');}catch(e){showToast('Ошибка: '+e.message,'error');}
-        });
-        document.getElementById('save-profile-btn').addEventListener('click',async()=>{
-          const desc=document.getElementById('desc').value.trim();
-          const data={description:desc};
-          if(hasCustomStatus){data.customStatus=document.getElementById('custom-status').value.trim();}
-          try{await firebaseUpdateProfile(user.uid,data);showToast('Сохранено','success');}catch(e){showToast('Ошибка сохранения','error');}
-        });
-        document.getElementById('change-password-btn').addEventListener('click',async()=>{
-          const old=document.getElementById('old-password').value,nw=document.getElementById('new-password').value.trim();
-          if(!old||!nw)return;
-          try{
-            const cred=firebase.auth.EmailAuthProvider.credential(user.email,old);
-            await auth.currentUser.reauthenticateWithCredential(cred);
-            await auth.currentUser.updatePassword(nw);
-            showToast('Пароль изменён','success');
-          }catch(e){showToast('Ошибка: '+e.message,'error');}
-        });
-        document.getElementById('logout-btn').addEventListener('click',()=>{firebaseLogout();});
-        if(hasGoldFrame){
-          document.getElementById('toggle-gold-frame').addEventListener('change',async function(){
-            await firebaseUpdateProfile(user.uid,{showGoldFrame:this.checked});location.reload();
+        container.innerHTML = html;
+
+        // Привязка событий после рендера
+        if (awards && awards.length) {
+          document.querySelectorAll('.award-card').forEach(c => {
+            c.addEventListener('click', () => {
+              const a = awards.find(x => x.id === c.dataset.awardId);
+              if (a) showAwardDetailModal(a);
+            });
           });
         }
-        if(hasAnimatedAvatar){
-          document.getElementById('toggle-animated-avatar').addEventListener('change',async function(){
-            await firebaseUpdateProfile(user.uid,{showAnimatedAvatar:this.checked});location.reload();
+
+        document.querySelectorAll('.achievement-item').forEach(i => i.addEventListener('click', async () => {
+          const ach = achCfg.find(x => x.id === i.dataset.achId);
+          if (ach) {
+            const unl = achievements.includes(ach.id);
+            await showAchievementModal(ach, unl);
+          }
+        }));
+
+        document.querySelectorAll('.accordion-header').forEach(h => h.addEventListener('click', () => {
+          h.parentElement.classList.toggle('open');
+        }));
+
+        if (gameHistory.length > 0) {
+          const sorted = [...gameHistory].reverse();
+          const tbody = document.getElementById('history-body'),
+                moreCont = document.getElementById('more-container');
+          let disp = 5;
+          const step = 10;
+          function renderRows() {
+            const slice = sorted.slice(0, disp);
+            tbody.innerHTML = slice.map(e => {
+              const dt = new Date(e.timestamp).toLocaleString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              const gn = e.game === 'clicker' ? '🖱️ Кликер' : e.game === 'memory' ? '🧠 Найди пару' : e.game === 'snake' ? '🐍 Змейка' : e.game;
+              return `<tr><td>${gn}</td><td>+${e.points}</td><td>${dt}</td></tr>`;
+            }).join('');
+            if (disp < sorted.length) {
+              moreCont.innerHTML = `<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`;
+              document.getElementById('load-more-btn').addEventListener('click', () => {
+                disp = Math.min(disp + step, sorted.length);
+                renderRows();
+              });
+            } else {
+              moreCont.innerHTML = '';
+            }
+          }
+          renderRows();
+        }
+
+        if (hasTheme) {
+          document.querySelectorAll('.theme-btn').forEach(b => b.addEventListener('click', async () => {
+            const t = b.dataset.theme;
+            await firebaseUpdateProfile(user.uid, { activeTheme: t });
+            document.body.classList.toggle('dark-theme', t === 'dark');
+            document.querySelectorAll('.theme-btn').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            showToast('Тема изменена', 'info');
+          }));
+        }
+
+        const resendBtn = document.getElementById('resend-verify-btn');
+        if (resendBtn) resendBtn.addEventListener('click', async () => {
+          try { await auth.currentUser.sendEmailVerification(); showToast('Письмо отправлено!', 'success'); } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+
+        document.getElementById('save-profile-btn').addEventListener('click', async () => {
+          const desc = document.getElementById('desc').value.trim();
+          const data = { description: desc };
+          if (hasCustomStatus) data.customStatus = document.getElementById('custom-status').value.trim();
+          try { await firebaseUpdateProfile(user.uid, data); showToast('Сохранено', 'success'); } catch (e) { showToast('Ошибка сохранения', 'error'); }
+        });
+
+        document.getElementById('change-password-btn').addEventListener('click', async () => {
+          const old = document.getElementById('old-password').value,
+                nw = document.getElementById('new-password').value.trim();
+          if (!old || !nw) return;
+          try {
+            const cred = firebase.auth.EmailAuthProvider.credential(user.email, old);
+            await auth.currentUser.reauthenticateWithCredential(cred);
+            await auth.currentUser.updatePassword(nw);
+            showToast('Пароль изменён', 'success');
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => { firebaseLogout(); });
+
+        if (hasGoldFrame) {
+          document.getElementById('toggle-gold-frame').addEventListener('change', async function() {
+            await firebaseUpdateProfile(user.uid, { showGoldFrame: this.checked });
+            location.reload();
+          });
+        }
+        if (hasAnimatedAvatar) {
+          document.getElementById('toggle-animated-avatar').addEventListener('change', async function() {
+            await firebaseUpdateProfile(user.uid, { showAnimatedAvatar: this.checked });
+            location.reload();
           });
         }
       }
-    });
+
+      // Модальные окна (без изменений, но вынесены для использования)
+      const achModal = document.getElementById('ach-modal'),
+            achModalClose = document.getElementById('ach-modal-close'),
+            achModalIcon = document.getElementById('ach-modal-icon'),
+            achModalTitle = document.getElementById('ach-modal-title'),
+            achModalDesc = document.getElementById('ach-modal-desc'),
+            achModalStatus = document.getElementById('ach-modal-status');
+
+      async function showAchievementModal(ach, unlocked) {
+        achModalIcon.textContent = ach.hidden && !unlocked ? '❓' : ach.icon;
+        achModalTitle.textContent = ach.hidden && !unlocked ? '???' : ach.name;
+        achModalDesc.textContent = ach.hidden && !unlocked ? 'Откройте, чтобы узнать' : ach.description;
+        let st = '';
+        if (!ach.hidden || unlocked) {
+          const p = typeof getAchievementStats === 'function' ? await getAchievementStats(ach.id) : 0;
+          st = `<br><small style="color:#888;">Получили ${p}% пользователей</small>`;
+        }
+        achModalStatus.innerHTML = unlocked ? '<span class="ach-unlocked-status">✅ Получено</span>' + st : '<span class="ach-locked-status">🔒 Ещё не получено</span>' + st;
+        achModal.style.display = 'flex';
+      }
+      achModalClose.addEventListener('click', () => { achModal.style.display = 'none'; });
+      window.addEventListener('click', e => { if (e.target === achModal) achModal.style.display = 'none'; });
+
+      const awardDetailModal = document.getElementById('award-detail-modal');
+      document.getElementById('award-detail-close').addEventListener('click', () => { awardDetailModal.style.display = 'none'; });
+      window.addEventListener('click', e => { if (e.target === awardDetailModal) awardDetailModal.style.display = 'none'; });
+
+      function showAwardDetailModal(award) {
+        document.getElementById('award-detail-icon').innerHTML = `<img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'">`;
+        document.getElementById('award-detail-title').textContent = award.name;
+        document.getElementById('award-detail-desc').textContent = award.description || '';
+        document.getElementById('award-detail-comment').textContent = award.comment ? `«${award.comment}»` : '';
+        awardDetailModal.style.display = 'flex';
+      }
+
+      const dailyRewardModal = document.getElementById('daily-reward-modal');
+      document.getElementById('daily-reward-close').addEventListener('click', () => { dailyRewardModal.style.display = 'none'; });
+      document.getElementById('daily-reward-claim-btn').addEventListener('click', () => { dailyRewardModal.style.display = 'none'; });
+      window.addEventListener('click', e => { if (e.target === dailyRewardModal) dailyRewardModal.style.display = 'none'; });
+
+      function showDailyRewardModal(rd) {
+        document.getElementById('daily-reward-streak').textContent = `День ${rd.streak} подряд`;
+        document.getElementById('daily-reward-points').textContent = `+${rd.points}`;
+        document.getElementById('daily-reward-lokoin').textContent = `+${rd.lokoin}`;
+        dailyRewardModal.style.display = 'flex';
+      }
+
+      // Инициализация после аутентификации
+      document.addEventListener('DOMContentLoaded', async () => {
+        await loadDepartments();
+        const container = document.getElementById('profile-container');
+
+        auth.onAuthStateChanged(async (firebaseUser) => {
+          if (!firebaseUser) {
+            container.innerHTML = `<div class="login-prompt"><h3>🔒 Вы не авторизованы</h3><p>Войдите в профиль, чтобы отслеживать баллы, достижения и участвовать в ивентах.</p><a href="login.html?redirect=profile.html" class="btn">Войти</a></div>`;
+            return;
+          }
+
+          // Проверяем кеш
+          const cached = getCachedProfile();
+          if (cached) {
+            // Показываем закешированные данные
+            renderProfile(cached.user, cached.awards, true);
+            // В фоне обновляем
+            loadFreshProfile(firebaseUser, container, true);
+          } else {
+            // Показываем скелетоны
+            renderFullSkeleton(container);
+            loadFreshProfile(firebaseUser, container, false);
+          }
+        });
+
+        async function loadFreshProfile(firebaseUser, container, isCached) {
+          try {
+            const loginResult = await processDailyLogin(firebaseUser.uid);
+            const doc = await db.collection('users').doc(firebaseUser.uid).get();
+            if (!doc.exists) {
+              auth.signOut();
+              container.innerHTML = '<p class="error-message">Профиль не найден. Пожалуйста, перезайдите.</p>';
+              return;
+            }
+
+            const u = doc.data();
+            const user = { uid: firebaseUser.uid, email: firebaseUser.email, ...u };
+            syncUserToLocal(user);
+
+            if (user.activeTheme === 'dark') document.body.classList.add('dark-theme');
+            else document.body.classList.remove('dark-theme');
+
+            // Загружаем награды в фоне
+            let awards = undefined; // undefined значит "загрузка", null - ошибка, [] - нет
+            loadUserAwards(user.uid).then(a => {
+              const awardsContainer = document.getElementById('awards-container');
+              if (awardsContainer) {
+                if (a.length) {
+                  awardsContainer.innerHTML = `<h3 class="section-title">🎖️ Награды</h3><div class="awards-grid">${a.map(award => `<div class="award-card" data-award-id="${award.id}"><div class="award-card-icon"><img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'"></div><div class="award-card-info"><div class="award-card-name">${award.name}</div>${award.comment ? `<div class="award-card-comment">${award.comment}</div>` : ''}</div></div>`).join('')}</div>`;
+                  document.querySelectorAll('.award-card').forEach(c => {
+                    c.addEventListener('click', () => {
+                      const aw = a.find(x => x.id === c.dataset.awardId);
+                      if (aw) showAwardDetailModal(aw);
+                    });
+                  });
+                } else {
+                  awardsContainer.innerHTML = '<p class="no-data">Нет наград.</p>';
+                }
+              }
+              awards = a;
+            }).catch(() => {
+              if (document.getElementById('awards-container')) {
+                document.getElementById('awards-container').innerHTML = '<p class="error-message">Не удалось загрузить награды.</p>';
+              }
+              awards = null;
+            });
+
+            // Показываем профиль (награды покажутся позже)
+            renderProfile(user, awards, false);
+
+            // Если есть дневная награда, показываем модалку
+            if (loginResult) {
+              setTimeout(() => showDailyRewardModal(loginResult), 500);
+            }
+
+            // Сохраняем в кеш после загрузки наград (если не было кеша, то сохраним позже)
+            if (!isCached) {
+              // Ждём немного, чтобы награды подгрузились
+              setTimeout(async () => {
+                const freshAwards = await loadUserAwards(user.uid);
+                setCachedProfile({ user, awards: freshAwards });
+              }, 1500);
+            } else {
+              // Обновляем кеш с новыми данными
+              const freshAwards = await loadUserAwards(user.uid);
+              setCachedProfile({ user, awards: freshAwards });
+            }
+          } catch (e) {
+            console.error('Ошибка загрузки профиля:', e);
+            if (!isCached) {
+              container.innerHTML = '<p class="error-message">Не удалось загрузить профиль. Пожалуйста, обновите страницу.</p>';
+            }
+          }
+        }
+      });
+    })();
   </script>
 </body>
 </html>
