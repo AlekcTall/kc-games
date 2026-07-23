@@ -64,7 +64,6 @@ async function updateAuthUI(firebaseUser) {
   if (!statusEl) return;
   if (firebaseUser) {
     let current = getCurrentUser();
-    // Если в кеше нет username, пытаемся загрузить из Firestore
     if (!current || !current.username) {
       try {
         const doc = await db.collection('users').doc(firebaseUser.uid).get();
@@ -89,27 +88,15 @@ async function updateAuthUI(firebaseUser) {
           };
           setCurrentUser(current);
         }
-      } catch (e) {
-        console.error('Не удалось загрузить профиль в updateAuthUI:', e);
-      }
+      } catch (e) { console.error('updateAuthUI load error:', e); }
     }
     const displayName = current?.username || firebaseUser.displayName || firebaseUser.email;
     statusEl.innerHTML = `👤 <span class="auth-greeting">${displayName}</span> | <a href="#" id="logout-link">Выйти</a>`;
-    const logoutLink = document.getElementById('logout-link');
-    if (logoutLink) {
-      logoutLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (typeof firebaseLogout === 'function') {
-          firebaseLogout();
-        } else {
-          auth.signOut();
-        }
-      });
-    }
+    document.getElementById('logout-link')?.addEventListener('click', e => { e.preventDefault(); firebaseLogout(); });
     statusEl.style.display = '';
   } else {
     const currentPage = window.location.pathname + window.location.search;
-    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}" class="auth-login-link">Войти</a>`;
+    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}">Войти</a>`;
     statusEl.style.display = '';
   }
 }
@@ -145,7 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Автоматическое обновление статуса авторизации, темы и пинг онлайна
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged(async (user) => {
-      // Дожидаемся завершения updateAuthUI (загрузки профиля) перед пингом
       await updateAuthUI(user);
 
       if (user && typeof initEasterEggs === 'function') {
