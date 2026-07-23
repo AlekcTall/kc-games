@@ -20,9 +20,6 @@
     .btn-back{ background:#ccc; } .btn-back:hover{ background:#b3b3b3; }
     .mobile-controls { display:none; margin-top:1rem; }
     @media (max-width:600px){ .mobile-controls{ display:grid; grid-template-areas:". up ." "left . right" ". down ."; gap:0.5rem; justify-content:center; } .mobile-controls button{ width:50px;height:50px;font-size:1.5rem;background:#eee;border:1px solid #ccc;border-radius:8px; } .up{grid-area:up;} .down{grid-area:down;} .left{grid-area:left;} .right{grid-area:right;} }
-    #toast-container{ position:fixed; top:1rem; right:1rem; z-index:9999; display:flex; flex-direction:column; gap:0.5rem; pointer-events:none; }
-    .toast{ padding:0.75rem 1.2rem; border-radius:8px; color:#fff; font-weight:500; font-size:0.95rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); opacity:0; transform:translateX(100%); transition:opacity 0.3s,transform 0.3s; pointer-events:auto; max-width:350px; word-wrap:break-word; }
-    .toast--visible{ opacity:1; transform:translateX(0); } .toast--success{background:#27ae60;} .toast--info{background:#3498db;} .toast--error{background:#e74c3c;}
     .leaderboard-snake{ margin-top:1.5rem; text-align:left; } .leaderboard-snake h3{ text-align:center; margin-bottom:0.5rem; font-size:1.1rem; }
     .leaderboard-snake table{ width:100%; border-collapse:collapse; font-size:0.9rem; } .leaderboard-snake th,.leaderboard-snake td{ padding:0.4rem 0.5rem; border-bottom:1px solid #eee; }
     .leaderboard-snake th{ background:#f5f5f5; font-weight:600; } .leaderboard-snake .me{ background:#e6f7ff; font-weight:600; }
@@ -55,13 +52,12 @@
   <script src="../js/achievements.js"></script>
   <script src="../js/notifications.js"></script>
   <script src="../js/easter-eggs.js"></script>
+  <script src="../js/main.js"></script>
   <script>
-    // Пасхалки
     document.addEventListener('DOMContentLoaded', () => {
       if (typeof initEasterEggs === 'function') initEasterEggs();
     });
 
-    function showToast(msg,type='info'){ let c=document.getElementById('toast-container'); if(!c){c=document.createElement('div');c.id='toast-container';document.body.appendChild(c);} const t=document.createElement('div'); t.className=`toast toast--${type}`; t.textContent=msg; c.appendChild(t); t.offsetHeight; t.classList.add('toast--visible'); setTimeout(()=>{t.classList.remove('toast--visible');t.addEventListener('transitionend',()=>{if(t.parentNode)t.remove();if(!c.children.length)c.remove();});},3500); }
     const startModal=document.getElementById('startModal'), btnPlay=document.getElementById('btnPlay'), btnBack=document.getElementById('btnBack');
     function startGame(){ startModal.style.display='none'; initGame(); draw(); gameLoop=setInterval(update,150); }
     btnPlay.addEventListener('click',startGame); btnBack.addEventListener('click',()=>window.location.href='../games.html');
@@ -70,7 +66,6 @@
     const GRID=20, CELL=canvas.width/GRID;
     let snake,dir,food,score,awardedLevel,gameRunning,isSelf,isWall,maxScore=0,gameLoop,bestScore=0,currentUid=null,bulges=[];
 
-    // Инициализация после готовности auth
     auth.onAuthStateChanged(user => {
       if (user) {
         loadBestAndTop();
