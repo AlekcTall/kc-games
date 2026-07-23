@@ -221,16 +221,28 @@ async function syncGameStats(gameId, stats) {
     const userRef = db.collection('users').doc(user.uid); const doc = await userRef.get();
     if (!doc.exists) return; const data = doc.data(); const gameStats = data.gameStats || {};
     const currentStats = gameStats[gameId] || {}; const merged = { ...currentStats };
+    
+    // Числовые показатели – берём максимум
     if (stats.totalClicks !== undefined) merged.totalClicks = Math.max(currentStats.totalClicks || 0, stats.totalClicks);
     if (stats.maxScore !== undefined) merged.maxScore = Math.max(currentStats.maxScore || 0, stats.maxScore);
     if (stats.bestMoves !== undefined) merged.bestMoves = currentStats.bestMoves ? Math.min(currentStats.bestMoves, stats.bestMoves) : stats.bestMoves;
     if (stats.bestTime !== undefined) merged.bestTime = currentStats.bestTime ? Math.min(currentStats.bestTime, stats.bestTime) : stats.bestTime;
     if (stats.maxTile !== undefined) merged.maxTile = Math.max(currentStats.maxTile || 0, stats.maxTile);
+    if (stats.maxLines !== undefined) merged.maxLines = Math.max(currentStats.maxLines || 0, stats.maxLines);
+    if (stats.maxLevel !== undefined) merged.maxLevel = Math.max(currentStats.maxLevel || 0, stats.maxLevel);
+    
+    // Булевые флаги – true, если хотя бы раз было
     if (stats.selfEaten) merged.selfEaten = true;
     if (stats.wallCrash) merged.wallCrash = true;
     if (stats.openedFirst) merged.openedFirst = true;
     if (stats.completed) merged.completed = true;
     if (stats.loss) merged.loss = true;
+    if (stats.tetrisCleared) merged.tetrisCleared = true;
+    if (stats.sniperGame) merged.sniperGame = true;
+    if (stats.unsinkableGame) merged.unsinkableGame = true;
+    if (stats.sunk4Deck) merged.sunk4Deck = true;
+    if (stats.beatHardAI) merged.beatHardAI = true;
+
     gameStats[gameId] = merged;
     await userRef.update({ gameStats });
     const c = getCurrentUser(); if (c) { if (!c.gameStats) c.gameStats = {}; c.gameStats[gameId] = merged; setCurrentUser(c); }
