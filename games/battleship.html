@@ -90,6 +90,13 @@
             display: inline-block;
             font-size: 0.9rem;
         }
+        @media (max-width: 480px) {
+            .board-grid {
+                grid-template-columns: repeat(10, 28px);
+                grid-template-rows: repeat(10, 28px);
+            }
+            .cell { width: 28px; height: 28px; }
+        }
     </style>
 </head>
 <body>
@@ -524,6 +531,24 @@
         }
 
         // ========== РАССТАНОВКА ==========
+        function undoLastShip() {
+            if (myShips.length === 0) return;
+            const lastShip = myShips.pop();
+            // Убираем с доски
+            for (const cell of lastShip) {
+                myBoard[cell.row][cell.col] = 0;
+            }
+            // Возвращаем размер в remainingShips
+            remainingShips.push(lastShip.length);
+            // Сортируем remainingShips для удобства (по убыванию)
+            remainingShips.sort((a,b) => b-a);
+            if (selectedShipIndex >= remainingShips.length) {
+                selectedShipIndex = remainingShips.length - 1;
+            }
+            renderSetupScreen();
+            showToast('Последний корабль удалён', 'info');
+        }
+
         function renderSetupScreen() {
             const myUid = currentUser.uid;
             const myData = gameData.players[myUid];
@@ -535,8 +560,13 @@
             }
 
             if (remainingShips.length === 0) {
-                gameContainer.innerHTML = `<h3>Расстановка завершена</h3>${renderMyBoard(false)}<button class="btn" id="ready-btn">Готов</button>`;
+                gameContainer.innerHTML = `<h3>Расстановка завершена</h3>${renderMyBoard(false)}
+                <div style="margin-top:0.5rem;">
+                    <button class="btn" id="ready-btn">Готов</button>
+                    <button class="btn btn-cancel" id="undo-last-btn">↩ Отменить последний</button>
+                </div>`;
                 document.getElementById('ready-btn').addEventListener('click', readyUp);
+                document.getElementById('undo-last-btn').addEventListener('click', undoLastShip);
                 return;
             }
 
@@ -555,7 +585,10 @@
                     <button class="btn orientation-btn ${orientation === 'vertical' ? 'active' : ''}" data-orientation="vertical">Вертикально</button>
                 </div>
                 <div class="board-wrapper"><h4>Ваше поле</h4>${renderMyBoard(false)}</div>
-                <button class="btn" id="ready-btn" disabled>Готов</button>
+                <div style="margin-top:0.5rem;">
+                    <button class="btn" id="ready-btn" disabled>Готов</button>
+                    <button class="btn btn-cancel" id="undo-last-btn" ${myShips.length === 0 ? 'disabled' : ''}>↩ Отменить последний</button>
+                </div>
             `;
             gameContainer.innerHTML = html;
             startSetupTimer();
@@ -580,6 +613,7 @@
             const readyBtn = document.getElementById('ready-btn');
             readyBtn.disabled = myShips.length < ALL_SHIPS.length;
             readyBtn.addEventListener('click', readyUp);
+            document.getElementById('undo-last-btn').addEventListener('click', undoLastShip);
         }
 
         function renderMyBoard(readOnly = false) {
