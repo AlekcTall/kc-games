@@ -73,7 +73,7 @@ async function updateAuthUI(firebaseUser) {
           current = {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
-            username: data.username || '',
+            username: data.username || firebaseUser.displayName || firebaseUser.email,
             department: data.department || '',
             points: data.points || 0,
             lokoin_balance: data.lokoin_balance || 0,
@@ -93,7 +93,8 @@ async function updateAuthUI(firebaseUser) {
         console.error('Не удалось загрузить профиль в updateAuthUI:', e);
       }
     }
-    const displayName = current?.username || firebaseUser.email;
+    // Приоритет: username из кэша → displayName из Auth → email
+    const displayName = current?.username || firebaseUser.displayName || firebaseUser.email;
     statusEl.innerHTML = `👤 <span class="auth-greeting">${displayName}</span> | <a href="#" id="logout-link">Выйти</a>`;
     const logoutLink = document.getElementById('logout-link');
     if (logoutLink) {
