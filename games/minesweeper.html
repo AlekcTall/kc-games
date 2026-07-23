@@ -52,6 +52,8 @@
         let timerStart = null, timerInterval = null, elapsedMs = 0;
         let bestTime = Infinity, currentUid = null;
         let longPressTimer = null, LONG_PRESS_DURATION = 400;
+        let pointerStart = null; // для отслеживания pointer-событий
+
         class Cell { constructor(row, col) { this.row = row; this.col = col; this.mine = false; this.revealed = false; this.flagged = false; this.neighborMines = 0; } }
         function createEmptyBoard() { const newBoard = []; for (let r = 0; r < ROWS; r++) { const row = []; for (let c = 0; c < COLS; c++) { row.push(new Cell(r, c)); } newBoard.push(row); } return newBoard; }
         function plantMines(excludeRow, excludeCol) { const forbidden = new Set(); for (let dr = -1; dr <= 1; dr++) { for (let dc = -1; dc <= 1; dc++) { const nr = excludeRow + dr, nc = excludeCol + dc; if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) { forbidden.add(nr * COLS + nc); } } } const candidates = []; for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { if (!forbidden.has(r * COLS + c)) { candidates.push({ r, c }); } } } for (let i = candidates.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; } const minesToPlace = Math.min(MINES_TOTAL, candidates.length); for (let i = 0; i < minesToPlace; i++) { const { r, c } = candidates[i]; board[r][c].mine = true; } for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { if (board[r][c].mine) continue; board[r][c].neighborMines = countAdjacentMines(r, c); } } minesPlanted = true; gameActive = true; startTimer(); }
@@ -67,17 +69,110 @@
         async function syncLoss() { if (!auth.currentUser) return; try { await syncGameStats('minesweeper', { loss: true }); await checkAndAwardAchievements(); } catch (e) { console.error(e); } }
         function restartGame() { stopTimer(); gameActive = false; gameOver = false; gameWin = false; minesPlanted = false; flagsPlaced = 0; safeRevealed = 0; elapsedMs = 0; board = createEmptyBoard(); minesCountSpan.textContent = MINES_TOTAL; timerDisplay.textContent = '00.00'; messageEl.textContent = bestTime !== Infinity ? `Личный рекорд: ${formatTime(bestTime * 1000)}` : ''; smileyBtn.textContent = '😊'; drawBoard(); }
         function drawBoard() { ctx.clearRect(0, 0, canvas.width, canvas.height); for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { const cell = board[r][c]; const x = c * CELL_SIZE; const y = r * CELL_SIZE; if (cell.revealed) { ctx.fillStyle = '#e0e0e0'; } else { ctx.fillStyle = '#bdbdbd'; } ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2); if (!cell.revealed) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, y + 1, CELL_SIZE - 3, 2); ctx.fillRect(x + 1, y + 1, 2, CELL_SIZE - 3); ctx.fillStyle = '#7b7b7b'; ctx.fillRect(x + 1, y + CELL_SIZE - 3, CELL_SIZE - 2, 2); ctx.fillRect(x + CELL_SIZE - 3, y + 1, 2, CELL_SIZE - 2); } ctx.font = 'bold 20px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const centerX = x + CELL_SIZE / 2; const centerY = y + CELL_SIZE / 2; if (cell.revealed) { if (cell.mine) { ctx.fillStyle = '#000'; ctx.font = '22px serif'; ctx.fillText('💣', centerX, centerY); } else if (cell.neighborMines > 0) { const colors = ['', '#1a6fc4', '#2e7d32', '#d84315', '#6a1b9a', '#b8860b', '#c62828', '#444', '#333']; ctx.fillStyle = colors[cell.neighborMines] || '#000'; ctx.fillText(cell.neighborMines, centerX, centerY); } } else if (cell.flagged) { ctx.font = '20px serif'; ctx.fillText('🚩', centerX, centerY); } } } ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 0.5; for (let i = 0; i <= COLS; i++) { ctx.beginPath(); ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, canvas.height); ctx.stroke(); } for (let i = 0; i <= ROWS; i++) { ctx.beginPath(); ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(canvas.width, i * CELL_SIZE); ctx.stroke(); } }
-        function getCellFromEvent(e) { const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height; const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const canvasX = (clientX - rect.left) * scaleX; const canvasY = (clientY - rect.top) * scaleY; const col = Math.floor(canvasX / CELL_SIZE); const row = Math.floor(canvasY / CELL_SIZE); if (row >= 0 && row < ROWS && col >= 0 && col < COLS) { return { row, col }; } return null; }
-        canvas.addEventListener('mousedown', (e) => { e.preventDefault(); if (gameOver) return; const cell = getCellFromEvent(e); if (!cell) return; if (e.button === 0) { if (!minesPlanted) { plantMines(cell.row, cell.col); revealCell(cell.row, cell.col); } else { if (gameActive) revealCell(cell.row, cell.col); } drawBoard(); } else if (e.button === 2) { if (gameActive) toggleFlag(cell.row, cell.col); } });
+        function getCellFromEvent(e) { const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height; const clientX = e.clientX; const clientY = e.clientY; const canvasX = (clientX - rect.left) * scaleX; const canvasY = (clientY - rect.top) * scaleY; const col = Math.floor(canvasX / CELL_SIZE); const row = Math.floor(canvasY / CELL_SIZE); if (row >= 0 && row < ROWS && col >= 0 && col < COLS) { return { row, col }; } return null; }
+
+        // Унифицированные pointer-события
+        canvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            if (gameOver) return;
+            const cell = getCellFromEvent(e);
+            if (!cell) return;
+            pointerStart = { cell, time: Date.now() };
+            // Если правая кнопка мыши – сразу флаг
+            if (e.button === 2 || e.pointerType === 'touch') {
+                // На touch-устройствах долгое нажатие – флаг, на обычных – ПКМ
+                if (e.pointerType === 'mouse') {
+                    if (e.button === 2) {
+                        if (gameActive) toggleFlag(cell.row, cell.col);
+                        pointerStart = null;
+                    }
+                } else {
+                    // touch: запускаем таймер на флаг
+                    longPressTimer = setTimeout(() => {
+                        if (pointerStart && gameActive) {
+                            toggleFlag(pointerStart.cell.row, pointerStart.cell.col);
+                            if (navigator.vibrate) navigator.vibrate(20);
+                            pointerStart = null;
+                        }
+                        longPressTimer = null;
+                    }, LONG_PRESS_DURATION);
+                }
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (longPressTimer && pointerStart) {
+                // Если палец сдвинулся, отменяем долгое нажатие
+                const cell = getCellFromEvent(e);
+                if (!cell || cell.row !== pointerStart.cell.row || cell.col !== pointerStart.cell.col) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                    pointerStart = null;
+                }
+            }
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            e.preventDefault();
+            if (longPressTimer) {
+                // Если был начат долгий тап, но завершился раньше – отменяем и открываем клетку
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+                if (pointerStart && gameActive) {
+                    const cell = pointerStart.cell;
+                    if (!minesPlanted) {
+                        plantMines(cell.row, cell.col);
+                        revealCell(cell.row, cell.col);
+                    } else {
+                        revealCell(cell.row, cell.col);
+                    }
+                    drawBoard();
+                    pointerStart = null;
+                }
+            } else if (pointerStart && e.button === 0 && e.pointerType === 'mouse') {
+                // Обычный клик левой кнопкой мыши
+                const cell = pointerStart.cell;
+                if (!minesPlanted) {
+                    plantMines(cell.row, cell.col);
+                    revealCell(cell.row, cell.col);
+                } else {
+                    if (gameActive) revealCell(cell.row, cell.col);
+                }
+                drawBoard();
+                pointerStart = null;
+            }
+        });
+
+        canvas.addEventListener('pointerleave', () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            pointerStart = null;
+        });
+
+        // Предотвращаем контекстное меню
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if (gameOver) return; const cell = getCellFromEvent(e); if (!cell) return; longPressTimer = setTimeout(() => { if (gameActive) toggleFlag(cell.row, cell.col); longPressTimer = null; if (navigator.vibrate) navigator.vibrate(20); }, LONG_PRESS_DURATION); });
-        canvas.addEventListener('touchend', (e) => { e.preventDefault(); if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; const cell = getCellFromEvent(e); if (cell) { if (!minesPlanted) { plantMines(cell.row, cell.col); revealCell(cell.row, cell.col); } else { if (gameActive) revealCell(cell.row, cell.col); } drawBoard(); } } });
-        canvas.addEventListener('touchmove', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+
+        // Кнопка-смайлик
         smileyBtn.addEventListener('click', restartGame);
-        document.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); if (gameOver || !gameActive) { restartGame(); } } });
+
+        // Клавиатура
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameOver || !gameActive) {
+                    restartGame();
+                }
+            }
+        });
+
+        // Модальное окно
         btnPlay.addEventListener('click', () => { startModal.style.display = 'none'; restartGame(); drawBoard(); });
         btnBack.addEventListener('click', () => window.location.href = '../games.html');
         document.addEventListener('keydown', function(e) { if (e.key === 'Enter' && startModal.style.display !== 'none') { e.preventDefault(); startModal.style.display = 'none'; restartGame(); drawBoard(); } });
+
+        // Firebase: лидерборд и рекорды
         auth.onAuthStateChanged(user => { if (user) { loadBestAndTop(); } else { updateTopVisibility(); } });
         async function loadBestAndTop() { const cu = getCurrentUser(); if (cu) currentUid = cu.uid || cu.id; if (cu?.gameStats?.minesweeper?.bestTime) { bestTime = cu.gameStats.minesweeper.bestTime; } if (auth.currentUser) { try { const d = await db.collection('users').doc(auth.currentUser.uid).get(); if (d.exists && d.data().gameStats?.minesweeper?.bestTime) { bestTime = d.data().gameStats.minesweeper.bestTime; } } catch (e) { console.error(e); } } updateTopVisibility(); updateTop(); messageEl.textContent = bestTime !== Infinity ? `Личный рекорд: ${formatTime(bestTime * 1000)}` : ''; }
         function updateTopVisibility() { const table = document.getElementById('top-table'); const warning = document.getElementById('auth-warning'); if (!auth.currentUser) { if (table) table.style.display = 'none'; if (warning) warning.style.display = 'block'; } else { if (table) table.style.display = ''; if (warning) warning.style.display = 'none'; } }
