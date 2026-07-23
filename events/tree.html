@@ -41,9 +41,6 @@
     .stat-value { font-size: 1.2rem; font-weight: 700; color: var(--color-header); }
     .stat-label { font-size: 0.75rem; color: #888; }
     .final-stats { margin-top: 1rem; }
-    #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
-    .toast { padding: 0.75rem 1.2rem; border-radius: 8px; color: #fff; font-weight: 500; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; transform: translateX(100%); transition: opacity 0.3s, transform 0.3s; pointer-events: auto; max-width: 350px; word-wrap: break-word; }
-    .toast--visible { opacity: 1; transform: translateX(0); } .toast--success { background: #27ae60; } .toast--info { background: #3498db; } .toast--error { background: #e74c3c; }
     @media (max-width: 480px) { .tree-actions { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
@@ -71,9 +68,9 @@
   <script src="../js/achievements.js"></script>
   <script src="../js/notifications.js"></script>
   <script src="../js/easter-eggs.js"></script>
+  <script src="../js/main.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => { if (typeof initEasterEggs === 'function') initEasterEggs(); });
-    function showToast(msg, type = 'info') { let c = document.getElementById('toast-container'); if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); } const t = document.createElement('div'); t.className = `toast toast--${type}`; t.textContent = msg; c.appendChild(t); requestAnimationFrame(() => t.classList.add('toast--visible')); setTimeout(() => { t.classList.remove('toast--visible'); t.addEventListener('transitionend', () => { if (t.parentNode) t.remove(); if (!c.children.length && c.parentNode) c.remove(); }); }, 3500); }
     const params = new URLSearchParams(window.location.search); const eventId = params.get('id');
     if (!eventId) { document.body.innerHTML = '<p>Ивент не указан.</p>'; throw new Error('eventId missing'); }
     const healthFill = document.getElementById('health-fill'), healthText = document.getElementById('health-text'), maxHealthText = document.getElementById('max-health-text'), decayRateEl = document.getElementById('decay-rate'), treeIcon = document.getElementById('tree-icon'), treeMessage = document.getElementById('tree-message'), treeActions = document.getElementById('tree-actions'), timerBar = document.getElementById('timer-bar'), adminEventsLog = document.getElementById('admin-events-log'), activityFeed = document.getElementById('activity-feed'), topParticipants = document.getElementById('top-participants'), confirmLokoinModal = document.getElementById('confirm-lokoin-modal'), confirmLokoinText = document.getElementById('confirm-lokoin-text'), confirmLokoinYes = document.getElementById('confirm-lokoin-yes'), confirmLokoinNo = document.getElementById('confirm-lokoin-no');
