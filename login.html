@@ -194,8 +194,7 @@
           if (userData) {
             msgEl.textContent = 'Регистрация успешна! Проверьте почту для подтверждения email.';
             msgEl.className = 'auth-message success';
-            // Временно не редиректим, чтобы увидеть ошибки
-            // setTimeout(() => window.location.href = getRedirectUrl(), 2500);
+            setTimeout(() => window.location.href = getRedirectUrl(), 2500);
           }
         } catch (error) {
           msgEl.textContent = error.message || 'Ошибка регистрации.';
