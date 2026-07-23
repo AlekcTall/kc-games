@@ -273,8 +273,11 @@ async function updateLastActive(uid) {
     } else {
       // Если документа нет (например, после неудачной регистрации), создаём минимальный профиль
       const currentAuth = auth.currentUser;
+      // Генерируем имя из email (часть до @) или displayName
+      const generatedName = currentAuth?.displayName || 
+                            (currentAuth?.email ? currentAuth.email.split('@')[0] : 'Пользователь');
       await userRef.set({
-        username: currentAuth?.email || 'Пользователь',
+        username: generatedName,
         email: currentAuth?.email || '',
         points: 0,
         lokoin_balance: 0,
