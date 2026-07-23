@@ -692,24 +692,15 @@
             }
         }
 
-        // ========== ЗАВЕРШЕНИЕ С ДЕТАЛЬНЫМ ЛОГИРОВАНИЕМ ==========
+        // ========== ЗАВЕРШЕНИЕ С ТОСТОМ И ДОСТИЖЕНИЯМИ ==========
         async function handleGameEnd(isWin) {
             const mode = isAI ? 'pve' : 'pvp';
-            console.log(`[RPS] handleGameEnd вызван. isWin=${isWin}, mode=${mode}`);
-
             const userRef = db.collection('users').doc(currentUser.uid);
-            let userDoc;
-            try {
-                userDoc = await userRef.get();
-                console.log('[RPS] Документ пользователя получен, exists=', userDoc.exists);
-            } catch (e) {
-                console.error('[RPS] Ошибка чтения документа пользователя:', e);
-                return;
-            }
 
+            const userDoc = await userRef.get();
+            if (!userDoc.exists) return;
             const userData = userDoc.data() || {};
             const stats = userData.rpsStats || {};
-            console.log('[RPS] rpsStats до обновления:', JSON.stringify(stats));
 
             let newStreak = stats.currentWinStreak || 0;
             let bestStreak = stats.bestWinStreak || 0;
@@ -731,37 +722,20 @@
                 updateData['rpsStats.beatHardAI'] = true;
             }
 
-            console.log('[RPS] Данные для обновления:', JSON.stringify(updateData));
-
-            try {
-                await userRef.update(updateData);
-                console.log('[RPS] Обновление rpsStats успешно выполнено.');
-            } catch (e) {
-                console.error('[RPS] Ошибка обновления rpsStats:', e);
-                return;
-            }
-
-            // Проверим, что записалось
-            const updatedDoc = await userRef.get();
-            console.log('[RPS] rpsStats после обновления:', JSON.stringify(updatedDoc.data()?.rpsStats));
+            await userRef.update(updateData);
 
             if (isWin) {
                 const points = isAI ? 3 : 5;
                 if (typeof addPointsToCurrentUser === 'function') {
-                    console.log('[RPS] Начисляем баллы:', points);
                     await addPointsToCurrentUser(points, 'rps');
                 }
                 showToast(`Победа! +${points} баллов`, 'success');
             }
 
             if (typeof checkAndAwardAchievements === 'function') {
-                console.log('[RPS] Вызываем checkAndAwardAchievements');
                 await checkAndAwardAchievements();
-            } else {
-                console.error('[RPS] checkAndAwardAchievements не определена!');
             }
 
-            // Отписка и сброс gameId
             if (unsubscribeGame) {
                 unsubscribeGame();
                 unsubscribeGame = null;
