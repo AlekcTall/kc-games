@@ -15,9 +15,6 @@
     .memory-message { margin-top:1.5rem; font-weight:bold; min-height:1.5rem; }
     .memory-back { display:inline-block; margin-top:1rem; color:var(--color-primary); text-decoration:none; }
     @media (max-width:480px){ .memory-board { gap:0.4rem; } .memory-card { font-size:1.5rem; } }
-    #toast-container{ position:fixed; top:1rem; right:1rem; z-index:9999; display:flex; flex-direction:column; gap:0.5rem; pointer-events:none; }
-    .toast{ padding:0.75rem 1.2rem; border-radius:8px; color:#fff; font-weight:500; font-size:0.95rem; box-shadow:0 4px 12px rgba(0,0,0,0.2); opacity:0; transform:translateX(100%); transition:opacity 0.3s,transform 0.3s; pointer-events:auto; max-width:350px; word-wrap:break-word; }
-    .toast--visible{ opacity:1; transform:translateX(0); } .toast--success{background:#27ae60;} .toast--info{background:#3498db;} .toast--error{background:#e74c3c;}
     .memory-leaderboards{ margin-top:2rem; text-align:left; } .leaderboard-group{ margin-bottom:1.5rem; } .leaderboard-group h3{ text-align:center; margin-bottom:0.5rem; font-size:1.1rem; }
     .leaderboard-group table{ width:100%; border-collapse:collapse; font-size:0.9rem; } .leaderboard-group th,.leaderboard-group td{ padding:0.4rem 0.5rem; border-bottom:1px solid #eee; }
     .leaderboard-group th{ background:#f5f5f5; font-weight:600; } .leaderboard-group .me{ background:#e6f7ff; font-weight:600; }
@@ -57,13 +54,12 @@
   <script src="../js/achievements.js"></script>
   <script src="../js/notifications.js"></script>
   <script src="../js/easter-eggs.js"></script>
+  <script src="../js/main.js"></script>
   <script>
-    // Пасхалки
     document.addEventListener('DOMContentLoaded', () => {
       if (typeof initEasterEggs === 'function') initEasterEggs();
     });
 
-    function showToast(msg,type='info'){ let c=document.getElementById('toast-container'); if(!c){c=document.createElement('div');c.id='toast-container';document.body.appendChild(c);} const t=document.createElement('div'); t.className=`toast toast--${type}`; t.textContent=msg; c.appendChild(t); t.offsetHeight; t.classList.add('toast--visible'); setTimeout(()=>{t.classList.remove('toast--visible');t.addEventListener('transitionend',()=>{if(t.parentNode)t.remove();if(!c.children.length)c.remove();});},3500); }
     const EMOJIS=['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'], CARDS=[...EMOJIS,...EMOJIS];
     let shuffled=[], flipped=[], moves=0, matched=0, gameFinished=false, firstCard=false, seconds=0, timerInterval=null, currentUid=null;
     const timerEl=document.getElementById('timer'), movesEl=document.getElementById('moves'), board=document.getElementById('board'), msgEl=document.getElementById('message'), gameOverCont=document.getElementById('game-over-container');
