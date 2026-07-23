@@ -339,7 +339,7 @@
             spawnPiece();
         }
 
-        function clearLines() {
+        async function clearLines() {
             let cleared = 0;
             for (let r = ROWS - 1; r >= 0; r--) {
                 if (board[r].every(cell => cell !== 0)) {
@@ -359,10 +359,9 @@
                 startGameLoop();
 
                 if (cleared >= 4 && auth.currentUser) {
-                    syncGameStats('tetris', { tetrisCleared: true });
-                    // НЕМЕДЛЕННАЯ проверка достижений
+                    await syncGameStats('tetris', { tetrisCleared: true });
                     if (typeof checkAndAwardAchievements === 'function') {
-                        checkAndAwardAchievements();
+                        await checkAndAwardAchievements();
                     }
                 }
             }
