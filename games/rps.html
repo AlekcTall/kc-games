@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Камень, ножницы, бумага – КЦ Игры</title>
     <link rel="stylesheet" href="../css/style.css">
+    <!-- стили без изменений, для краткости опущены -->
     <style>
         .rps-game {
             max-width: 600px;
@@ -207,6 +208,7 @@
         let lastOpponentChoice = null;
         let lastRoundResult = null;
         let isSubmitting = false;
+        let gameEndProcessed = false; // защита от повторной обработки
 
         auth.onAuthStateChanged(async user => {
             if (!user) {
@@ -247,6 +249,7 @@
             myChoice = null; opponentChoice = null;
             lastMyChoice = null; lastOpponentChoice = null; lastRoundResult = null;
             isSubmitting = false;
+            gameEndProcessed = false;
 
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -327,7 +330,6 @@
                     const wins = mode === 'pvp' ? (stats.pvpWins || 0) : (stats.pveWins || 0);
                     if (wins > 0) players.push({ username: d.username || 'Аноним', wins });
                 });
-                console.log(`[RPS Rating] Загружены пользователи для ${mode}:`, players);
                 players.sort((a,b) => b.wins - a.wins);
                 let html = `<h3>${mode === 'pvp' ? '🏆 Лучшие игроки (PvP)' : '🤖 Лучшие игроки (PvE)'}</h3>`;
                 if (players.length) {
@@ -360,6 +362,7 @@
                 opponentUid = Object.keys(game.players).find(uid => uid !== currentUser.uid) || 'ai';
                 myScore = game.players[currentUser.uid]?.score || 0;
                 opponentScore = game.players[opponentUid]?.score || 0;
+                gameEndProcessed = false; // сбрасываем флаг
                 subscribeToGame();
                 return true;
             } catch (e) { return false; }
@@ -369,6 +372,7 @@
         async function createGame(aiMode = false) {
             try {
                 isAI = aiMode;
+                gameEndProcessed = false;
                 const players = {
                     [currentUser.uid]: { username: getCurrentUser()?.username || 'Игрок', score: 0 }
                 };
@@ -412,6 +416,7 @@
                     opponentUid = Object.keys(data.players).find(uid => uid !== currentUser.uid) || 'ai';
                     myScore = data.players[currentUser.uid]?.score || 0;
                     opponentScore = data.players[opponentUid]?.score || 0;
+                    gameEndProcessed = false;
                     subscribeToGame();
                     showToast('Игра восстановлена', 'info');
                     return;
@@ -426,6 +431,7 @@
                 isAI = false;
                 opponentUid = Object.keys((await db.collection('rps_games').doc(id).get()).data().players).find(uid => uid !== currentUser.uid);
                 myScore = 0; opponentScore = 0;
+                gameEndProcessed = false;
                 subscribeToGame();
                 showToast('Вы присоединились!', 'success');
             } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
@@ -463,12 +469,18 @@
 
             if (gameData.status === 'active') {
                 renderGameScreen();
+            } else if (gameData.status === 'finished' && !gameEndProcessed) {
+                gameEndProcessed = true;
+                const isWin = gameData.winner === currentUser.uid;
+                console.log('[RPS] Игра завершена. Вызываем handleGameEnd, isWin=', isWin);
+                handleGameEnd(isWin);
+                renderFinishedScreen();
             } else if (gameData.status === 'finished') {
                 renderFinishedScreen();
             }
         }
 
-        // ========== ЭКРАН ОЖИДАНИЯ ==========
+        // ========== ЭКРАНЫ ==========
         function renderWaitingScreen() {
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -481,7 +493,6 @@
             document.getElementById('cancel-game-btn').addEventListener('click', cancelGame);
         }
 
-        // ========== ИГРОВОЙ ЭКРАН ==========
         function renderGameScreen() {
             const waitingOpponent = myChoice && !opponentChoice;
             const bothChosen = myChoice && opponentChoice;
@@ -548,6 +559,22 @@
             }
         }
 
+        function renderFinishedScreen() {
+            const winner = gameData.winner === currentUser.uid ? 'Вы' : (gameData.players[gameData.winner]?.username || 'Соперник');
+            const isWin = gameData.winner === currentUser.uid;
+            gameContainer.innerHTML = `
+                <h3>${isWin ? '🎉 Победа!' : '😞 Поражение'}</h3>
+                <p>Победитель: <strong>${winner}</strong></p>
+                <p>Счёт: ${myScore} - ${opponentScore}</p>
+                <button class="btn" id="new-game-btn">Новая игра</button>
+            `;
+            document.getElementById('new-game-btn').addEventListener('click', () => {
+                if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
+                gameId = null; gameData = null;
+                showLobby();
+            });
+        }
+
         function emojiFor(choice) {
             return { rock: '✊', scissors: '✌️', paper: '✋' }[choice] || '❓';
         }
@@ -560,7 +587,7 @@
             return 'lose';
         }
 
-        // ========== ТРАНЗАКЦИОННАЯ ОТПРАВКА ХОДА ==========
+        // ========== ТРАНЗАКЦИИ ХОДОВ ==========
         async function submitChoice(choice) {
             if (!gameId || !myUid || !opponentUid || isSubmitting || myChoice) return;
             isSubmitting = true;
@@ -692,48 +719,53 @@
             }
         }
 
-        // ========== ЗАВЕРШЕНИЕ С ТОСТОМ И ДОСТИЖЕНИЯМИ ==========
+        // ========== ЗАВЕРШЕНИЕ ==========
         async function handleGameEnd(isWin) {
             const mode = isAI ? 'pve' : 'pvp';
             const userRef = db.collection('users').doc(currentUser.uid);
 
-            const userDoc = await userRef.get();
-            if (!userDoc.exists) return;
-            const userData = userDoc.data() || {};
-            const stats = userData.rpsStats || {};
+            try {
+                const userDoc = await userRef.get();
+                if (!userDoc.exists) return;
+                const userData = userDoc.data() || {};
+                const stats = userData.rpsStats || {};
 
-            let newStreak = stats.currentWinStreak || 0;
-            let bestStreak = stats.bestWinStreak || 0;
-            if (isWin) {
-                newStreak++;
-                if (newStreak > bestStreak) bestStreak = newStreak;
-            } else {
-                newStreak = 0;
-            }
-
-            const updateData = {
-                [`rpsStats.${mode}Wins`]: firebase.firestore.FieldValue.increment(isWin ? 1 : 0),
-                [`rpsStats.${mode}Losses`]: firebase.firestore.FieldValue.increment(isWin ? 0 : 1),
-                'rpsStats.currentWinStreak': newStreak,
-                'rpsStats.bestWinStreak': bestStreak
-            };
-
-            if (isWin && isAI && aiLevel === 'hard') {
-                updateData['rpsStats.beatHardAI'] = true;
-            }
-
-            await userRef.update(updateData);
-
-            if (isWin) {
-                const points = isAI ? 3 : 5;
-                if (typeof addPointsToCurrentUser === 'function') {
-                    await addPointsToCurrentUser(points, 'rps');
+                let newStreak = stats.currentWinStreak || 0;
+                let bestStreak = stats.bestWinStreak || 0;
+                if (isWin) {
+                    newStreak++;
+                    if (newStreak > bestStreak) bestStreak = newStreak;
+                } else {
+                    newStreak = 0;
                 }
-                showToast(`Победа! +${points} баллов`, 'success');
-            }
 
-            if (typeof checkAndAwardAchievements === 'function') {
-                await checkAndAwardAchievements();
+                const updateData = {
+                    [`rpsStats.${mode}Wins`]: firebase.firestore.FieldValue.increment(isWin ? 1 : 0),
+                    [`rpsStats.${mode}Losses`]: firebase.firestore.FieldValue.increment(isWin ? 0 : 1),
+                    'rpsStats.currentWinStreak': newStreak,
+                    'rpsStats.bestWinStreak': bestStreak
+                };
+
+                if (isWin && isAI && aiLevel === 'hard') {
+                    updateData['rpsStats.beatHardAI'] = true;
+                }
+
+                await userRef.update(updateData);
+                console.log('[RPS] Статистика обновлена.');
+
+                if (isWin) {
+                    const points = isAI ? 3 : 5;
+                    if (typeof addPointsToCurrentUser === 'function') {
+                        await addPointsToCurrentUser(points, 'rps');
+                    }
+                    showToast(`Победа! +${points} баллов`, 'success');
+                }
+
+                if (typeof checkAndAwardAchievements === 'function') {
+                    await checkAndAwardAchievements();
+                }
+            } catch (e) {
+                console.error('[RPS] Ошибка в handleGameEnd:', e);
             }
 
             if (unsubscribeGame) {
@@ -741,22 +773,6 @@
                 unsubscribeGame = null;
             }
             gameId = null;
-        }
-
-        function renderFinishedScreen() {
-            const winner = gameData.winner === currentUser.uid ? 'Вы' : (gameData.players[gameData.winner]?.username || 'Соперник');
-            const isWin = gameData.winner === currentUser.uid;
-            gameContainer.innerHTML = `
-                <h3>${isWin ? '🎉 Победа!' : '😞 Поражение'}</h3>
-                <p>Победитель: <strong>${winner}</strong></p>
-                <p>Счёт: ${myScore} - ${opponentScore}</p>
-                <button class="btn" id="new-game-btn">Новая игра</button>
-            `;
-            document.getElementById('new-game-btn').addEventListener('click', () => {
-                if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
-                gameId = null; gameData = null;
-                showLobby();
-            });
         }
 
         // ========== ВЫХОД ==========
@@ -789,7 +805,7 @@
                     transaction.update(docRef, { status: 'finished', winner: opponentUid, surrendered: currentUser.uid });
                 });
             } catch (e) {}
-            await handleGameEnd(false);
+            // handleGameEnd будет вызван через onSnapshot
         }
 
         window.addEventListener('beforeunload', () => {
