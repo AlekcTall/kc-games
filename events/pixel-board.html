@@ -23,9 +23,6 @@
     .cell-tooltip { position: absolute; background: #333; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; pointer-events: none; display: none; z-index: 10; }
     .finished-board { margin: 1rem 0; }
     .finished-board img { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
-    .toast { padding: 0.75rem 1.2rem; border-radius: 8px; color: #fff; font-weight: 500; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; transform: translateX(100%); transition: opacity 0.3s, transform 0.3s; pointer-events: auto; max-width: 350px; word-wrap: break-word; }
-    .toast--visible { opacity: 1; transform: translateX(0); } .toast--success { background: #27ae60; } .toast--info { background: #3498db; } .toast--error { background: #e74c3c; }
     @media (max-width: 600px) { .pixel-canvas-container { max-height: 50vh; } .palette-color { width: 28px; height: 28px; } }
   </style>
 </head>
@@ -51,10 +48,10 @@
   <script src="../js/achievements.js"></script>
   <script src="../js/notifications.js"></script>
   <script src="../js/easter-eggs.js"></script>
+  <script src="../js/main.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => { if (typeof initEasterEggs === 'function') initEasterEggs(); });
-    function showToast(msg, type = 'info') { let c = document.getElementById('toast-container'); if (!c) { c = document.createElement('div'); c.id = 'toast-container'; document.body.appendChild(c); } const t = document.createElement('div'); t.className = `toast toast--${type}`; t.textContent = msg; c.appendChild(t); requestAnimationFrame(() => t.classList.add('toast--visible')); setTimeout(() => { t.classList.remove('toast--visible'); t.addEventListener('transitionend', () => { if (t.parentNode) t.remove(); if (!c.children.length && c.parentNode) c.remove(); }); }, 3500); }
     const params = new URLSearchParams(window.location.search); const eventId = params.get('id');
     if (!eventId) { document.body.innerHTML = '<p>Ивент не указан. Вернитесь на главную.</p>'; throw new Error('eventId missing'); }
     const canvas = document.getElementById('pixel-canvas'), ctx = canvas.getContext('2d'), canvasContainer = document.getElementById('canvas-container'), tooltip = document.getElementById('cell-tooltip'), paletteEl = document.getElementById('palette'), timerBar = document.getElementById('timer-bar'), totalPixelsEl = document.getElementById('total-pixels'), uniquePaintersEl = document.getElementById('unique-painters'), cooldownBar = document.getElementById('cooldown-bar'), topPaintersEl = document.getElementById('top-painters'), finishedBoardContainer = document.getElementById('finished-board-container');
