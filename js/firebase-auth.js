@@ -13,7 +13,10 @@ async function firebaseRegister(email, password, username, department) {
     // Сразу сохраняем имя в профиле Auth
     await user.updateProfile({ displayName: username });
 
-    // Создаём документ в Firestore (без письма пока)
+    // Отправляем письмо для подтверждения email
+    await user.sendEmailVerification();
+
+    // Создаём документ в Firestore
     const userRef = db.collection('users').doc(user.uid);
     await userRef.set({
       username: username,
@@ -40,15 +43,12 @@ async function firebaseRegister(email, password, username, department) {
       activeEffects: {}
     });
 
-    // Ждём подтверждения, что документ точно создан
+    // Проверяем, что документ точно создан
     const doc = await userRef.get();
     if (!doc.exists) {
       await user.delete();
       throw new Error('Не удалось создать профиль. Документ не появился.');
     }
-
-    // Отправляем письмо для подтверждения email
-    await user.sendEmailVerification();
 
     const userData = {
       uid: user.uid, email: email, username: username, department: department,
@@ -395,43 +395,10 @@ async function updateLastActive(uid) {
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
     } else {
-      // Если документ не найден, возможно, он ещё создаётся (гонка при регистрации)
-      // Ждём 500 мс и проверяем снова
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const retryDoc = await userRef.get();
-      if (retryDoc.exists) {
-        await userRef.update({ lastActive: Date.now() });
-        return;
-      }
-      // Если всё ещё нет – создаём резервный профиль, но НЕ перезатираем username,
-      // если он вдруг появился в Auth
-      const currentAuth = auth.currentUser;
-      const generatedName = currentAuth?.displayName ||
-                            (currentAuth?.email ? currentAuth.email.split('@')[0] : 'Пользователь');
-      await userRef.set({
-        username: generatedName,
-        email: currentAuth?.email || '',
-        points: 0,
-        lokoin_balance: 0,
-        purchasedItems: [],
-        role: 'user',
-        description: '',
-        achievements: [],
-        easterEggsFound: [],
-        completedGames: [],
-        disabled: false,
-        lastActive: Date.now(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        dailyLogin: {
-          lastLoginDate: null,
-          streak: 0,
-          longestStreak: 0,
-          totalLogins: 0,
-          loginHistory: []
-        },
-        activeEffects: {}
-      }, { merge: true });
-      console.warn('Документ пользователя отсутствовал, создан заново для uid:', uid);
+      // Документ не найден – не создаём его, чтобы не перезаписывать данные.
+      // Это может случиться при гонке во время регистрации, но тогда 
+      // следующий вызов updateLastActive (через несколько секунд) найдёт уже созданный документ.
+      console.warn('updateLastActive: документ не найден для uid:', uid);
     }
   } catch (e) {
     console.error('Ошибка в updateLastActive:', e);
