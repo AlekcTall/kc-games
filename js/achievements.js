@@ -203,7 +203,7 @@ async function checkAndAwardAchievements() {
 
       // Тетрис
       case 'tetris_5games': earned = (gameHistory.filter(h => h.game === 'tetris').length >= 5); break;
-      case 'tetris_1line': earned = (gameStats.tetris?.maxLines || 0) >= 1; break;
+      case 'tetris_1line': earned = (gameStats.tetris?.maxLines || 0) >= 1 || gameHistory.some(h => h.game === 'tetris'); break;
       case 'tetris_tetris': earned = (gameStats.tetris?.tetrisCleared || false) === true; break;
       case 'tetris_20lines': earned = (gameStats.tetris?.maxLines || 0) >= 20; break;
       case 'tetris_5000score': earned = (gameStats.tetris?.maxScore || 0) >= 5000; break;
