@@ -77,11 +77,9 @@ function updateAuthUI(firebaseUser) {
         }
       });
     }
-    statusEl.style.display = ''; // показываем всегда
   } else {
     const currentPage = window.location.pathname + window.location.search;
-    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}" class="auth-login-link">Войти</a>`;
-    statusEl.style.display = ''; // показываем всегда, даже на мобильных
+    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}">Войти</a>`;
   }
 }
 
@@ -129,17 +127,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.remove('dark-theme');
       }
 
-      // Пинг онлайна: интервал только для авторизованных
       if (window._pingInterval) {
         clearInterval(window._pingInterval);
         window._pingInterval = null;
       }
 
       if (user && typeof updateLastActive === 'function') {
-        // Первое обновление сразу после входа
         updateLastActive(user.uid);
 
-        // Запускаем периодическое обновление каждые 30 секунд
         window._pingInterval = setInterval(() => {
           if (auth.currentUser && typeof updateLastActive === 'function') {
             updateLastActive(auth.currentUser.uid);
@@ -152,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.remove('dark-theme');
   }
 
-  // Обновление lastActive при возвращении на вкладку
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && typeof auth !== 'undefined' && auth.currentUser && typeof updateLastActive === 'function') {
       updateLastActive(auth.currentUser.uid);
