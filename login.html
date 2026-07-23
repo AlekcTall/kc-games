@@ -58,7 +58,12 @@
         <button class="login-btn" id="register-btn">Зарегистрироваться</button>
         <p class="auth-message" id="register-message"></p>
       </div>
-      <div class="faq-section"><!-- FAQ без изменений --></div>
+      <div class="faq-section">
+        <h3>❓ Частые вопросы</h3>
+        <div class="faq-item"><div class="faq-item__question">Не приходит письмо подтверждения <span>▼</span></div><div class="faq-item__answer">Проверьте папку «Спам». Если письма нет, нажмите «Забыли пароль?» — придёт новое письмо. Убедитесь, что email введён без ошибок.</div></div>
+        <div class="faq-item"><div class="faq-item__question">Как сменить пароль? <span>▼</span></div><div class="faq-item__answer">Нажмите «Забыли пароль?» на вкладке «Вход». На ваш email придёт ссылка для сброса пароля.</div></div>
+        <div class="faq-item"><div class="faq-item__question">Зачем подтверждать email? <span>▼</span></div><div class="faq-item__answer">Это необходимо для безопасности аккаунта и возможности восстановить пароль. Без подтверждения некоторые функции могут быть ограничены.</div></div>
+      </div>
       <a href="index.html" class="back-link">← На главную</a>
     </div>
   </main>
@@ -76,12 +81,10 @@
 
   <script>
     // Ждём готовности db и auth
-    let dbReady = false;
     function waitForFirebase() {
       return new Promise((resolve) => {
         const check = () => {
           if (typeof db !== 'undefined' && typeof auth !== 'undefined') {
-            dbReady = true;
             resolve();
           } else {
             setTimeout(check, 100);
@@ -92,7 +95,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // Ждём инициализации Firebase
       await waitForFirebase();
 
       // Загрузка отделов
@@ -189,19 +191,11 @@
         }
         try {
           const userData = await firebaseRegister(email, password, username, department);
-          if (auth.currentUser) {
-            const checkDoc = await db.collection('users').doc(auth.currentUser.uid).get();
-            if (!checkDoc.exists) {
-              msgEl.textContent = 'Ошибка создания профиля. Попробуйте позже.';
-              msgEl.className = 'auth-message error';
-              await auth.signOut();
-              return;
-            }
-          }
           if (userData) {
             msgEl.textContent = 'Регистрация успешна! Проверьте почту для подтверждения email.';
             msgEl.className = 'auth-message success';
-            setTimeout(() => window.location.href = getRedirectUrl(), 2500);
+            // Временно не редиректим, чтобы увидеть ошибки
+            // setTimeout(() => window.location.href = getRedirectUrl(), 2500);
           }
         } catch (error) {
           msgEl.textContent = error.message || 'Ошибка регистрации.';
