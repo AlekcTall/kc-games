@@ -10,63 +10,48 @@ async function firebaseRegister(email, password, username, department) {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
-    // Сразу сохраняем имя в профиле Auth
+    // Сохраняем имя в профиле Auth
     await user.updateProfile({ displayName: username });
 
     // Отправляем письмо для подтверждения email
     await user.sendEmailVerification();
 
-    // Создаём документ в Firestore с повторными попытками
+    // Создаём документ в Firestore
     const userRef = db.collection('users').doc(user.uid);
-    let docExists = false;
+    await userRef.set({
+      username: username,
+      email: email,
+      department: department,
+      points: 0,
+      lokoin_balance: 0,
+      purchasedItems: [],
+      role: 'user',
+      description: '',
+      achievements: [],
+      easterEggsFound: [],
+      completedGames: [],
+      disabled: false,
+      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      dailyLogin: {
+        lastLoginDate: null,
+        streak: 0,
+        longestStreak: 0,
+        totalLogins: 0,
+        loginHistory: []
+      },
+      activeEffects: {}
+    });
 
-    for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        await userRef.set({
-          username: username,
-          email: email,
-          department: department,
-          points: 0,
-          lokoin_balance: 0,
-          purchasedItems: [],
-          role: 'user',
-          description: '',
-          achievements: [],
-          easterEggsFound: [],
-          completedGames: [],
-          disabled: false,
-          lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          dailyLogin: {
-            lastLoginDate: null,
-            streak: 0,
-            longestStreak: 0,
-            totalLogins: 0,
-            loginHistory: []
-          },
-          activeEffects: {}
-        });
-
-        const check = await userRef.get();
-        if (check.exists) {
-          docExists = true;
-          break;
-        }
-      } catch (err) {
-        console.error(`Попытка ${attempt + 1} создания документа:`, err);
-      }
-      // Ждём перед следующей попыткой
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    if (!docExists) {
-      // Если документ так и не создался, удаляем пользователя из Auth
+    // Проверяем, что документ точно создан (на случай ошибки правил)
+    const doc = await userRef.get();
+    if (!doc.exists) {
       await user.delete();
-      throw new Error('Не удалось создать профиль после нескольких попыток. Обратитесь к администратору.');
+      throw new Error('Не удалось создать профиль. Попробуйте позже.');
     }
 
     const userData = {
-      uid: user.uid, email: email, username: username, department: department,
+      uid: user.uid, email, username, department,
       points: 0, lokoin_balance: 0, purchasedItems: [], role: 'user',
       description: '', achievements: [], easterEggsFound: [], completedGames: [],
       disabled: false,
@@ -407,21 +392,12 @@ async function updateLastActive(uid) {
   if (!uid) return;
   try {
     const userRef = db.collection('users').doc(uid);
-    let doc = await userRef.get();
-    // Если документ не найден, возможно, он ещё создаётся. Подождём.
-    if (!doc.exists) {
-      for (let i = 0; i < 5; i++) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        doc = await userRef.get();
-        if (doc.exists) break;
-      }
-    }
+    const doc = await userRef.get();
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
-    } else {
-      console.warn('updateLastActive: документ не найден после повторных попыток, пропускаем.');
     }
+    // Если документа нет, ничего не делаем – регистрация сама создаст.
   } catch (e) {
-    console.error('updateLastActive error:', e);
+    // Тихо игнорируем
   }
 }
