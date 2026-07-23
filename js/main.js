@@ -77,10 +77,11 @@ function updateAuthUI(firebaseUser) {
         }
       });
     }
+    statusEl.style.display = ''; // показываем всегда
   } else {
-    // Ссылка на страницу входа с редиректом обратно на текущую страницу
     const currentPage = window.location.pathname + window.location.search;
-    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}">Войти</a>`;
+    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}" class="auth-login-link">Войти</a>`;
+    statusEl.style.display = ''; // показываем всегда, даже на мобильных
   }
 }
 
