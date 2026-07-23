@@ -130,6 +130,7 @@
         let isAI = false;
         let unsubscribeGame = null, unsubscribeOpenGames = null;
         let autoMisses = [];
+        let gameEndProcessed = false; // защита от двойного вызова handleGameEnd
 
         // Сериализация
         function serializeBoard(board) { return JSON.stringify(board); }
@@ -180,6 +181,7 @@
             if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
             gameId = null; gameData = null;
             clearSetupTimer();
+            gameEndProcessed = false; // сброс защиты
 
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -265,6 +267,7 @@
                 gameData = game;
                 isAI = game.isAI || false;
                 resetGameState();
+                gameEndProcessed = false; // сброс защиты
                 subscribeToGame();
                 return true;
             } catch (e) {
@@ -277,6 +280,7 @@
         async function createGame(aiMode = false) {
             try {
                 isAI = aiMode;
+                gameEndProcessed = false; // сброс защиты
                 const docRef = await db.collection('battles').add({
                     status: 'waiting',
                     isAI: aiMode,
@@ -318,6 +322,7 @@
                     isAI = data.isAI || false;
                     subscribeToGame();
                     resetGameState();
+                    gameEndProcessed = false; // сброс защиты
                     showToast('Игра восстановлена', 'info');
                     return;
                 }
@@ -336,6 +341,7 @@
                 showToast('Вы присоединились!', 'success');
                 resetGameState();
                 startSetupTimer();
+                gameEndProcessed = false; // сброс защиты
             } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
         }
 
@@ -823,6 +829,9 @@
         }
 
         async function handleGameEnd(winnerUid) {
+            if (gameEndProcessed) return;
+            gameEndProcessed = true;
+
             const myUid = currentUser.uid;
             const isWin = winnerUid === myUid;
             const mode = isAI ? 'pve' : 'pvp';
