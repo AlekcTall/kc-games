@@ -44,11 +44,12 @@ async function firebaseRegister(email, password, username, department) {
         activeEffects: {}
       });
     } catch (setError) {
-      // Показываем ошибку пользователю
+      // Показываем ошибку пользователю, чтобы вы знали, в чём дело
       if (typeof showToast === 'function') {
         showToast('Ошибка создания профиля: ' + setError.message, 'error');
       }
       console.error('Ошибка создания документа:', setError);
+      // Удаляем пользователя из Auth, чтобы не занимать email
       await user.delete();
       throw new Error('Не удалось создать профиль. Ошибка: ' + setError.message);
     }
@@ -56,6 +57,7 @@ async function firebaseRegister(email, password, username, department) {
     // Проверяем, что документ точно создан
     const doc = await userRef.get();
     if (!doc.exists) {
+      // Если после успешного set документ не появился – что-то не так с правилами
       await user.delete();
       throw new Error('Документ не создался, хотя ошибок не было. Проверьте правила Firestore.');
     }
@@ -406,8 +408,7 @@ async function updateLastActive(uid) {
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
     }
-    // Если документа нет, ничего не делаем.
   } catch (e) {
-    // Тихо игнорируем.
+    // Игнорируем
   }
 }
