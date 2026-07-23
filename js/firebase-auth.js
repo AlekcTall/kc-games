@@ -407,13 +407,19 @@ async function updateLastActive(uid) {
   if (!uid) return;
   try {
     const userRef = db.collection('users').doc(uid);
-    const doc = await userRef.get();
+    let doc = await userRef.get();
+    // Если документ не найден, возможно, он ещё создаётся. Подождём.
+    if (!doc.exists) {
+      for (let i = 0; i < 5; i++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        doc = await userRef.get();
+        if (doc.exists) break;
+      }
+    }
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
     } else {
-      // Не создаём документ – регистрация сама это делает.
-      // Если документ не найден, просто игнорируем.
-      console.warn('updateLastActive: документ не найден, пропускаем.');
+      console.warn('updateLastActive: документ не найден после повторных попыток, пропускаем.');
     }
   } catch (e) {
     console.error('updateLastActive error:', e);
