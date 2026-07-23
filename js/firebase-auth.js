@@ -9,58 +9,34 @@ async function firebaseRegister(email, password, username, department) {
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
-
-    // Сохраняем имя в профиле Auth
     await user.updateProfile({ displayName: username });
-
-    // Отправляем письмо для подтверждения email
     await user.sendEmailVerification();
 
-    // Создаём документ в Firestore
-    const userRef = db.collection('users').doc(user.uid);
-    try {
-      await userRef.set({
-        username: username,
-        email: email,
-        department: department,
-        points: 0,
-        lokoin_balance: 0,
-        purchasedItems: [],
-        role: 'user',
-        description: '',
-        achievements: [],
-        easterEggsFound: [],
-        completedGames: [],
-        disabled: false,
-        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        dailyLogin: {
-          lastLoginDate: null,
-          streak: 0,
-          longestStreak: 0,
-          totalLogins: 0,
-          loginHistory: []
-        },
-        activeEffects: {}
-      });
-    } catch (setError) {
-      // Показываем ошибку пользователю, чтобы вы знали, в чём дело
-      if (typeof showToast === 'function') {
-        showToast('Ошибка создания профиля: ' + setError.message, 'error');
-      }
-      console.error('Ошибка создания документа:', setError);
-      // Удаляем пользователя из Auth, чтобы не занимать email
-      await user.delete();
-      throw new Error('Не удалось создать профиль. Ошибка: ' + setError.message);
-    }
-
-    // Проверяем, что документ точно создан
-    const doc = await userRef.get();
-    if (!doc.exists) {
-      // Если после успешного set документ не появился – что-то не так с правилами
-      await user.delete();
-      throw new Error('Документ не создался, хотя ошибок не было. Проверьте правила Firestore.');
-    }
+    // Создаём документ пользователя
+    await db.collection('users').doc(user.uid).set({
+      username: username,
+      email: email,
+      department: department,
+      points: 0,
+      lokoin_balance: 0,
+      purchasedItems: [],
+      role: 'user',
+      description: '',
+      achievements: [],
+      easterEggsFound: [],
+      completedGames: [],
+      disabled: false,
+      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      dailyLogin: {
+        lastLoginDate: null,
+        streak: 0,
+        longestStreak: 0,
+        totalLogins: 0,
+        loginHistory: []
+      },
+      activeEffects: {}
+    });
 
     const userData = {
       uid: user.uid, email, username, department,
@@ -75,6 +51,8 @@ async function firebaseRegister(email, password, username, department) {
     return userData;
   } catch (error) {
     console.error('Ошибка регистрации:', error);
+    // Удаляем созданного, но недоделанного пользователя
+    if (auth.currentUser) await auth.currentUser.delete();
     throw error;
   }
 }
@@ -408,7 +386,8 @@ async function updateLastActive(uid) {
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
     }
+    // Если документа нет, ничего не делаем.
   } catch (e) {
-    // Игнорируем
+    // Тихо игнорируем.
   }
 }
