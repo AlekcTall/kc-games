@@ -391,14 +391,49 @@ async function updateLastActive(uid) {
   if (!uid) return;
   try {
     const userRef = db.collection('users').doc(uid);
-    const doc = await userRef.get();
+    let doc = await userRef.get();
+    // Если документ не найден, возможно, он ещё создаётся (гонка при регистрации).
+    // Подождём до 2 секунд, проверяя каждые 500 мс.
+    if (!doc.exists) {
+      for (let i = 0; i < 4; i++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        doc = await userRef.get();
+        if (doc.exists) break;
+      }
+    }
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
     } else {
-      // Документ не найден – не создаём его, чтобы не перезаписывать данные.
-      // Это может случиться при гонке во время регистрации, но тогда 
-      // следующий вызов updateLastActive (через несколько секунд) найдёт уже созданный документ.
-      console.warn('updateLastActive: документ не найден для uid:', uid);
+      // Документ так и не появился – создаём резервный профиль.
+      // Используем set с merge: true, чтобы не перезаписать существующие данные,
+      // если они появятся позже. Имя берём из displayName (установлено при регистрации).
+      const currentAuth = auth.currentUser;
+      const generatedName = currentAuth?.displayName ||
+                            (currentAuth?.email ? currentAuth.email.split('@')[0] : 'Пользователь');
+      await userRef.set({
+        username: generatedName,
+        email: currentAuth?.email || '',
+        points: 0,
+        lokoin_balance: 0,
+        purchasedItems: [],
+        role: 'user',
+        description: '',
+        achievements: [],
+        easterEggsFound: [],
+        completedGames: [],
+        disabled: false,
+        lastActive: Date.now(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        dailyLogin: {
+          lastLoginDate: null,
+          streak: 0,
+          longestStreak: 0,
+          totalLogins: 0,
+          loginHistory: []
+        },
+        activeEffects: {}
+      }, { merge: true });
+      console.warn('Документ пользователя отсутствовал, создан заново для uid:', uid);
     }
   } catch (e) {
     console.error('Ошибка в updateLastActive:', e);
