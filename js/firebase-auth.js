@@ -39,7 +39,7 @@ async function firebaseRegister(email, password, username, department) {
     });
 
     const userData = {
-      uid: user.uid, email: email, username: username, department: department,
+      uid: user.uid, email, username, department,
       points: 0, lokoin_balance: 0, purchasedItems: [], role: 'user',
       description: '', achievements: [], easterEggsFound: [], completedGames: [],
       disabled: false,
