@@ -59,6 +59,7 @@
     .skeleton-stat { height: 60px; background: #e0e0e0; border-radius: 12px; }
     @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     .error-message { text-align: center; padding: 2rem; color: #e74c3c; }
+    .loading-note { font-size: 0.8rem; color: #888; text-align: center; }
   </style>
 </head>
 <body>
@@ -86,6 +87,7 @@
       const CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
       function buildStatsHTML(history) {
+        if (!history || !history.length) return '<p class="no-data">Нет данных для статистики.</p>';
         const d = {}, g = {};
         history.forEach(e => {
           const dt = new Date(e.timestamp).toISOString().slice(0, 10);
@@ -96,12 +98,12 @@
         const days = Object.values(d),
               t = days.reduce((a, b) => a + b, 0),
               bd = Math.max(...days),
-              bdd = Object.keys(d).find(x => d[x] === bd),
+              bdd = Object.keys(d).find(x => d[x] === bd) || '—',
               av = days.length ? Math.round(t / days.length) : 0,
               bg = Object.entries(g).sort((a, b) => b[1] - a[1])[0];
         return `<div class="stats-grid">
           <div class="stat-card"><span class="stat-icon">⭐</span><div class="stat-detail"><div class="stat-value">${t}</div><div class="stat-label">Всего баллов</div></div></div>
-          <div class="stat-card"><span class="stat-icon">📅</span><div class="stat-detail"><div class="stat-value">${new Date(bdd).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div><div class="stat-label">Лучший день (${bd} балл.)</div></div></div>
+          <div class="stat-card"><span class="stat-icon">📅</span><div class="stat-detail"><div class="stat-value">${bdd !== '—' ? new Date(bdd).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div><div class="stat-label">Лучший день (${bd} балл.)</div></div></div>
           <div class="stat-card"><span class="stat-icon">📊</span><div class="stat-detail"><div class="stat-value">${av}</div><div class="stat-label">Средний заработок</div></div></div>
           <div class="stat-card"><span class="stat-icon">🎮</span><div class="stat-detail"><div class="stat-value">${bg ? bg[0] : '—'}</div><div class="stat-label">Самая результативная (${bg ? bg[1] : 0} балл.)</div></div></div>
         </div>`;
@@ -155,51 +157,157 @@
             </div>
           </div>
           <div style="margin-top:1rem;"><div class="skeleton-text" style="width:60%;"></div><div class="skeleton-text" style="width:40%;"></div></div>
+          <h3 class="section-title">Награды</h3>
+          <div class="skeleton-text" style="width:50%;"></div>
+          <h3 class="section-title">Достижения</h3>
+          <div>${Array.from({length:5}, () => '<span style="display:inline-block;width:80px;height:30px;background:#e0e0e0;border-radius:6px;margin:0.2rem;"></span>').join('')}</div>
+          <h3 class="section-title">История игр</h3>
+          <div><div class="skeleton-text" style="width:100%;"></div><div class="skeleton-text" style="width:90%;"></div><div class="skeleton-text" style="width:80%;"></div></div>
           <h3 class="section-title">Статистика</h3>
           <div class="stats-grid" style="grid-template-columns: repeat(2,1fr);">
             <div class="skeleton-stat"></div><div class="skeleton-stat"></div><div class="skeleton-stat"></div><div class="skeleton-stat"></div>
           </div>
+          <p class="loading-note">Загрузка профиля...</p>
         </div>`;
       }
 
-      document.addEventListener('DOMContentLoaded', async () => {
+      // Основной рендер данных
+      function renderProfile(userData, userAwards, skipAwardsLoad = false) {
         const container = document.getElementById('public-profile-container');
-        const achModal = document.getElementById('ach-modal'),
-              achModalClose = document.getElementById('ach-modal-close'),
-              achModalIcon = document.getElementById('ach-modal-icon'),
-              achModalTitle = document.getElementById('ach-modal-title'),
-              achModalDesc = document.getElementById('ach-modal-desc'),
-              achModalStatus = document.getElementById('ach-modal-status');
+        if (!container) return;
 
-        async function showAchievementModal(ach, unlocked) {
-          achModalIcon.textContent = ach.hidden && !unlocked ? '❓' : ach.icon;
-          achModalTitle.textContent = ach.hidden && !unlocked ? '???' : ach.name;
-          achModalDesc.textContent = ach.hidden && !unlocked ? 'Откройте, чтобы узнать' : ach.description;
-          let st = '';
-          if (!ach.hidden || unlocked) {
-            const p = typeof getAchievementStats === 'function' ? await getAchievementStats(ach.id) : 0;
-            st = `<br><small style="color:#888;">Получили ${p}% пользователей</small>`;
+        const achCfg = getAchievementsConfig();
+        const unlockedAch = userData.achievements || [];
+        const gameHistory = userData.gameHistory || [];
+
+        const purchased = userData.purchasedItems || [];
+        const hasGoldFrame = purchased.includes('gold_frame');
+        const hasAnimatedAvatar = purchased.includes('animated_avatar');
+        const showGoldFrame = userData.showGoldFrame !== false;
+        const showAnimatedAvatar = userData.showAnimatedAvatar !== false;
+        let avatarClass = '';
+        if (hasGoldFrame && hasAnimatedAvatar && showGoldFrame && showAnimatedAvatar) avatarClass = 'gold-frame animated-avatar';
+        else if (hasGoldFrame && showGoldFrame) avatarClass = 'gold-frame';
+        else if (hasAnimatedAvatar && showAnimatedAvatar) avatarClass = 'animated-avatar';
+        const customStatus = userData.customStatus || '';
+
+        const avatarHtml = (typeof renderAvatarDiv === 'function')
+          ? renderAvatarDiv(userData, avatarClass)
+          : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(userData.uid)}">${getInitials(userData.username)}</div>`;
+
+        container.innerHTML = `<div class="public-profile-box">
+          <div class="profile-header">${avatarHtml}<div><h2>${userData.username}</h2><span class="badge badge-${userData.role}">${userData.role}</span>${customStatus ? `<div class="custom-status-text">«${customStatus}»</div>` : ''}${userData.department ? `<p class="profile-department"><strong>Отдел:</strong> ${userData.department}</p>` : ''}</div></div>
+          <div class="profile-details"><p><strong>Баллы:</strong> ${userData.points || 0}</p><p><strong>О себе:</strong> ${userData.description || '—'}</p></div>
+          <div class="awards-section" id="awards-container">
+            ${userAwards ? `<h3 class="section-title">🎖️ Награды</h3>
+              <div class="awards-grid">${userAwards.map(award => `<div class="award-card" data-award-id="${award.id}"><div class="award-card-icon"><img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'"></div><div class="award-card-info"><div class="award-card-name">${award.name}</div>${award.comment ? `<div class="award-card-comment">${award.comment}</div>` : ''}</div></div>`).join('')}</div>` :
+              (userAwards === undefined ? '<p class="loading-note">Загрузка наград...</p>' : '<p class="no-data">Нет наград.</p>')}
+          </div>
+          <h3 class="section-title">Достижения (${unlockedAch.length}/${achCfg.length})</h3>
+          <div class="achievements-grid">${achCfg.map(ach => {
+            const unl = unlockedAch.includes(ach.id);
+            const hid = ach.hidden && !unl;
+            return `<div class="achievement-item ${unl ? 'unlocked' : 'locked'}" data-ach-id="${ach.id}"><span class="ach-icon">${hid ? '❓' : ach.icon}</span><span class="ach-name">${hid ? '???' : ach.name}</span>${!hid && !unl ? `<span class="ach-hint">${ach.description}</span>` : ''}</div>`;
+          }).join('')}</div>
+          <h3 class="section-title">История игр</h3><div id="history-container">${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container" style="text-align:center;"></div>`}</div>
+          <h3 class="section-title">Статистика</h3><div id="stats-container">${buildStatsHTML(gameHistory)}</div>
+          <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
+        </div>`;
+
+        // Награды – обработчики
+        if (userAwards && userAwards.length) {
+          document.querySelectorAll('.award-card').forEach(card => {
+            card.addEventListener('click', () => {
+              const award = userAwards.find(a => a.id === card.dataset.awardId);
+              if (award) showAwardDetailModal(award);
+            });
+          });
+        }
+
+        // Достижения – модалки
+        document.querySelectorAll('.achievement-item').forEach(item => {
+          item.addEventListener('click', async () => {
+            const ach = achCfg.find(a => a.id === item.dataset.achId);
+            if (ach) {
+              const unlocked = unlockedAch.includes(ach.id);
+              await showAchievementModal(ach, unlocked);
+            }
+          });
+        });
+
+        // История игр (пагинация)
+        if (gameHistory.length > 0) {
+          const sorted = [...gameHistory].reverse();
+          const tbody = document.getElementById('history-body'),
+                moreCont = document.getElementById('more-container');
+          let disp = 5;
+          const step = 10;
+          function renderRows() {
+            const slice = sorted.slice(0, disp);
+            tbody.innerHTML = slice.map(e => {
+              const dt = new Date(e.timestamp).toLocaleString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              const gn = e.game === 'clicker' ? '🖱️ Кликер' : e.game === 'memory' ? '🧠 Найди пару' : e.game === 'snake' ? '🐍 Змейка' : e.game;
+              return `<tr><td>${gn}</td><td>+${e.points}</td><td>${dt}</td></tr>`;
+            }).join('');
+            if (disp < sorted.length) {
+              moreCont.innerHTML = `<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`;
+              document.getElementById('load-more-btn').addEventListener('click', () => {
+                disp = Math.min(disp + step, sorted.length);
+                renderRows();
+              });
+            } else {
+              moreCont.innerHTML = '';
+            }
           }
-          achModalStatus.innerHTML = unlocked
-            ? '<span class="ach-unlocked-status">✅ Получено</span>' + st
-            : '<span class="ach-locked-status">🔒 Ещё не получено</span>' + st;
-          achModal.style.display = 'flex';
+          renderRows();
         }
 
-        achModalClose.addEventListener('click', () => { achModal.style.display = 'none'; });
-        window.addEventListener('click', e => { if (e.target === achModal) achModal.style.display = 'none'; });
-
-        const awardDetailModal = document.getElementById('award-detail-modal');
-        document.getElementById('award-detail-close').addEventListener('click', () => { awardDetailModal.style.display = 'none'; });
-        window.addEventListener('click', e => { if (e.target === awardDetailModal) awardDetailModal.style.display = 'none'; });
-
-        function showAwardDetailModal(award) {
-          document.getElementById('award-detail-icon').innerHTML = `<img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'">`;
-          document.getElementById('award-detail-title').textContent = award.name;
-          document.getElementById('award-detail-desc').textContent = award.description || '';
-          document.getElementById('award-detail-comment').textContent = award.comment ? `«${award.comment}»` : '';
-          awardDetailModal.style.display = 'flex';
+        const statsCont = document.getElementById('stats-container');
+        if (statsCont && gameHistory.length === 0) {
+          statsCont.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
         }
+      }
+
+      // Модальные окна
+      const achModal = document.getElementById('ach-modal'),
+            achModalClose = document.getElementById('ach-modal-close'),
+            achModalIcon = document.getElementById('ach-modal-icon'),
+            achModalTitle = document.getElementById('ach-modal-title'),
+            achModalDesc = document.getElementById('ach-modal-desc'),
+            achModalStatus = document.getElementById('ach-modal-status');
+
+      async function showAchievementModal(ach, unlocked) {
+        achModalIcon.textContent = ach.hidden && !unlocked ? '❓' : ach.icon;
+        achModalTitle.textContent = ach.hidden && !unlocked ? '???' : ach.name;
+        achModalDesc.textContent = ach.hidden && !unlocked ? 'Откройте, чтобы узнать' : ach.description;
+        let st = '';
+        if (!ach.hidden || unlocked) {
+          const p = typeof getAchievementStats === 'function' ? await getAchievementStats(ach.id) : 0;
+          st = `<br><small style="color:#888;">Получили ${p}% пользователей</small>`;
+        }
+        achModalStatus.innerHTML = unlocked
+          ? '<span class="ach-unlocked-status">✅ Получено</span>' + st
+          : '<span class="ach-locked-status">🔒 Ещё не получено</span>' + st;
+        achModal.style.display = 'flex';
+      }
+      achModalClose.addEventListener('click', () => { achModal.style.display = 'none'; });
+      window.addEventListener('click', e => { if (e.target === achModal) achModal.style.display = 'none'; });
+
+      const awardDetailModal = document.getElementById('award-detail-modal');
+      document.getElementById('award-detail-close').addEventListener('click', () => { awardDetailModal.style.display = 'none'; });
+      window.addEventListener('click', e => { if (e.target === awardDetailModal) awardDetailModal.style.display = 'none'; });
+
+      function showAwardDetailModal(award) {
+        document.getElementById('award-detail-icon').innerHTML = `<img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'">`;
+        document.getElementById('award-detail-title').textContent = award.name;
+        document.getElementById('award-detail-desc').textContent = award.description || '';
+        document.getElementById('award-detail-comment').textContent = award.comment ? `«${award.comment}»` : '';
+        awardDetailModal.style.display = 'flex';
+      }
+
+      // Инициализация
+      document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('public-profile-container');
 
         auth.onAuthStateChanged(async (user) => {
           if (!user) {
@@ -214,121 +322,63 @@
           // 1. Попытка взять из кеша
           const cachedProfile = getCachedProfile(userId);
           if (cachedProfile) {
-            renderProfile(cachedProfile.userData, cachedProfile.userAwards, /* skipAwardsLoad */ true);
+            renderProfile(cachedProfile.userData, cachedProfile.userAwards, false);
+            // Фоновое обновление
+            refreshProfile(userId, container, true);
           } else {
             renderSkeleton(container);
-          }
-
-          // 2. Загрузка из Firestore
-          try {
-            const doc = await db.collection('users').doc(userId).get();
-            if (!doc.exists) { container.innerHTML = '<p>Пользователь не найден.</p>'; return; }
-            const userData = doc.data();
-            userData.uid = doc.id;
-
-            const userAwards = await loadUserAwards(userId);
-            const toCache = { userData, userAwards };
-            setCachedProfile(userId, toCache);
-
-            renderProfile(userData, userAwards, false);
-          } catch (e) {
-            console.error(e);
-            if (!cachedProfile) {
-              container.innerHTML = '<p class="error-message">Не удалось загрузить профиль.</p>';
-            }
+            refreshProfile(userId, container, false);
           }
         });
 
-        function renderProfile(userData, userAwards, skipAwardsLoad) {
-          const achCfg = getAchievementsConfig();
-          const unlockedAch = userData.achievements || [];
-          const gameHistory = userData.gameHistory || [];
-
-          const purchased = userData.purchasedItems || [];
-          const hasGoldFrame = purchased.includes('gold_frame');
-          const hasAnimatedAvatar = purchased.includes('animated_avatar');
-          const showGoldFrame = userData.showGoldFrame !== false;
-          const showAnimatedAvatar = userData.showAnimatedAvatar !== false;
-          let avatarClass = '';
-          if (hasGoldFrame && hasAnimatedAvatar && showGoldFrame && showAnimatedAvatar) avatarClass = 'gold-frame animated-avatar';
-          else if (hasGoldFrame && showGoldFrame) avatarClass = 'gold-frame';
-          else if (hasAnimatedAvatar && showAnimatedAvatar) avatarClass = 'animated-avatar';
-          const customStatus = userData.customStatus || '';
-
-          const avatarHtml = (typeof renderAvatarDiv === 'function')
-            ? renderAvatarDiv(userData, avatarClass)
-            : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(userData.uid)}">${getInitials(userData.username)}</div>`;
-
-          container.innerHTML = `<div class="public-profile-box">
-            <div class="profile-header">${avatarHtml}<div><h2>${userData.username}</h2><span class="badge badge-${userData.role}">${userData.role}</span>${customStatus ? `<div class="custom-status-text">«${customStatus}»</div>` : ''}${userData.department ? `<p class="profile-department"><strong>Отдел:</strong> ${userData.department}</p>` : ''}</div></div>
-            <div class="profile-details"><p><strong>Баллы:</strong> ${userData.points || 0}</p><p><strong>О себе:</strong> ${userData.description || '—'}</p></div>
-            <div id="awards-container"></div>
-            <h3 class="section-title">Достижения (${unlockedAch.length}/${achCfg.length})</h3>
-            <div class="achievements-grid">${achCfg.map(ach => {
-              const unl = unlockedAch.includes(ach.id);
-              const hid = ach.hidden && !unl;
-              return `<div class="achievement-item ${unl ? 'unlocked' : 'locked'}" data-ach-id="${ach.id}"><span class="ach-icon">${hid ? '❓' : ach.icon}</span><span class="ach-name">${hid ? '???' : ach.name}</span>${!hid && !unl ? `<span class="ach-hint">${ach.description}</span>` : ''}</div>`;
-            }).join('')}</div>
-            <h3 class="section-title">История игр</h3><div id="history-container">${gameHistory.length === 0 ? '<p class="no-data">Пока не сыграно ни одной игры.</p>' : `<table class="history-table"><thead><tr><th>Игра</th><th>Баллы</th><th>Дата</th></tr></thead><tbody id="history-body"></tbody></table><div id="more-container" style="text-align:center;"></div>`}</div>
-            <h3 class="section-title">Статистика</h3><div class="stats-container" id="stats-container"></div>
-            <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
-          </div>`;
-
-          // Награды – асинхронно
-          const awardsContainer = document.getElementById('awards-container');
-          if (userAwards.length > 0) {
-            awardsContainer.innerHTML = `<div class="awards-section"><h3 class="section-title">🎖️ Награды</h3><div class="awards-grid">${userAwards.map(award => `<div class="award-card" data-award-id="${award.id}"><div class="award-card-icon"><img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'"></div><div class="award-card-info"><div class="award-card-name">${award.name}</div>${award.comment ? `<div class="award-card-comment">${award.comment}</div>` : ''}</div></div>`).join('')}</div></div>`;
-            document.querySelectorAll('.award-card').forEach(card => {
-              card.addEventListener('click', () => {
-                const award = userAwards.find(a => a.id === card.dataset.awardId);
-                if (award) showAwardDetailModal(award);
-              });
-            });
-          }
-
-          // Достижения – модалки
-          document.querySelectorAll('.achievement-item').forEach(item => {
-            item.addEventListener('click', async () => {
-              const ach = achCfg.find(a => a.id === item.dataset.achId);
-              if (ach) {
-                const unlocked = unlockedAch.includes(ach.id);
-                await showAchievementModal(ach, unlocked);
-              }
-            });
-          });
-
-          // История игр
-          if (gameHistory.length > 0) {
-            const sorted = [...gameHistory].reverse();
-            const tbody = document.getElementById('history-body'),
-                  moreCont = document.getElementById('more-container');
-            let disp = 5;
-            const step = 10;
-            function renderRows() {
-              const slice = sorted.slice(0, disp);
-              tbody.innerHTML = slice.map(e => {
-                const dt = new Date(e.timestamp).toLocaleString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                const gn = e.game === 'clicker' ? '🖱️ Кликер' : e.game === 'memory' ? '🧠 Найди пару' : e.game === 'snake' ? '🐍 Змейка' : e.game;
-                return `<tr><td>${gn}</td><td>+${e.points}</td><td>${dt}</td></tr>`;
-              }).join('');
-              if (disp < sorted.length) {
-                moreCont.innerHTML = `<button class="btn-more" id="load-more-btn">Загрузить ещё</button>`;
-                document.getElementById('load-more-btn').addEventListener('click', () => {
-                  disp = Math.min(disp + step, sorted.length);
-                  renderRows();
-                });
-              } else {
-                moreCont.innerHTML = '';
-              }
+        async function refreshProfile(userId, container, isCached) {
+          try {
+            const doc = await db.collection('users').doc(userId).get();
+            if (!doc.exists) { 
+              if (!isCached) container.innerHTML = '<p>Пользователь не найден.</p>';
+              return; 
             }
-            renderRows();
-          }
+            const userData = doc.data();
+            userData.uid = doc.id;
 
-          const statsCont = document.getElementById('stats-container');
-          if (statsCont && gameHistory.length > 0) {
-            statsCont.innerHTML = buildStatsHTML(gameHistory);
-          } else if (statsCont) {
-            statsCont.innerHTML = '<p class="no-data">Нет данных для статистики.</p>';
+            // Загружаем награды асинхронно
+            let awards = undefined;
+            loadUserAwards(userId).then(a => {
+              const awardsContainer = document.getElementById('awards-container');
+              if (awardsContainer) {
+                if (a.length) {
+                  awardsContainer.innerHTML = `<h3 class="section-title">🎖️ Награды</h3><div class="awards-grid">${a.map(award => `<div class="award-card" data-award-id="${award.id}"><div class="award-card-icon"><img src="img/awards/${award.icon}" alt="${award.name}" onerror="this.parentElement.innerHTML='🎖️'"></div><div class="award-card-info"><div class="award-card-name">${award.name}</div>${award.comment ? `<div class="award-card-comment">${award.comment}</div>` : ''}</div></div>`).join('')}</div>`;
+                  document.querySelectorAll('.award-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                      const aw = a.find(x => x.id === card.dataset.awardId);
+                      if (aw) showAwardDetailModal(aw);
+                    });
+                  });
+                } else {
+                  awardsContainer.innerHTML = '<p class="no-data">Нет наград.</p>';
+                }
+              }
+              awards = a;
+            }).catch(() => {
+              if (document.getElementById('awards-container')) {
+                document.getElementById('awards-container').innerHTML = '<p class="error-message">Не удалось загрузить награды.</p>';
+              }
+              awards = null;
+            });
+
+            // Рендерим профиль (награды покажутся позже)
+            renderProfile(userData, awards, false);
+
+            // Сохраняем в кеш (после загрузки наград)
+            setTimeout(async () => {
+              const freshAwards = await loadUserAwards(userId);
+              setCachedProfile(userId, { userData, userAwards: freshAwards });
+            }, 1500);
+          } catch (e) {
+            console.error(e);
+            if (!isCached) {
+              container.innerHTML = '<p class="error-message">Не удалось загрузить профиль.</p>';
+            }
           }
         }
       });
