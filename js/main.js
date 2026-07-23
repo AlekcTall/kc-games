@@ -42,9 +42,9 @@ function getColorFromUid(uid) {
 }
 
 function renderAvatarDiv(user) {
-  const initials = getInitials(user.username || user.email || '?');
+  const initials = getInitials(user.username);
   const bgColor = getColorFromUid(user.uid || user.id);
-  return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username || user.email || ''}">${initials}</div>`;
+  return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
 }
 
 // Склонение слова "локоин"
@@ -59,45 +59,29 @@ function pluralizeLokoin(n) {
 }
 
 // Обновление статуса в шапке
-async function updateAuthUI(firebaseUser) {
+function updateAuthUI(firebaseUser) {
   const statusEl = document.getElementById('auth-status');
   if (!statusEl) return;
   if (firebaseUser) {
-    let current = getCurrentUser();
-    if (!current || !current.username) {
-      try {
-        const doc = await db.collection('users').doc(firebaseUser.uid).get();
-        if (doc.exists) {
-          const data = doc.data();
-          current = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            username: data.username || firebaseUser.displayName || firebaseUser.email,
-            department: data.department || '',
-            points: data.points || 0,
-            lokoin_balance: data.lokoin_balance || 0,
-            purchasedItems: data.purchasedItems || [],
-            role: data.role || 'user',
-            description: data.description || '',
-            achievements: data.achievements || [],
-            easterEggsFound: data.easterEggsFound || [],
-            completedGames: data.completedGames || [],
-            disabled: data.disabled || false,
-            dailyLogin: data.dailyLogin || {},
-            activeEffects: data.activeEffects || {}
-          };
-          setCurrentUser(current);
+    const current = getCurrentUser();
+    const name = current ? current.username : firebaseUser.email;
+    statusEl.innerHTML = `👤 <span class="auth-greeting">${name}</span> | <a href="#" id="logout-link">Выйти</a>`;
+    const logoutLink = document.getElementById('logout-link');
+    if (logoutLink) {
+      logoutLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof firebaseLogout === 'function') {
+          firebaseLogout();
+        } else {
+          auth.signOut();
         }
-      } catch (e) { console.error('updateAuthUI load error:', e); }
+      });
     }
-    const displayName = current?.username || firebaseUser.displayName || firebaseUser.email;
-    statusEl.innerHTML = `👤 <span class="auth-greeting">${displayName}</span> | <a href="#" id="logout-link">Выйти</a>`;
-    document.getElementById('logout-link')?.addEventListener('click', e => { e.preventDefault(); firebaseLogout(); });
-    statusEl.style.display = '';
+    statusEl.style.display = ''; // показываем всегда
   } else {
     const currentPage = window.location.pathname + window.location.search;
-    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}">Войти</a>`;
-    statusEl.style.display = '';
+    statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}" class="auth-login-link">Войти</a>`;
+    statusEl.style.display = ''; // показываем всегда, даже на мобильных
   }
 }
 
@@ -131,8 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Автоматическое обновление статуса авторизации, темы и пинг онлайна
   if (typeof auth !== 'undefined') {
-    auth.onAuthStateChanged(async (user) => {
-      await updateAuthUI(user);
+    auth.onAuthStateChanged((user) => {
+      updateAuthUI(user);
 
       if (user && typeof initEasterEggs === 'function') {
         initEasterEggs();
@@ -152,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (user && typeof updateLastActive === 'function') {
-        // Теперь документ уже должен существовать, т.к. updateAuthUI загрузил профиль
+        // Первое обновление сразу после входа
         updateLastActive(user.uid);
 
         // Запускаем периодическое обновление каждые 30 секунд
