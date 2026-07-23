@@ -203,10 +203,9 @@
         let myScore = 0, opponentScore = 0;
         let myChoice = null, opponentChoice = null;
 
-        // Результат последнего раунда для отображения
         let lastMyChoice = null;
         let lastOpponentChoice = null;
-        let lastRoundResult = null; // 'win', 'lose', 'draw'
+        let lastRoundResult = null;
         let isSubmitting = false;
 
         auth.onAuthStateChanged(async user => {
@@ -328,6 +327,7 @@
                     const wins = mode === 'pvp' ? (stats.pvpWins || 0) : (stats.pveWins || 0);
                     if (wins > 0) players.push({ username: d.username || 'Аноним', wins });
                 });
+                console.log(`[RPS Rating] Загружены пользователи для ${mode}:`, players);
                 players.sort((a,b) => b.wins - a.wins);
                 let html = `<h3>${mode === 'pvp' ? '🏆 Лучшие игроки (PvP)' : '🤖 Лучшие игроки (PvE)'}</h3>`;
                 if (players.length) {
@@ -491,7 +491,6 @@
             html += `<div class="player-score"><div>Соперник</div><div class="score">${opponentScore}</div></div>`;
             html += '</div>';
 
-            // Если есть результат прошлого раунда (показываем его, даже если уже можно ходить)
             if (lastRoundResult) {
                 html += '<div style="display:flex; justify-content:center; gap:2rem; margin:1rem 0;">';
                 html += `<div><div style="font-size:3rem;">${emojiFor(lastMyChoice)}</div>Вы</div>`;
@@ -501,7 +500,6 @@
                 html += `<p class="status-message">${lastRoundResult === 'win' ? '🎉 Вы выиграли раунд!' : lastRoundResult === 'lose' ? '😞 Вы проиграли раунд' : '🤝 Ничья'}</p>`;
             }
 
-            // Кнопки выбора (только если не ждем соперника и не сделали свой выбор)
             if (!myChoice && !waitingOpponent && !bothChosen) {
                 html += '<div class="choices" id="choices">';
                 const choices = ['rock', 'scissors', 'paper'];
@@ -517,7 +515,6 @@
                 html += '<p>Вы сделали выбор, ждем соперника...</p>';
             }
 
-            // История раундов
             const history = gameData.roundsHistory || [];
             if (history.length > 0) {
                 html += '<div class="rounds-history"><h4>История раундов</h4>';
@@ -536,7 +533,6 @@
 
             gameContainer.innerHTML = html;
 
-            // Обработчики для кнопок выбора
             document.querySelectorAll('.choice-btn:not([disabled])').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const choice = btn.dataset.choice;
@@ -547,7 +543,6 @@
             const surrenderBtn = document.getElementById('surrender-btn');
             if (surrenderBtn) surrenderBtn.addEventListener('click', surrender);
 
-            // Ход ИИ
             if (isAI && !opponentChoice && gameData.status === 'active' && !isSubmitting && !lastRoundResult) {
                 setTimeout(() => submitAIChoice(), 600 + Math.random() * 800);
             }
@@ -569,7 +564,6 @@
         async function submitChoice(choice) {
             if (!gameId || !myUid || !opponentUid || isSubmitting || myChoice) return;
             isSubmitting = true;
-            // Сбрасываем результат прошлого раунда, так как начинается новый
             lastRoundResult = null;
             const docRef = db.collection('rps_games').doc(gameId);
             try {
@@ -606,7 +600,6 @@
                         newData.status = winnerUid ? 'finished' : 'active';
                         newData.winner = winnerUid || null;
 
-                        // Сохраняем результат для отображения
                         lastMyChoice = choice;
                         lastOpponentChoice = opponent;
                         lastRoundResult = result;
@@ -616,7 +609,7 @@
                 });
             } catch (e) {
                 console.error('Транзакция хода не удалась:', e);
-                lastRoundResult = null; // в случае ошибки тоже сбрасываем
+                lastRoundResult = null;
             } finally {
                 isSubmitting = false;
             }
@@ -626,7 +619,7 @@
             if (!gameId || !opponentUid || isSubmitting || opponentChoice) return;
             isSubmitting = true;
             const aiChoice = calculateAIMove();
-            lastRoundResult = null; // сбрасываем перед ходом ИИ
+            lastRoundResult = null;
 
             const docRef = db.collection('rps_games').doc(gameId);
             try {
@@ -699,13 +692,24 @@
             }
         }
 
-        // ========== ЗАВЕРШЕНИЕ ==========
+        // ========== ЗАВЕРШЕНИЕ С ДЕТАЛЬНЫМ ЛОГИРОВАНИЕМ ==========
         async function handleGameEnd(isWin) {
             const mode = isAI ? 'pve' : 'pvp';
+            console.log(`[RPS] handleGameEnd вызван. isWin=${isWin}, mode=${mode}`);
+
             const userRef = db.collection('users').doc(currentUser.uid);
-            const userDoc = await userRef.get();
+            let userDoc;
+            try {
+                userDoc = await userRef.get();
+                console.log('[RPS] Документ пользователя получен, exists=', userDoc.exists);
+            } catch (e) {
+                console.error('[RPS] Ошибка чтения документа пользователя:', e);
+                return;
+            }
+
             const userData = userDoc.data() || {};
             const stats = userData.rpsStats || {};
+            console.log('[RPS] rpsStats до обновления:', JSON.stringify(stats));
 
             let newStreak = stats.currentWinStreak || 0;
             let bestStreak = stats.bestWinStreak || 0;
@@ -727,15 +731,37 @@
                 updateData['rpsStats.beatHardAI'] = true;
             }
 
-            await userRef.update(updateData);
+            console.log('[RPS] Данные для обновления:', JSON.stringify(updateData));
+
+            try {
+                await userRef.update(updateData);
+                console.log('[RPS] Обновление rpsStats успешно выполнено.');
+            } catch (e) {
+                console.error('[RPS] Ошибка обновления rpsStats:', e);
+                return;
+            }
+
+            // Проверим, что записалось
+            const updatedDoc = await userRef.get();
+            console.log('[RPS] rpsStats после обновления:', JSON.stringify(updatedDoc.data()?.rpsStats));
 
             if (isWin) {
                 const points = isAI ? 3 : 5;
-                if (typeof addPointsToCurrentUser === 'function') await addPointsToCurrentUser(points, 'rps');
+                if (typeof addPointsToCurrentUser === 'function') {
+                    console.log('[RPS] Начисляем баллы:', points);
+                    await addPointsToCurrentUser(points, 'rps');
+                }
                 showToast(`Победа! +${points} баллов`, 'success');
             }
-            if (typeof checkAndAwardAchievements === 'function') await checkAndAwardAchievements();
 
+            if (typeof checkAndAwardAchievements === 'function') {
+                console.log('[RPS] Вызываем checkAndAwardAchievements');
+                await checkAndAwardAchievements();
+            } else {
+                console.error('[RPS] checkAndAwardAchievements не определена!');
+            }
+
+            // Отписка и сброс gameId
             if (unsubscribeGame) {
                 unsubscribeGame();
                 unsubscribeGame = null;
