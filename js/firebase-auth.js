@@ -13,7 +13,8 @@ async function firebaseRegister(email, password, username, department) {
     await user.sendEmailVerification();
 
     // Создаём документ пользователя
-    await db.collection('users').doc(user.uid).set({
+    const userRef = db.collection('users').doc(user.uid);
+    await userRef.set({
       username: username,
       email: email,
       department: department,
@@ -38,6 +39,15 @@ async function firebaseRegister(email, password, username, department) {
       activeEffects: {}
     });
 
+    // Проверяем, что документ реально создался
+    const doc = await userRef.get();
+    if (!doc.exists) {
+      await user.delete();
+      throw new Error(
+        'Документ не создан. Проверьте правила Firestore (allow create для users/{userId})'
+      );
+    }
+
     const userData = {
       uid: user.uid, email, username, department,
       points: 0, lokoin_balance: 0, purchasedItems: [], role: 'user',
@@ -51,7 +61,6 @@ async function firebaseRegister(email, password, username, department) {
     return userData;
   } catch (error) {
     console.error('Ошибка регистрации:', error);
-    // Удаляем созданного, но недоделанного пользователя
     if (auth.currentUser) await auth.currentUser.delete();
     throw error;
   }
