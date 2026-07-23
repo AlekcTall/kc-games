@@ -13,7 +13,18 @@
         #timerDisplay { font-family: monospace; font-size: 1.2rem; background: #fff; padding: 0.2rem 0.8rem; border-radius: 6px; border: 1px solid #ccc; }
         #smileyBtn { font-size: 2rem; cursor: pointer; background: none; border: none; line-height: 1; padding: 0 0.5rem; transition: transform 0.2s; }
         #smileyBtn:active { transform: scale(1.3); }
-        canvas { border: 2px solid #ddd; border-radius: 8px; background: #fafafa; display: block; margin: 0 auto 1rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); touch-action: manipulation; }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+            display: block;
+            margin: 0 auto 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
         .ms-controls { margin-bottom: 1rem; color: #666; font-size: 0.9rem; }
         .ms-message { font-weight: bold; min-height: 1.5rem; margin: 0.5rem 0; color: #2c3e50; }
         .ms-back { display: inline-block; margin-top: 0.5rem; color: var(--color-primary); text-decoration: none; }
@@ -52,7 +63,7 @@
         let timerStart = null, timerInterval = null, elapsedMs = 0;
         let bestTime = Infinity, currentUid = null;
         let longPressTimer = null, LONG_PRESS_DURATION = 400;
-        let pointerStart = null; // для отслеживания pointer-событий
+        let pointerStart = null; // { cell, time, type }
 
         class Cell { constructor(row, col) { this.row = row; this.col = col; this.mine = false; this.revealed = false; this.flagged = false; this.neighborMines = 0; } }
         function createEmptyBoard() { const newBoard = []; for (let r = 0; r < ROWS; r++) { const row = []; for (let c = 0; c < COLS; c++) { row.push(new Cell(r, c)); } newBoard.push(row); } return newBoard; }
@@ -77,32 +88,35 @@
             if (gameOver) return;
             const cell = getCellFromEvent(e);
             if (!cell) return;
-            pointerStart = { cell, time: Date.now() };
-            // Если правая кнопка мыши – сразу флаг
-            if (e.button === 2 || e.pointerType === 'touch') {
-                // На touch-устройствах долгое нажатие – флаг, на обычных – ПКМ
-                if (e.pointerType === 'mouse') {
-                    if (e.button === 2) {
-                        if (gameActive) toggleFlag(cell.row, cell.col);
+            
+            const isTouch = e.pointerType === 'touch';
+            const isRightClick = e.button === 2;
+            
+            if (isRightClick) {
+                // Правая кнопка мыши – сразу флаг
+                if (gameActive) toggleFlag(cell.row, cell.col);
+                return;
+            }
+            
+            // Запоминаем точку и время для возможного долгого нажатия
+            pointerStart = { cell, time: Date.now(), type: e.pointerType };
+            
+            if (isTouch) {
+                // Только для touch запускаем таймер долгого нажатия на флаг
+                if (longPressTimer) clearTimeout(longPressTimer);
+                longPressTimer = setTimeout(() => {
+                    if (pointerStart && gameActive) {
+                        toggleFlag(pointerStart.cell.row, pointerStart.cell.col);
+                        if (navigator.vibrate) navigator.vibrate(20);
                         pointerStart = null;
                     }
-                } else {
-                    // touch: запускаем таймер на флаг
-                    longPressTimer = setTimeout(() => {
-                        if (pointerStart && gameActive) {
-                            toggleFlag(pointerStart.cell.row, pointerStart.cell.col);
-                            if (navigator.vibrate) navigator.vibrate(20);
-                            pointerStart = null;
-                        }
-                        longPressTimer = null;
-                    }, LONG_PRESS_DURATION);
-                }
+                    longPressTimer = null;
+                }, LONG_PRESS_DURATION);
             }
         });
 
         canvas.addEventListener('pointermove', (e) => {
             if (longPressTimer && pointerStart) {
-                // Если палец сдвинулся, отменяем долгое нажатие
                 const cell = getCellFromEvent(e);
                 if (!cell || cell.row !== pointerStart.cell.row || cell.col !== pointerStart.cell.col) {
                     clearTimeout(longPressTimer);
@@ -114,33 +128,37 @@
 
         canvas.addEventListener('pointerup', (e) => {
             e.preventDefault();
+            if (!pointerStart || !gameActive) {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                pointerStart = null;
+                return;
+            }
+            
+            // Отменяем таймер долгого нажатия (если был)
             if (longPressTimer) {
-                // Если был начат долгий тап, но завершился раньше – отменяем и открываем клетку
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
-                if (pointerStart && gameActive) {
-                    const cell = pointerStart.cell;
-                    if (!minesPlanted) {
-                        plantMines(cell.row, cell.col);
-                        revealCell(cell.row, cell.col);
-                    } else {
-                        revealCell(cell.row, cell.col);
-                    }
-                    drawBoard();
-                    pointerStart = null;
-                }
-            } else if (pointerStart && e.button === 0 && e.pointerType === 'mouse') {
-                // Обычный клик левой кнопкой мыши
-                const cell = pointerStart.cell;
-                if (!minesPlanted) {
-                    plantMines(cell.row, cell.col);
-                    revealCell(cell.row, cell.col);
-                } else {
-                    if (gameActive) revealCell(cell.row, cell.col);
-                }
-                drawBoard();
-                pointerStart = null;
             }
+            
+            const cell = pointerStart.cell;
+            // Игнорируем правую кнопку мыши (уже обработана в pointerdown)
+            if (e.button === 2) {
+                pointerStart = null;
+                return;
+            }
+            
+            // Открываем клетку (короткое нажатие)
+            if (!minesPlanted) {
+                plantMines(cell.row, cell.col);
+                revealCell(cell.row, cell.col);
+            } else {
+                if (gameActive) revealCell(cell.row, cell.col);
+            }
+            drawBoard();
+            pointerStart = null;
         });
 
         canvas.addEventListener('pointerleave', () => {
