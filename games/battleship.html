@@ -90,13 +90,6 @@
             display: inline-block;
             font-size: 0.9rem;
         }
-        @media (max-width: 480px) {
-            .board-grid {
-                grid-template-columns: repeat(10, 28px);
-                grid-template-rows: repeat(10, 28px);
-            }
-            .cell { width: 28px; height: 28px; }
-        }
     </style>
 </head>
 <body>
@@ -137,7 +130,7 @@
         let isAI = false;
         let unsubscribeGame = null, unsubscribeOpenGames = null;
         let autoMisses = [];
-        let gameEndProcessed = false; // защита от двойного вызова handleGameEnd
+        let gameEndProcessed = false;
 
         // Сериализация
         function serializeBoard(board) { return JSON.stringify(board); }
@@ -188,7 +181,7 @@
             if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
             gameId = null; gameData = null;
             clearSetupTimer();
-            gameEndProcessed = false; // сброс защиты
+            gameEndProcessed = false;
 
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
@@ -274,7 +267,7 @@
                 gameData = game;
                 isAI = game.isAI || false;
                 resetGameState();
-                gameEndProcessed = false; // сброс защиты
+                gameEndProcessed = false;
                 subscribeToGame();
                 return true;
             } catch (e) {
@@ -287,7 +280,7 @@
         async function createGame(aiMode = false) {
             try {
                 isAI = aiMode;
-                gameEndProcessed = false; // сброс защиты
+                gameEndProcessed = false;
                 const docRef = await db.collection('battles').add({
                     status: 'waiting',
                     isAI: aiMode,
@@ -329,7 +322,7 @@
                     isAI = data.isAI || false;
                     subscribeToGame();
                     resetGameState();
-                    gameEndProcessed = false; // сброс защиты
+                    gameEndProcessed = false;
                     showToast('Игра восстановлена', 'info');
                     return;
                 }
@@ -348,7 +341,7 @@
                 showToast('Вы присоединились!', 'success');
                 resetGameState();
                 startSetupTimer();
-                gameEndProcessed = false; // сброс защиты
+                gameEndProcessed = false;
             } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
         }
 
@@ -534,13 +527,10 @@
         function undoLastShip() {
             if (myShips.length === 0) return;
             const lastShip = myShips.pop();
-            // Убираем с доски
             for (const cell of lastShip) {
                 myBoard[cell.row][cell.col] = 0;
             }
-            // Возвращаем размер в remainingShips
             remainingShips.push(lastShip.length);
-            // Сортируем remainingShips для удобства (по убыванию)
             remainingShips.sort((a,b) => b-a);
             if (selectedShipIndex >= remainingShips.length) {
                 selectedShipIndex = remainingShips.length - 1;
@@ -784,9 +774,13 @@
                 toastMsg = 'Убил!';
                 addAutoMissesForShip(sunkShip);
                 if (sunkShip.length === 4) {
-                    db.collection('users').doc(currentUser.uid).update({
+                    await db.collection('users').doc(currentUser.uid).update({
                         'battleshipStats.sunk4Deck': true
                     }).catch(console.error);
+                    // НЕМЕДЛЕННАЯ проверка достижений
+                    if (typeof checkAndAwardAchievements === 'function') {
+                        checkAndAwardAchievements();
+                    }
                 }
             }
             showToast(toastMsg, hit ? 'success' : 'info');
