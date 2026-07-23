@@ -18,36 +18,46 @@ async function firebaseRegister(email, password, username, department) {
 
     // Создаём документ в Firestore
     const userRef = db.collection('users').doc(user.uid);
-    await userRef.set({
-      username: username,
-      email: email,
-      department: department,
-      points: 0,
-      lokoin_balance: 0,
-      purchasedItems: [],
-      role: 'user',
-      description: '',
-      achievements: [],
-      easterEggsFound: [],
-      completedGames: [],
-      disabled: false,
-      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      dailyLogin: {
-        lastLoginDate: null,
-        streak: 0,
-        longestStreak: 0,
-        totalLogins: 0,
-        loginHistory: []
-      },
-      activeEffects: {}
-    });
+    try {
+      await userRef.set({
+        username: username,
+        email: email,
+        department: department,
+        points: 0,
+        lokoin_balance: 0,
+        purchasedItems: [],
+        role: 'user',
+        description: '',
+        achievements: [],
+        easterEggsFound: [],
+        completedGames: [],
+        disabled: false,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        dailyLogin: {
+          lastLoginDate: null,
+          streak: 0,
+          longestStreak: 0,
+          totalLogins: 0,
+          loginHistory: []
+        },
+        activeEffects: {}
+      });
+    } catch (setError) {
+      // Показываем ошибку пользователю
+      if (typeof showToast === 'function') {
+        showToast('Ошибка создания профиля: ' + setError.message, 'error');
+      }
+      console.error('Ошибка создания документа:', setError);
+      await user.delete();
+      throw new Error('Не удалось создать профиль. Ошибка: ' + setError.message);
+    }
 
-    // Проверяем, что документ точно создан (на случай ошибки правил)
+    // Проверяем, что документ точно создан
     const doc = await userRef.get();
     if (!doc.exists) {
       await user.delete();
-      throw new Error('Не удалось создать профиль. Попробуйте позже.');
+      throw new Error('Документ не создался, хотя ошибок не было. Проверьте правила Firestore.');
     }
 
     const userData = {
@@ -396,8 +406,8 @@ async function updateLastActive(uid) {
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
     }
-    // Если документа нет, ничего не делаем – регистрация сама создаст.
+    // Если документа нет, ничего не делаем.
   } catch (e) {
-    // Тихо игнорируем
+    // Тихо игнорируем.
   }
 }
