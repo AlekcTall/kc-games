@@ -10,11 +10,14 @@ async function firebaseRegister(email, password, username, department) {
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
-    
+
+    // Сразу сохраняем имя в профиле Auth
+    await user.updateProfile({ displayName: username });
+
     // Отправляем письмо для подтверждения email
     await user.sendEmailVerification();
-    
-    // Пытаемся создать документ в Firestore
+
+    // Создаём документ в Firestore
     try {
       await db.collection('users').doc(user.uid).set({
         username: username,
@@ -45,7 +48,7 @@ async function firebaseRegister(email, password, username, department) {
       await user.delete();
       throw new Error('Не удалось создать профиль. Проверьте права доступа или повторите попытку.');
     }
-    
+
     const userData = {
       uid: user.uid, email: email, username: username, department: department,
       points: 0, lokoin_balance: 0, purchasedItems: [], role: 'user',
@@ -176,7 +179,6 @@ async function addPointsToCurrentUser(points, gameId = null) {
     const userRef = db.collection('users').doc(user.uid); const doc = await userRef.get();
     if (!doc.exists) return false;
     const data = doc.data();
-    // Проверяем эффект двойного опыта
     let multiplier = 1;
     if (hasActiveEffect('double_xp_1h')) multiplier = 2;
     const actualPoints = points * multiplier;
@@ -222,7 +224,6 @@ async function syncGameStats(gameId, stats) {
     if (!doc.exists) return; const data = doc.data(); const gameStats = data.gameStats || {};
     const currentStats = gameStats[gameId] || {}; const merged = { ...currentStats };
     
-    // Числовые показатели – берём максимум
     if (stats.totalClicks !== undefined) merged.totalClicks = Math.max(currentStats.totalClicks || 0, stats.totalClicks);
     if (stats.maxScore !== undefined) merged.maxScore = Math.max(currentStats.maxScore || 0, stats.maxScore);
     if (stats.bestMoves !== undefined) merged.bestMoves = currentStats.bestMoves ? Math.min(currentStats.bestMoves, stats.bestMoves) : stats.bestMoves;
@@ -231,7 +232,6 @@ async function syncGameStats(gameId, stats) {
     if (stats.maxLines !== undefined) merged.maxLines = Math.max(currentStats.maxLines || 0, stats.maxLines);
     if (stats.maxLevel !== undefined) merged.maxLevel = Math.max(currentStats.maxLevel || 0, stats.maxLevel);
     
-    // Булевые флаги – true, если хотя бы раз было
     if (stats.selfEaten) merged.selfEaten = true;
     if (stats.wallCrash) merged.wallCrash = true;
     if (stats.openedFirst) merged.openedFirst = true;
@@ -252,12 +252,42 @@ async function syncGameStats(gameId, stats) {
 
 // ================== ВСПОМОГАТЕЛЬНЫЕ ==================
 
-function updateAuthUI(firebaseUser) {
+async function updateAuthUI(firebaseUser) {
   const statusEl = document.getElementById('auth-status'); if (!statusEl) return;
-  if (firebaseUser) { const user = getCurrentUser(); const name = user ? user.username : firebaseUser.email; statusEl.innerHTML = `👤 <span class="auth-greeting">${name}</span> | <a href="#" id="logout-link">Выйти</a>`; document.getElementById('logout-link')?.addEventListener('click', e => { e.preventDefault(); firebaseLogout(); }); }
-  else {
+  if (firebaseUser) {
+    let current = getCurrentUser();
+    if (!current || !current.username) {
+      try {
+        const doc = await db.collection('users').doc(firebaseUser.uid).get();
+        if (doc.exists) {
+          const data = doc.data();
+          current = {
+            uid: firebaseUser.uid, email: firebaseUser.email, username: data.username,
+            department: data.department || '',
+            points: data.points || 0,
+            lokoin_balance: data.lokoin_balance || 0,
+            purchasedItems: data.purchasedItems || [],
+            role: data.role || 'user',
+            description: data.description || '',
+            achievements: data.achievements || [],
+            easterEggsFound: data.easterEggsFound || [],
+            completedGames: data.completedGames || [],
+            disabled: data.disabled || false,
+            dailyLogin: data.dailyLogin || {},
+            activeEffects: data.activeEffects || {}
+          };
+          setCurrentUser(current);
+        }
+      } catch (e) { console.error('updateAuthUI load error:', e); }
+    }
+    const name = current?.username || firebaseUser.displayName || firebaseUser.email;
+    statusEl.innerHTML = `👤 <span class="auth-greeting">${name}</span> | <a href="#" id="logout-link">Выйти</a>`;
+    document.getElementById('logout-link')?.addEventListener('click', e => { e.preventDefault(); firebaseLogout(); });
+    statusEl.style.display = '';
+  } else {
     const currentPage = window.location.pathname + window.location.search;
     statusEl.innerHTML = `<a href="login.html?redirect=${encodeURIComponent(currentPage)}">Войти</a>`;
+    statusEl.style.display = '';
   }
 }
 
@@ -271,9 +301,7 @@ async function updateLastActive(uid) {
     if (doc.exists) {
       await userRef.update({ lastActive: Date.now() });
     } else {
-      // Если документа нет (например, после неудачной регистрации), создаём минимальный профиль
       const currentAuth = auth.currentUser;
-      // Генерируем имя из email (часть до @) или displayName
       const generatedName = currentAuth?.displayName || 
                             (currentAuth?.email ? currentAuth.email.split('@')[0] : 'Пользователь');
       await userRef.set({
