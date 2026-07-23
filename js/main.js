@@ -93,7 +93,6 @@ async function updateAuthUI(firebaseUser) {
         console.error('Не удалось загрузить профиль в updateAuthUI:', e);
       }
     }
-    // Приоритет: username из кэша → displayName из Auth → email
     const displayName = current?.username || firebaseUser.displayName || firebaseUser.email;
     statusEl.innerHTML = `👤 <span class="auth-greeting">${displayName}</span> | <a href="#" id="logout-link">Выйти</a>`;
     const logoutLink = document.getElementById('logout-link');
@@ -146,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Автоматическое обновление статуса авторизации, темы и пинг онлайна
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged(async (user) => {
+      // Дожидаемся завершения updateAuthUI (загрузки профиля) перед пингом
       await updateAuthUI(user);
 
       if (user && typeof initEasterEggs === 'function') {
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (user && typeof updateLastActive === 'function') {
-        // Первое обновление сразу после входа
+        // Теперь документ уже должен существовать, т.к. updateAuthUI загрузил профиль
         updateLastActive(user.uid);
 
         // Запускаем периодическое обновление каждые 30 секунд
