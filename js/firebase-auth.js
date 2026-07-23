@@ -7,47 +7,65 @@ const db = firebase.firestore();
 
 async function firebaseRegister(email, password, username, department) {
   try {
+    // 1. Создаём аккаунт в Authentication
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
+    console.log('[REG] Пользователь создан в Auth:', user.uid);
+
+    // 2. Сохраняем имя в профиле Auth
     await user.updateProfile({ displayName: username });
+    console.log('[REG] displayName установлен:', username);
+
+    // 3. Отправляем письмо подтверждения
     await user.sendEmailVerification();
+    console.log('[REG] Письмо подтверждения отправлено');
 
-    // Создаём документ пользователя
+    // 4. Пытаемся создать документ в Firestore
     const userRef = db.collection('users').doc(user.uid);
-    await userRef.set({
-      username: username,
-      email: email,
-      department: department,
-      points: 0,
-      lokoin_balance: 0,
-      purchasedItems: [],
-      role: 'user',
-      description: '',
-      achievements: [],
-      easterEggsFound: [],
-      completedGames: [],
-      disabled: false,
-      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      dailyLogin: {
-        lastLoginDate: null,
-        streak: 0,
-        longestStreak: 0,
-        totalLogins: 0,
-        loginHistory: []
-      },
-      activeEffects: {}
-    });
+    console.log('[REG] Пытаюсь записать документ в Firestore по пути:', userRef.path);
 
-    // Проверяем, что документ реально создался
-    const doc = await userRef.get();
-    if (!doc.exists) {
-      await user.delete();
-      throw new Error(
-        'Документ не создан. Проверьте правила Firestore (allow create для users/{userId})'
-      );
+    try {
+      await userRef.set({
+        username: username,
+        email: email,
+        department: department,
+        points: 0,
+        lokoin_balance: 0,
+        purchasedItems: [],
+        role: 'user',
+        description: '',
+        achievements: [],
+        easterEggsFound: [],
+        completedGames: [],
+        disabled: false,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        dailyLogin: {
+          lastLoginDate: null,
+          streak: 0,
+          longestStreak: 0,
+          totalLogins: 0,
+          loginHistory: []
+        },
+        activeEffects: {}
+      });
+      console.log('[REG] Документ успешно записан');
+    } catch (writeError) {
+      console.error('[REG] Ошибка записи документа:', writeError);
+      throw new Error('Ошибка сохранения профиля: ' + writeError.message);
     }
 
+    // 5. Проверяем, что документ теперь существует
+    const docSnap = await userRef.get();
+    if (!docSnap.exists) {
+      console.error('[REG] Документ не появился после записи!');
+      // Удаляем бесполезный аккаунт
+      await user.delete();
+      throw new Error('Критическая ошибка: профиль не сохранился.');
+    }
+    console.log('[REG] Документ подтверждён в Firestore');
+
+    // 6. Формируем локальные данные
     const userData = {
       uid: user.uid, email, username, department,
       points: 0, lokoin_balance: 0, purchasedItems: [], role: 'user',
@@ -56,12 +74,20 @@ async function firebaseRegister(email, password, username, department) {
       dailyLogin: { lastLoginDate: null, streak: 0, longestStreak: 0, totalLogins: 0, loginHistory: [] },
       activeEffects: {}
     };
+
+    // 7. Сохраняем в localStorage и обновляем UI
     setCurrentUser(userData);
     updateAuthUI(user);
+
+    console.log('[REG] Регистрация полностью завершена');
     return userData;
+
   } catch (error) {
-    console.error('Ошибка регистрации:', error);
-    if (auth.currentUser) await auth.currentUser.delete();
+    console.error('[REG] Ошибка регистрации:', error);
+    // Если есть пользователь – удаляем его, чтобы не засорять Auth
+    if (auth.currentUser) {
+      await auth.currentUser.delete().catch(e => console.warn('Не удалось удалить пользователя:', e));
+    }
     throw error;
   }
 }
