@@ -3,7 +3,6 @@
 let feedbackModal = null;
 
 function initFeedback() {
-  // Создаём кнопку вызова модалки
   const fab = document.createElement('button');
   fab.className = 'feedback-fab';
   fab.innerHTML = '💬';
@@ -11,7 +10,6 @@ function initFeedback() {
   fab.addEventListener('click', openFeedbackModal);
   document.body.appendChild(fab);
 
-  // Создаём само модальное окно (пока скрыто)
   const modal = document.createElement('div');
   modal.className = 'feedback-modal-overlay';
   modal.style.display = 'none';
@@ -42,13 +40,11 @@ function initFeedback() {
   document.body.appendChild(modal);
   feedbackModal = modal;
 
-  // Закрытие по кнопке и по клику на оверлей
   document.getElementById('feedback-close-btn').addEventListener('click', closeFeedbackModal);
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeFeedbackModal();
   });
 
-  // Отправка формы
   document.getElementById('feedback-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('fb-name').value.trim();
@@ -62,12 +58,15 @@ function initFeedback() {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Отправка...';
     try {
+      // Добавляем userId, если пользователь авторизован
+      const userId = auth.currentUser ? auth.currentUser.uid : null;
       await db.collection('feedback').add({
         name: name || 'Аноним',
         topic,
         message,
+        userId: userId || null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        read: false
+        status: 'new'
       });
       document.getElementById('feedback-message').textContent = '✅ Спасибо! Ваше сообщение отправлено.';
       document.getElementById('feedback-form').reset();
