@@ -509,16 +509,18 @@
 
         // Загрузка существующих вопросов и добавление нового
         if (eventType === 'quiz') {
-          const eventId = (isEdit ? ev.id : document.getElementById('event-id').value.trim()) || 'temp';
+          const questionsContainer = document.getElementById('questions-list-container');
 
-          // Функция отрисовки списка вопросов
           async function renderQuestionsList() {
-            const container = document.getElementById('questions-list-container');
-            if (!container) return;
+            const currentEventId = isEdit ? ev.id : document.getElementById('event-id').value.trim();
+            if (!currentEventId) {
+              questionsContainer.innerHTML = '<p style="color:#888;">Сохраните ивент, чтобы добавлять вопросы.</p>';
+              return;
+            }
             try {
-              const snap = await db.collection('events').doc(eventId).collection('questions').get();
+              const snap = await db.collection('events').doc(currentEventId).collection('questions').get();
               if (snap.empty) {
-                container.innerHTML = '<p style="color:#888;">Нет вопросов. Добавьте вопросы вручную или импортируйте CSV.</p>';
+                questionsContainer.innerHTML = '<p style="color:#888;">Нет вопросов. Добавьте вопросы вручную или импортируйте CSV.</p>';
                 return;
               }
               let html = '<ul class="questions-list">';
@@ -530,19 +532,18 @@
                 </li>`;
               });
               html += '</ul>';
-              container.innerHTML = html;
+              questionsContainer.innerHTML = html;
 
-              // Обработчики удаления
               document.querySelectorAll('.delete-question-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                   if (confirm('Удалить вопрос?')) {
-                    await db.collection('events').doc(eventId).collection('questions').doc(btn.dataset.qid).delete();
+                    await db.collection('events').doc(currentEventId).collection('questions').doc(btn.dataset.qid).delete();
                     renderQuestionsList();
                   }
                 });
               });
             } catch (e) {
-              container.innerHTML = '<p style="color:red;">Ошибка загрузки вопросов.</p>';
+              questionsContainer.innerHTML = '<p style="color:red;">Ошибка загрузки вопросов.</p>';
             }
           }
 
@@ -550,6 +551,11 @@
 
           // Добавление вопроса
           document.getElementById('add-question-btn').addEventListener('click', async () => {
+            const currentEventId = isEdit ? ev.id : document.getElementById('event-id').value.trim();
+            if (!currentEventId) {
+              showToast('Сначала сохраните ивент или укажите ID.', 'error');
+              return;
+            }
             const text = document.getElementById('new-question-text').value.trim();
             const opts = [
               document.getElementById('new-option-1').value.trim(),
@@ -570,10 +576,9 @@
             }
 
             try {
-              await db.collection('events').doc(eventId).collection('questions').add({
+              await db.collection('events').doc(currentEventId).collection('questions').add({
                 text, options: opts, correct, timeLimit: timeLimit || null
               });
-              // Очищаем поля
               document.getElementById('new-question-text').value = '';
               document.getElementById('new-option-1').value = '';
               document.getElementById('new-option-2').value = '';
@@ -590,6 +595,11 @@
 
           // Импорт CSV
           document.getElementById('import-csv-btn').addEventListener('click', async () => {
+            const currentEventId = isEdit ? ev.id : document.getElementById('event-id').value.trim();
+            if (!currentEventId) {
+              document.getElementById('csv-import-status').innerHTML = '<span style="color:red;">Сначала укажите ID ивента.</span>';
+              return;
+            }
             const fileInput = document.getElementById('csv-file-input');
             const statusEl = document.getElementById('csv-import-status');
             if (!fileInput.files.length) {
@@ -610,12 +620,8 @@
               const delimiter = headerLine.includes(';') ? ';' : ',';
               const dataLines = lines.slice(1);
 
-              if (!eventId || eventId === 'temp') {
-                statusEl.innerHTML = '<span style="color:red;">Сначала укажите ID ивента.</span>';
-                return;
-              }
               const batch = db.batch();
-              const questionsRef = db.collection('events').doc(eventId).collection('questions');
+              const questionsRef = db.collection('events').doc(currentEventId).collection('questions');
               let imported = 0;
               for (const line of dataLines) {
                 const cols = [];
