@@ -361,7 +361,7 @@
 
       function renderCreateForm(existingEvent = null) {
         const content = document.getElementById('events-tab-content');
-        const isEdit = !!existingEvent;
+        const isEdit = !!existingEvent?.id;
         const ev = existingEvent || {};
         const settings = ev.settings || {};
         const eventType = ev.type || 'tree';
@@ -438,16 +438,49 @@
           </div>
         `;
 
-        // Обработчик смены типа – просто перерисовываем форму с новым типом
+        // Обработчик смены типа
         document.getElementById('event-type').addEventListener('change', function() {
           const newType = this.value;
-          // Обновляем иконку и URL по умолчанию
-          document.getElementById('event-icon').value = EVENT_TYPES[newType].icon;
-          document.getElementById('event-url').value = newType === 'pixel' ? 'events/pixel-board.html' : newType === 'quiz' ? 'events/quiz.html' : 'events/tree.html';
-          // Пересоздаём форму с новым типом
-          const newEv = { ...ev, type: newType };
-          if (isEdit) newEv.id = ev.id; // сохраняем id при редактировании
-          renderCreateForm(isEdit ? newEv : { type: newType });
+          // Сохраняем текущие значения полей, чтобы не потерять ввод
+          const currentId = document.getElementById('event-id').value.trim();
+          const currentTitle = document.getElementById('event-title').value.trim();
+          const currentDesc = document.getElementById('event-desc').value.trim();
+          const currentIcon = document.getElementById('event-icon').value.trim();
+          const currentUrl = document.getElementById('event-url').value.trim();
+          const currentStart = document.getElementById('event-start').value;
+          const currentEnd = document.getElementById('event-end').value;
+          const currentPartPoints = document.getElementById('reward-participation').value;
+          const currentPartLokoin = document.getElementById('reward-participation-lokoin').value;
+          const currentWinPoints = document.getElementById('reward-win').value;
+          const currentWinLokoin = document.getElementById('reward-win-lokoin').value;
+
+          // Создаём объект с текущими данными, но с новым типом
+          const updated = {
+            id: isEdit ? ev.id : currentId, // при редактировании сохраняем исходный id, при создании – введённый
+            type: newType,
+            title: currentTitle,
+            description: currentDesc,
+            icon: currentIcon || EVENT_TYPES[newType].icon,
+            url: currentUrl,
+            startTime: currentStart ? firebase.firestore.Timestamp.fromDate(new Date(currentStart)) : null,
+            endTime: currentEnd ? firebase.firestore.Timestamp.fromDate(new Date(currentEnd)) : null,
+            rewards: {
+              participation: { points: parseInt(currentPartPoints) || 0, lokoin: parseInt(currentPartLokoin) || 0 },
+              win: { points: parseInt(currentWinPoints) || 0, lokoin: parseInt(currentWinLokoin) || 0 }
+            }
+          };
+
+          // Если это новый ивент (без существующего id) – передаём без id, чтобы не считалось редактированием
+          if (!isEdit) {
+            delete updated.id; // убираем id, чтобы форма осталась в режиме создания
+            // но если пользователь уже ввёл id, мы его сохраним в объекте и передадим отдельно? 
+            // лучше не передавать id, чтобы поле было доступно, но можно сохранить в локальной переменной.
+            // Я передам updated без id, но с типом, и в renderCreateForm он будет считаться новым.
+            renderCreateForm(updated);
+          } else {
+            // Редактирование: передаём существующий id и новые данные
+            renderCreateForm({ ...ev, ...updated, id: ev.id });
+          }
         });
 
         // Импорт CSV для квиза
