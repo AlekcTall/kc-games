@@ -18,7 +18,7 @@
     .online-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.4rem; }
     .online { background: #27ae60; }
     .offline { background: #ccc; }
-    .export-btn { margin-top: 1rem; }
+    .export-btn { margin-top: 1rem; margin-right: 0.5rem; }
     .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem; }
     .summary-item { text-align: center; padding: 1rem; background: #f9fafb; border-radius: 12px; }
     .summary-value { font-size: 2rem; font-weight: 700; }
@@ -57,6 +57,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <!-- SheetJS для экспорта в Excel -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/firebase-auth.js"></script>
   <script src="js/storage.js"></script>
@@ -192,7 +194,8 @@
                 <div class="summary-item"><div class="summary-value">${totalPoints}</div><div class="summary-label">Всего баллов</div></div>
                 <div class="summary-item"><div class="summary-value">${totalLokoins}</div><div class="summary-label">Всего локоинов</div></div>
               </div>
-              <button class="btn export-btn" id="export-summary-csv">Экспорт сводки CSV</button>
+              <button class="btn export-btn" id="export-summary-csv">📥 CSV</button>
+              <button class="btn export-btn" id="export-summary-xlsx">📊 Excel</button>
             </div>
 
             <div class="metrics-card">
@@ -212,7 +215,8 @@
                   </tr>
                 `).join('')}</tbody>
               </table>
-              <button class="btn export-btn" id="export-users-csv">Экспорт CSV</button>
+              <button class="btn export-btn" id="export-users-csv">📥 CSV</button>
+              <button class="btn export-btn" id="export-users-xlsx">📊 Excel</button>
             </div>
 
             <div class="metrics-card">
@@ -221,12 +225,13 @@
                 <thead><tr><th>Отдел</th><th>Пользователей</th><th>Всего баллов</th><th>Топ игра</th><th>Топ пользователь</th></tr></thead>
                 <tbody>${buildDeptRows(users)}</tbody>
               </table>
-              <button class="btn export-btn" id="export-dept-csv">Экспорт CSV</button>
+              <button class="btn export-btn" id="export-dept-csv">📥 CSV</button>
+              <button class="btn export-btn" id="export-dept-xlsx">📊 Excel</button>
             </div>
           `;
           content.innerHTML = html;
 
-          // Привязка экспорта
+          // Привязка экспорта CSV
           document.getElementById('export-summary-csv').addEventListener('click', () => exportCSV([['Всего пользователей','Онлайн','Баллов','Локоинов'],[total,onlineCount,totalPoints,totalLokoins]], 'summary.csv'));
           document.getElementById('export-users-csv').addEventListener('click', () => {
             const rows = [['Имя','Email','Отдел','Баллы','Локоины','Достижения','Статус','Топ игра']];
@@ -243,6 +248,25 @@
               rows.push([dept, members.length, totalPoints, topGame || '—', topUser ? topUser.username : '—']);
             }
             exportCSV(rows, 'departments.csv');
+          });
+
+          // Привязка экспорта XLSX
+          document.getElementById('export-summary-xlsx').addEventListener('click', () => exportXLSX([['Всего пользователей','Онлайн','Баллов','Локоинов'],[total,onlineCount,totalPoints,totalLokoins]], 'summary.xlsx'));
+          document.getElementById('export-users-xlsx').addEventListener('click', () => {
+            const rows = [['Имя','Email','Отдел','Баллы','Локоины','Достижения','Статус','Топ игра']];
+            users.forEach(u => rows.push([u.username,u.email,u.department,u.points,u.lokoin_balance,u.achievements,u.online?'Онлайн':'Офлайн',u.topGame||'—']));
+            exportXLSX(rows, 'users.xlsx');
+          });
+          document.getElementById('export-dept-xlsx').addEventListener('click', () => {
+            const rows = [['Отдел','Пользователей','Всего баллов','Топ игра','Топ пользователь']];
+            const deptMap = groupBy(users, 'department');
+            for (const [dept, members] of Object.entries(deptMap)) {
+              const totalPoints = members.reduce((s, u) => s + u.points, 0);
+              const topGame = getTopGame(members.flatMap(u => u.gameHistory));
+              const topUser = members.sort((a,b) => b.points - a.points)[0];
+              rows.push([dept, members.length, totalPoints, topGame || '—', topUser ? topUser.username : '—']);
+            }
+            exportXLSX(rows, 'departments.xlsx');
           });
 
         } catch (e) {
@@ -297,6 +321,13 @@
         a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
+      }
+
+      function exportXLSX(rows, filename) {
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Метрики');
+        XLSX.writeFile(wb, filename);
       }
     });
   </script>
