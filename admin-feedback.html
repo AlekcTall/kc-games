@@ -183,7 +183,6 @@
             const statusClass = f.status === 'new' ? 'status-new' : (f.status === 'progress' ? 'status-progress' : 'status-closed');
             const statusText = f.status === 'new' ? '🆕 Новое' : (f.status === 'progress' ? '✍️ В работе' : '✅ Закрыто');
 
-            // История ответов
             let repliesHtml = '';
             if (f.replies && f.replies.length > 0) {
               repliesHtml = '<div class="replies-list">';
@@ -227,7 +226,7 @@
           html += '</div>';
           listContainer.innerHTML = html;
 
-          // Обработчики кнопок
+          // Обработчики с диагностикой
           document.querySelectorAll('.delete-feedback-btn').forEach(btn => {
             btn.addEventListener('click', async e => {
               if (confirm('Удалить обращение?')) {
@@ -246,22 +245,29 @@
 
           document.querySelectorAll('.progress-feedback-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-              await db.collection('feedback').doc(btn.dataset.fbId).update({ status: 'progress' });
-              showToast('Статус изменён на «В работе»', 'success');
-              loadFeedback();
+              try {
+                await db.collection('feedback').doc(btn.dataset.fbId).update({ status: 'progress' });
+                showToast('Статус изменён на «В работе»', 'success');
+                loadFeedback();
+              } catch (err) {
+                alert('Ошибка при обновлении статуса: ' + err.message);
+              }
             });
           });
 
           document.querySelectorAll('.close-feedback-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-              await db.collection('feedback').doc(btn.dataset.fbId).update({ status: 'closed' });
-              showToast('Обращение закрыто', 'success');
-              loadFeedback();
+              try {
+                await db.collection('feedback').doc(btn.dataset.fbId).update({ status: 'closed' });
+                showToast('Обращение закрыто', 'success');
+                loadFeedback();
+              } catch (err) {
+                alert('Ошибка при закрытии: ' + err.message);
+              }
             });
           });
         }
 
-        // Модальное окно ответа
         function openReplyModal(fbId, userId, topic) {
           document.getElementById('reply-feedback-info').textContent = `Тема: ${topic}`;
           document.getElementById('reply-message').value = '';
@@ -275,20 +281,17 @@
               return;
             }
             try {
-              // Добавляем ответ в подколлекцию
               await db.collection('feedback').doc(fbId).collection('replies').add({
                 message: message,
                 isAdmin: true,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
               });
 
-              // Обновляем статус на "в работе" (если было новое)
               const fbDoc = await db.collection('feedback').doc(fbId).get();
               if (fbDoc.exists && fbDoc.data().status === 'new') {
                 await db.collection('feedback').doc(fbId).update({ status: 'progress' });
               }
 
-              // Отправляем уведомление пользователю
               if (userId && typeof addNotification === 'function') {
                 await addNotification(userId, `📬 Ответ на ваше обращение «${topic}»: ${message}`, 'feedback', 'profile.html');
               }
@@ -302,7 +305,6 @@
           };
         }
 
-        // Закрытие модалки
         document.getElementById('reply-modal-close').addEventListener('click', () => {
           document.getElementById('reply-modal').style.display = 'none';
         });
