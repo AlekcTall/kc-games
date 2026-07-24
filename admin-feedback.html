@@ -10,13 +10,25 @@
     .back-link { display: inline-block; margin-bottom: 1rem; color: var(--color-primary); text-decoration: none; }
     .feedback-list { margin-top: 1rem; }
     .feedback-item { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    .feedback-item-header { margin-bottom: 0.5rem; }
+    .feedback-item-header { margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
     .feedback-item-header small { color: #999; }
+    .feedback-item-body { margin-bottom: 0.5rem; }
+    .feedback-item-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; }
     .btn-small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
     .btn-danger { background: #e74c3c; color: white; }
     .skeleton-item { animation: shimmer 1.5s infinite; }
     .skeleton-item .skeleton-cell { height: 1rem; background: #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem; }
     @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+    .status-badge { font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 12px; font-weight: 600; }
+    .status-new { background: #fff3cd; color: #856404; }
+    .status-progress { background: #cce5ff; color: #004085; }
+    .status-closed { background: #d4edda; color: #155724; }
+    .replies-list { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed #eee; }
+    .reply-item { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.85rem; }
+    .reply-author { font-weight: 600; min-width: 80px; }
+    .reply-text { color: #555; }
+    .reply-date { color: #aaa; font-size: 0.75rem; margin-left: auto; }
+    .modal textarea { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; margin-top: 0.5rem; }
   </style>
 </head>
 <body>
@@ -43,6 +55,21 @@
       <p>Загрузка...</p>
     </div>
   </main>
+
+  <!-- Модальное окно для ответа -->
+  <div class="modal-overlay" id="reply-modal" style="display:none;">
+    <div class="modal" style="max-width:500px;">
+      <span class="modal-close" id="reply-modal-close">&times;</span>
+      <h3>Ответить на обращение</h3>
+      <p id="reply-feedback-info"></p>
+      <div class="form-group">
+        <label for="reply-message">Сообщение</label>
+        <textarea id="reply-message" rows="4" placeholder="Введите ответ..."></textarea>
+      </div>
+      <button class="btn" id="reply-submit">Отправить</button>
+      <p id="reply-message-status" class="auth-message"></p>
+    </div>
+  </div>
 
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
@@ -108,13 +135,11 @@
           const listContainer = document.getElementById('feedback-list-container');
           listContainer.innerHTML = '<p>Загрузка...</p>';
 
-          // Пробуем кеш
           const cached = getCachedFeedback();
           if (cached) {
             allFeedback = cached;
             renderFeedbackList();
           } else {
-            // Скелетоны
             listContainer.innerHTML = Array.from({ length: 3 }, () => `
               <div class="feedback-item skeleton-item">
                 <div class="skeleton-cell" style="width:60%;"></div>
@@ -132,7 +157,9 @@
               allFeedback.push({
                 id: d.id,
                 ...x,
-                createdAt: x.createdAt ? x.createdAt.toDate() : null
+                createdAt: x.createdAt ? x.createdAt.toDate() : null,
+                status: x.status || 'new',
+                replies: x.replies || []
               });
             });
             setCachedFeedback(allFeedback);
@@ -153,19 +180,54 @@
           let html = `<div class="feedback-list">`;
           allFeedback.forEach(f => {
             const dateStr = f.createdAt ? f.createdAt.toLocaleString('ru-RU') : '—';
+            const statusClass = f.status === 'new' ? 'status-new' : (f.status === 'progress' ? 'status-progress' : 'status-closed');
+            const statusText = f.status === 'new' ? '🆕 Новое' : (f.status === 'progress' ? '✍️ В работе' : '✅ Закрыто');
+
+            // История ответов
+            let repliesHtml = '';
+            if (f.replies && f.replies.length > 0) {
+              repliesHtml = '<div class="replies-list">';
+              f.replies.forEach(r => {
+                const replyDate = r.timestamp ? new Date(r.timestamp.seconds * 1000).toLocaleString('ru-RU') : '';
+                repliesHtml += `
+                  <div class="reply-item">
+                    <span class="reply-author">${r.isAdmin ? 'Администратор' : (f.name || 'Пользователь')}:</span>
+                    <span class="reply-text">${r.message}</span>
+                    <span class="reply-date">${replyDate}</span>
+                  </div>
+                `;
+              });
+              repliesHtml += '</div>';
+            }
+
             html += `
               <div class="feedback-item">
                 <div class="feedback-item-header">
-                  <strong>${f.topic}</strong> от ${f.name} <small>${dateStr}</small>
+                  <div>
+                    <strong>${f.topic}</strong> от ${f.name || 'Аноним'} <small>${dateStr}</small>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                  </div>
+                  <div>
+                    <small>ID: ${f.userId || '—'}</small>
+                  </div>
                 </div>
-                <p>${f.message}</p>
-                <button class="btn btn-small btn-danger delete-feedback-btn" data-fb-id="${f.id}">Удалить</button>
+                <div class="feedback-item-body">
+                  <p>${f.message}</p>
+                </div>
+                ${repliesHtml}
+                <div class="feedback-item-actions">
+                  <button class="btn btn-small reply-feedback-btn" data-fb-id="${f.id}" data-fb-user="${f.userId || ''}" data-fb-topic="${f.topic}">💬 Ответить</button>
+                  ${f.status !== 'progress' ? `<button class="btn btn-small progress-feedback-btn" data-fb-id="${f.id}">✍️ В работу</button>` : ''}
+                  ${f.status !== 'closed' ? `<button class="btn btn-small close-feedback-btn" data-fb-id="${f.id}">✅ Закрыть</button>` : ''}
+                  <button class="btn btn-small btn-danger delete-feedback-btn" data-fb-id="${f.id}">🗑️ Удалить</button>
+                </div>
               </div>
             `;
           });
           html += '</div>';
           listContainer.innerHTML = html;
 
+          // Обработчики кнопок
           document.querySelectorAll('.delete-feedback-btn').forEach(btn => {
             btn.addEventListener('click', async e => {
               if (confirm('Удалить обращение?')) {
@@ -175,7 +237,75 @@
               }
             });
           });
+
+          document.querySelectorAll('.reply-feedback-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              openReplyModal(btn.dataset.fbId, btn.dataset.fbUser, btn.dataset.fbTopic);
+            });
+          });
+
+          document.querySelectorAll('.progress-feedback-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              await db.collection('feedback').doc(btn.dataset.fbId).update({ status: 'progress' });
+              showToast('Статус изменён на «В работе»', 'success');
+              loadFeedback();
+            });
+          });
+
+          document.querySelectorAll('.close-feedback-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              await db.collection('feedback').doc(btn.dataset.fbId).update({ status: 'closed' });
+              showToast('Обращение закрыто', 'success');
+              loadFeedback();
+            });
+          });
         }
+
+        // Модальное окно ответа
+        function openReplyModal(fbId, userId, topic) {
+          document.getElementById('reply-feedback-info').textContent = `Тема: ${topic}`;
+          document.getElementById('reply-message').value = '';
+          document.getElementById('reply-message-status').textContent = '';
+          document.getElementById('reply-modal').style.display = 'flex';
+
+          document.getElementById('reply-submit').onclick = async () => {
+            const message = document.getElementById('reply-message').value.trim();
+            if (!message) {
+              document.getElementById('reply-message-status').textContent = 'Введите сообщение.';
+              return;
+            }
+            try {
+              // Добавляем ответ в подколлекцию
+              await db.collection('feedback').doc(fbId).collection('replies').add({
+                message: message,
+                isAdmin: true,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+              });
+
+              // Обновляем статус на "в работе" (если было новое)
+              const fbDoc = await db.collection('feedback').doc(fbId).get();
+              if (fbDoc.exists && fbDoc.data().status === 'new') {
+                await db.collection('feedback').doc(fbId).update({ status: 'progress' });
+              }
+
+              // Отправляем уведомление пользователю
+              if (userId && typeof addNotification === 'function') {
+                await addNotification(userId, `📬 Ответ на ваше обращение «${topic}»: ${message}`, 'feedback', 'profile.html');
+              }
+
+              showToast('Ответ отправлен', 'success');
+              document.getElementById('reply-modal').style.display = 'none';
+              loadFeedback();
+            } catch (err) {
+              document.getElementById('reply-message-status').textContent = 'Ошибка: ' + err.message;
+            }
+          };
+        }
+
+        // Закрытие модалки
+        document.getElementById('reply-modal-close').addEventListener('click', () => {
+          document.getElementById('reply-modal').style.display = 'none';
+        });
       });
     })();
   </script>
