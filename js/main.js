@@ -58,6 +58,48 @@ function pluralizeLokoin(n) {
   return 'ов';
 }
 
+// Универсальное модальное окно подтверждения
+function showConfirmModal(message, onConfirm, onCancel) {
+  const existing = document.getElementById('confirm-action-modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'confirm-action-modal';
+  overlay.style.display = 'flex';
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px; text-align:center;">
+      <p style="margin-bottom:1.5rem; font-size:1.1rem;">${message}</p>
+      <div style="display:flex; gap:0.5rem; justify-content:center;">
+        <button class="btn" id="confirm-yes-btn">Да</button>
+        <button class="btn btn-cancel" id="confirm-no-btn">Отмена</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => { overlay.remove(); };
+
+  overlay.querySelector('#confirm-yes-btn').addEventListener('click', () => {
+    close();
+    if (onConfirm) onConfirm();
+  });
+
+  overlay.querySelector('#confirm-no-btn').addEventListener('click', () => {
+    close();
+    if (onCancel) onCancel();
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      close();
+      if (onCancel) onCancel();
+    }
+  });
+}
+
 // Обновление статуса в шапке
 function updateAuthUI(firebaseUser) {
   const statusEl = document.getElementById('auth-status');
@@ -92,13 +134,15 @@ document.addEventListener('DOMContentLoaded', () => {
       mainNav.classList.toggle('nav--open');
     });
   }
-// Добавляем ссылку "Помощь" в навигацию, если её ещё нет
-const navList = document.querySelector('.nav__list');
-if (navList && !navList.querySelector('a[href="faq.html"]')) {
-  const helpLi = document.createElement('li');
-  helpLi.innerHTML = '<a href="faq.html" class="nav__link">Помощь</a>';
-  navList.appendChild(helpLi);
-}
+
+  // Добавляем ссылку "Помощь" в навигацию
+  const navList = document.querySelector('.nav__list');
+  if (navList && !navList.querySelector('a[href="faq.html"]')) {
+    const helpLi = document.createElement('li');
+    helpLi.innerHTML = '<a href="faq.html" class="nav__link">Помощь</a>';
+    navList.appendChild(helpLi);
+  }
+
   // FAQ аккордеон
   document.querySelectorAll('.faq-item__question').forEach(btn => {
     btn.addEventListener('click', () => {
