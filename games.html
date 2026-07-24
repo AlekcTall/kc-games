@@ -13,11 +13,14 @@
     .skeleton-btn { height: 2rem; width: 40%; background: #e0e0e0; margin: 0.5rem auto 0; border-radius: 4px; }
     @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     .games-error { text-align: center; padding: 2rem; color: #e74c3c; }
+    .games-filters { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: flex-end; flex-wrap: wrap; }
+    .games-filters .filter-group { min-width: 200px; }
+    .no-results { text-align: center; color: #888; padding: 2rem; }
   </style>
 </head>
 <body>
   <header class="header"><div class="container header__inner"><a href="index.html" class="logo">КЦ-Игры</a><button class="burger" id="burger-btn" aria-label="Меню">☰</button><nav class="nav" id="main-nav"><ul class="nav__list"><li><a href="index.html" class="nav__link">Главная</a></li><li><a href="games.html" class="nav__link active">Игры</a></li><li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li><li><a href="shop.html" class="nav__link">Магазин</a></li><li><a href="profile.html" class="nav__link">Профиль</a></li><li><a href="admin.html" class="nav__link">Админ</a></li></ul></nav><div id="auth-status" class="auth-status"></div></div></header>
-  <main class="main"><div class="container"><h2>Доступные игры</h2><div id="games-grid" class="games-grid"></div></div></main>
+  <main class="main"><div class="container"><h2>Доступные игры</h2><div id="games-filters-container"></div><div id="games-grid" class="games-grid"></div></div></main>
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
@@ -35,8 +38,14 @@
   <script>
     (function() {
       const grid = document.getElementById('games-grid');
+      const filtersContainer = document.getElementById('games-filters-container');
       const CACHE_KEY = 'krugames_games_cache';
+      const SEARCH_KEY = 'krugames_games_search';
 
+      let allGames = [];
+      let searchInput;
+
+      // Рендер скелетонов
       function renderSkeletons() {
         grid.innerHTML = Array.from({ length: 4 }, () => `
           <div class="skeleton-card">
@@ -48,16 +57,24 @@
         `).join('');
       }
 
-      function renderGames(games) {
-        // Показываем только нескрытые игры
-        const visibleGames = games.filter(g => !g.hidden);
-        if (!visibleGames.length) {
-          grid.innerHTML = '<p class="no-results">Пока нет игр. Загляните позже!</p>';
+      // Отрисовка игр с учётом поиска
+      function renderGames() {
+        const query = searchInput.value.trim().toLowerCase();
+        let filtered = allGames.filter(g => !g.hidden);
+        if (query) {
+          filtered = filtered.filter(g => 
+            g.title.toLowerCase().includes(query) ||
+            (g.description && g.description.toLowerCase().includes(query))
+          );
+        }
+
+        if (!filtered.length) {
+          grid.innerHTML = '<p class="no-results">Ничего не найдено. Попробуйте изменить запрос.</p>';
           return;
         }
 
         let html = '';
-        visibleGames.forEach(game => {
+        filtered.forEach(game => {
           html += `
             <div class="game-card">
               <div class="game-card__icon">${game.icon || '🎮'}</div>
@@ -72,44 +89,86 @@
         document.querySelectorAll('.game-card__btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             const gameId = e.target.dataset.gameId;
-            const game = games.find(g => g.id === gameId);
-            if (game) {
-              if (game.url) {
-                window.location.href = game.url;
-              } else {
-                showToast(`Игра "${game.title}" ещё не добавлена.`, 'info');
-              }
+            const game = allGames.find(g => g.id === gameId);
+            if (game && game.url) {
+              window.location.href = game.url;
+            } else {
+              showToast('Игра недоступна.', 'info');
             }
           });
         });
       }
 
+      // Загрузка игр из Firestore
       async function loadGames() {
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           try {
-            const games = JSON.parse(cached);
-            renderGames(games);
-          } catch (e) {}
+            allGames = JSON.parse(cached);
+            renderGames();
+          } catch (e) { /* игнорируем */ }
         } else {
           renderSkeletons();
         }
 
         try {
           const snap = await db.collection('games').get();
-          const games = [];
-          snap.forEach(doc => games.push({ id: doc.id, ...doc.data() }));
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
-          renderGames(games);
+          allGames = [];
+          snap.forEach(doc => allGames.push({ id: doc.id, ...doc.data() }));
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(allGames));
+          renderGames();
         } catch (e) {
           console.error('Ошибка загрузки игр:', e);
-          if (!cached) {
-            grid.innerHTML = '<p class="games-error">Не удалось загрузить игры. Попробуйте позже.</p>';
+          if (!allGames.length) {
+            grid.innerHTML = '<p class="games-error">Не удалось загрузить игры.</p>';
           }
         }
       }
 
-      document.addEventListener('DOMContentLoaded', loadGames);
+      // Сохранение поискового запроса
+      function saveSearch() {
+        sessionStorage.setItem(SEARCH_KEY, searchInput.value);
+      }
+
+      // Восстановление поискового запроса
+      function restoreSearch() {
+        const saved = sessionStorage.getItem(SEARCH_KEY);
+        if (saved) {
+          searchInput.value = saved;
+        }
+      }
+
+      // Инициализация
+      document.addEventListener('DOMContentLoaded', () => {
+        // Вставляем фильтры
+        filtersContainer.innerHTML = `
+          <div class="games-filters">
+            <div class="filter-group">
+              <label>🔍 Поиск</label>
+              <input type="text" id="games-search" placeholder="Название или описание...">
+            </div>
+            <button class="btn btn-cancel" id="games-search-clear">Сбросить</button>
+          </div>
+        `;
+
+        searchInput = document.getElementById('games-search');
+        restoreSearch();
+
+        // Обработчики
+        searchInput.addEventListener('input', () => {
+          saveSearch();
+          renderGames();
+        });
+
+        document.getElementById('games-search-clear').addEventListener('click', () => {
+          searchInput.value = '';
+          saveSearch();
+          renderGames();
+        });
+
+        // Загружаем игры
+        loadGames();
+      });
     })();
   </script>
 </body>
