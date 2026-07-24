@@ -23,11 +23,12 @@
     .add-game-form h4 { margin-bottom: 1rem; }
     .form-group { margin-bottom: 1rem; }
     .form-group label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem; }
-    .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
     .btn-small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
     .btn-danger { background: #e74c3c; color: white; }
     .skeleton-cell { height: 1rem; background: #e0e0e0; border-radius: 4px; animation: shimmer 1.5s infinite; }
     @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+    .checkbox-group { display: flex; align-items: center; gap: 0.5rem; }
   </style>
 </head>
 <body>
@@ -54,6 +55,22 @@
       <p>Загрузка...</p>
     </div>
   </main>
+
+  <!-- Модальное окно редактирования игры -->
+  <div class="modal-overlay" id="edit-game-modal" style="display:none;">
+    <div class="modal" style="max-width:500px;">
+      <span class="modal-close" id="edit-game-modal-close">&times;</span>
+      <h3>Редактировать игру</h3>
+      <div class="form-group"><label>ID</label><input type="text" id="edit-game-id" disabled></div>
+      <div class="form-group"><label>Название</label><input type="text" id="edit-game-title" required></div>
+      <div class="form-group"><label>Описание</label><input type="text" id="edit-game-desc" required></div>
+      <div class="form-group"><label>Иконка</label><input type="text" id="edit-game-icon" value="🎮"></div>
+      <div class="form-group"><label>URL</label><input type="text" id="edit-game-url" required></div>
+      <div class="form-group checkbox-group"><label><input type="checkbox" id="edit-game-hidden"> Скрыть игру</label></div>
+      <button class="btn" id="edit-game-save">Сохранить</button>
+      <p id="edit-game-message" class="auth-message"></p>
+    </div>
+  </div>
 
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
@@ -115,38 +132,14 @@
             <div id="stats-container"></div>
 
             <div class="dashboard-grid">
-              <a href="admin-users.html" class="dash-card">
-                <div class="dash-card__icon">👥</div>
-                <div class="dash-card__title">Пользователи</div>
-              </a>
-              <a href="admin-shop.html" class="dash-card">
-                <div class="dash-card__icon">🛒</div>
-                <div class="dash-card__title">Магазин</div>
-              </a>
-              <a href="admin-content.html" class="dash-card">
-                <div class="dash-card__icon">📝</div>
-                <div class="dash-card__title">Контент</div>
-              </a>
-              <a href="admin-feedback.html" class="dash-card">
-                <div class="dash-card__icon">💬</div>
-                <div class="dash-card__title">Обращения</div>
-              </a>
-              <a href="admin-notifications.html" class="dash-card">
-                <div class="dash-card__icon">📢</div>
-                <div class="dash-card__title">Рассылка</div>
-              </a>
-              <a href="events-admin.html" class="dash-card">
-                <div class="dash-card__icon">🎪</div>
-                <div class="dash-card__title">Ивенты</div>
-              </a>
-              <a href="metrics.html" class="dash-card">
-                <div class="dash-card__icon">📈</div>
-                <div class="dash-card__title">Метрики</div>
-              </a>
-              <button class="dash-card" id="export-csv-btn" style="border:none; cursor:pointer;">
-                <div class="dash-card__icon">📥</div>
-                <div class="dash-card__title">Экспорт CSV</div>
-              </button>
+              <a href="admin-users.html" class="dash-card"><div class="dash-card__icon">👥</div><div class="dash-card__title">Пользователи</div></a>
+              <a href="admin-shop.html" class="dash-card"><div class="dash-card__icon">🛒</div><div class="dash-card__title">Магазин</div></a>
+              <a href="admin-content.html" class="dash-card"><div class="dash-card__icon">📝</div><div class="dash-card__title">Контент</div></a>
+              <a href="admin-feedback.html" class="dash-card"><div class="dash-card__icon">💬</div><div class="dash-card__title">Обращения</div></a>
+              <a href="admin-notifications.html" class="dash-card"><div class="dash-card__icon">📢</div><div class="dash-card__title">Рассылка</div></a>
+              <a href="events-admin.html" class="dash-card"><div class="dash-card__icon">🎪</div><div class="dash-card__title">Ивенты</div></a>
+              <a href="metrics.html" class="dash-card"><div class="dash-card__icon">📈</div><div class="dash-card__title">Метрики</div></a>
+              <button class="dash-card" id="export-csv-btn" style="border:none; cursor:pointer;"><div class="dash-card__icon">📥</div><div class="dash-card__title">Экспорт CSV</div></button>
             </div>
 
             <div class="games-section">
@@ -160,6 +153,7 @@
                   <div class="form-group"><label>Описание</label><input type="text" id="game-desc" required></div>
                   <div class="form-group"><label>Иконка</label><input type="text" id="game-icon" value="🎮"></div>
                   <div class="form-group"><label>URL</label><input type="text" id="game-url" required></div>
+                  <div class="form-group checkbox-group"><label><input type="checkbox" id="game-hidden"> Скрыть игру</label></div>
                   <button type="submit" class="btn">Сохранить</button>
                 </form>
               </div>
@@ -172,9 +166,10 @@
                   title = document.getElementById('game-title').value.trim(),
                   desc = document.getElementById('game-desc').value.trim(),
                   icon = document.getElementById('game-icon').value.trim() || '🎮',
-                  url = document.getElementById('game-url').value.trim();
+                  url = document.getElementById('game-url').value.trim(),
+                  hidden = document.getElementById('game-hidden').checked;
             if (!id || !title || !desc || !url) { showToast('Заполните все поля', 'error'); return; }
-            await db.collection('games').doc(id).set({ title, description: desc, icon, url });
+            await db.collection('games').doc(id).set({ title, description: desc, icon, url, hidden: hidden || false });
             showToast('Сохранена', 'success');
             document.getElementById('add-game-form').reset();
             loadGames();
@@ -198,6 +193,29 @@
               URL.revokeObjectURL(url);
               showToast('Экспорт готов', 'success');
             } catch (err) { showToast('Ошибка', 'error'); }
+          });
+
+          // Закрытие модалки редактирования
+          document.getElementById('edit-game-modal-close').addEventListener('click', () => {
+            document.getElementById('edit-game-modal').style.display = 'none';
+          });
+          document.getElementById('edit-game-save').addEventListener('click', async () => {
+            const id = document.getElementById('edit-game-id').value;
+            const data = {
+              title: document.getElementById('edit-game-title').value.trim(),
+              description: document.getElementById('edit-game-desc').value.trim(),
+              icon: document.getElementById('edit-game-icon').value.trim() || '🎮',
+              url: document.getElementById('edit-game-url').value.trim(),
+              hidden: document.getElementById('edit-game-hidden').checked
+            };
+            try {
+              await db.collection('games').doc(id).update(data);
+              showToast('Игра обновлена', 'success');
+              document.getElementById('edit-game-modal').style.display = 'none';
+              loadGames();
+            } catch (err) {
+              document.getElementById('edit-game-message').textContent = 'Ошибка: ' + err.message;
+            }
           });
         }
 
@@ -292,7 +310,13 @@
 
           let html = '<ul class="games-list">';
           gamesList.forEach(g => {
-            html += `<li style="display:flex;align-items:center;gap:1rem;"><span>${g.icon||'🎮'} <strong>${g.title}</strong> (${g.id})</span><button class="btn btn-small btn-danger remove-game-btn" data-game-id="${g.id}">Удалить</button></li>`;
+            html += `<li style="display:flex;align-items:center;gap:1rem;">
+              <span>${g.icon||'🎮'} <strong>${g.title}</strong> (${g.id}) ${g.hidden ? '🙈' : ''}</span>
+              <div>
+                <button class="btn btn-small edit-game-btn" data-game-id="${g.id}">✏️</button>
+                <button class="btn btn-small btn-danger remove-game-btn" data-game-id="${g.id}">Удалить</button>
+              </div>
+            </li>`;
           });
           html += '</ul>';
           listContainer.innerHTML = html;
@@ -306,6 +330,24 @@
               }
             });
           });
+
+          document.querySelectorAll('.edit-game-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const game = gamesList.find(g => g.id === btn.dataset.gameId);
+              if (game) openEditGameModal(game);
+            });
+          });
+        }
+
+        function openEditGameModal(game) {
+          document.getElementById('edit-game-id').value = game.id;
+          document.getElementById('edit-game-title').value = game.title || '';
+          document.getElementById('edit-game-desc').value = game.description || '';
+          document.getElementById('edit-game-icon').value = game.icon || '🎮';
+          document.getElementById('edit-game-url').value = game.url || '';
+          document.getElementById('edit-game-hidden').checked = game.hidden || false;
+          document.getElementById('edit-game-message').textContent = '';
+          document.getElementById('edit-game-modal').style.display = 'flex';
         }
       });
     })();
