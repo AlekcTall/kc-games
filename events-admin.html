@@ -34,6 +34,9 @@
     .final-stats th, .final-stats td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; text-align: left; }
     .final-stats th { background: #e6f7e6; }
     .final-stats img { max-width: 200px; border-radius: 6px; margin: 0.5rem 0; }
+    .questions-list { list-style: none; padding: 0; margin-bottom: 1rem; }
+    .questions-list li { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: #fff; border: 1px solid #eee; border-radius: 6px; margin-bottom: 0.3rem; }
+    .question-edit-form { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
@@ -359,6 +362,7 @@
         } catch (e) { console.error(e); content.innerHTML = '<p>Ошибка загрузки.</p>'; }
       }
 
+      // Обновлённая функция создания/редактирования с поддержкой ручного управления вопросами
       function renderCreateForm(existingEvent = null) {
         const content = document.getElementById('events-tab-content');
         const isEdit = !!existingEvent?.id;
@@ -369,10 +373,8 @@
         const defaultSettings = typeCfg.defaultSettings || {};
         const mergedSettings = { ...defaultSettings, ...settings };
 
-        // Выпадающий список типов
         const typeOptions = Object.entries(EVENT_TYPES).map(([key, val]) => `<option value="${key}" ${eventType === key ? 'selected' : ''}>${val.icon} ${val.label}</option>`).join('');
 
-        // Поля настроек конкретного типа
         let settingsFieldsHtml = '';
         const fields = Object.keys(defaultSettings);
         fields.forEach(field => {
@@ -386,16 +388,45 @@
           }
         });
 
-        // Блок импорта CSV для квиза
-        let importBlock = '';
+        // Блок управления вопросами для квиза
+        let questionsBlock = '';
         if (eventType === 'quiz') {
-          importBlock = `
-            <div style="border:2px dashed #ccc; border-radius:8px; padding:1rem; margin:1rem 0;">
-              <p><strong>📋 Импорт вопросов из CSV</strong></p>
-              <p style="font-size:0.8rem;color:#666;">Формат: question, option1, option2, option3, option4, correct(1-4), timeLimit(сек)</p>
-              <input type="file" id="csv-file-input" accept=".csv">
-              <button class="btn btn-small" id="import-csv-btn">Импортировать</button>
-              <div id="csv-import-status"></div>
+          questionsBlock = `
+            <div style="border:1px solid #ddd; border-radius:8px; padding:1rem; margin:1rem 0;">
+              <h4 style="margin-bottom:0.5rem;">📝 Вопросы</h4>
+              <div id="questions-list-container"><p>Загрузка вопросов...</p></div>
+              <div class="question-edit-form" id="add-question-form">
+                <div class="form-group">
+                  <label for="new-question-text">Текст вопроса</label>
+                  <input type="text" id="new-question-text" placeholder="Вопрос...">
+                </div>
+                <div class="row">
+                  <div class="form-group"><label for="new-option-1">Вариант 1</label><input type="text" id="new-option-1"></div>
+                  <div class="form-group"><label for="new-option-2">Вариант 2</label><input type="text" id="new-option-2"></div>
+                </div>
+                <div class="row">
+                  <div class="form-group"><label for="new-option-3">Вариант 3</label><input type="text" id="new-option-3"></div>
+                  <div class="form-group"><label for="new-option-4">Вариант 4</label><input type="text" id="new-option-4"></div>
+                </div>
+                <div class="row">
+                  <div class="form-group">
+                    <label for="new-correct">Правильный (1-4)</label>
+                    <input type="number" id="new-correct" min="1" max="4" value="1">
+                  </div>
+                  <div class="form-group">
+                    <label for="new-time-limit">Время (сек, 0=по умолч.)</label>
+                    <input type="number" id="new-time-limit" value="0" min="0">
+                  </div>
+                </div>
+                <button class="btn btn-small" id="add-question-btn">➕ Добавить вопрос</button>
+              </div>
+              <div style="margin-top:1rem; border-top:1px solid #eee; padding-top:1rem;">
+                <p><strong>📋 Импорт вопросов из CSV</strong></p>
+                <p style="font-size:0.8rem;color:#666;">Формат: question, option1, option2, option3, option4, correct(1-4), timeLimit(сек)</p>
+                <input type="file" id="csv-file-input" accept=".csv">
+                <button class="btn btn-small" id="import-csv-btn">Импортировать</button>
+                <div id="csv-import-status"></div>
+              </div>
             </div>`;
         }
 
@@ -423,7 +454,7 @@
             </div>
             <h4>Настройки (${typeCfg.label})</h4>
             <div id="settings-fields">${settingsFieldsHtml}</div>
-            ${importBlock}
+            ${questionsBlock}
             <h4>Награды</h4>
             <div class="row">
               <div><label>За участие (баллы)</label><input type="number" id="reward-participation" value="${(ev.rewards?.participation?.points) || 10}"></div>
@@ -441,7 +472,6 @@
         // Обработчик смены типа
         document.getElementById('event-type').addEventListener('change', function() {
           const newType = this.value;
-          // Сохраняем текущие значения полей, чтобы не потерять ввод
           const currentId = document.getElementById('event-id').value.trim();
           const currentTitle = document.getElementById('event-title').value.trim();
           const currentDesc = document.getElementById('event-desc').value.trim();
@@ -454,9 +484,8 @@
           const currentWinPoints = document.getElementById('reward-win').value;
           const currentWinLokoin = document.getElementById('reward-win-lokoin').value;
 
-          // Создаём объект с текущими данными, но с новым типом
           const updated = {
-            id: isEdit ? ev.id : currentId, // при редактировании сохраняем исходный id, при создании – введённый
+            id: isEdit ? ev.id : currentId,
             type: newType,
             title: currentTitle,
             description: currentDesc,
@@ -470,21 +499,96 @@
             }
           };
 
-          // Если это новый ивент (без существующего id) – передаём без id, чтобы не считалось редактированием
           if (!isEdit) {
-            delete updated.id; // убираем id, чтобы форма осталась в режиме создания
-            // но если пользователь уже ввёл id, мы его сохраним в объекте и передадим отдельно? 
-            // лучше не передавать id, чтобы поле было доступно, но можно сохранить в локальной переменной.
-            // Я передам updated без id, но с типом, и в renderCreateForm он будет считаться новым.
+            delete updated.id;
             renderCreateForm(updated);
           } else {
-            // Редактирование: передаём существующий id и новые данные
             renderCreateForm({ ...ev, ...updated, id: ev.id });
           }
         });
 
-        // Импорт CSV для квиза
+        // Загрузка существующих вопросов и добавление нового
         if (eventType === 'quiz') {
+          const eventId = (isEdit ? ev.id : document.getElementById('event-id').value.trim()) || 'temp';
+
+          // Функция отрисовки списка вопросов
+          async function renderQuestionsList() {
+            const container = document.getElementById('questions-list-container');
+            if (!container) return;
+            try {
+              const snap = await db.collection('events').doc(eventId).collection('questions').get();
+              if (snap.empty) {
+                container.innerHTML = '<p style="color:#888;">Нет вопросов. Добавьте вопросы вручную или импортируйте CSV.</p>';
+                return;
+              }
+              let html = '<ul class="questions-list">';
+              snap.forEach(doc => {
+                const q = doc.data();
+                html += `<li>
+                  <span><strong>${q.text}</strong> (прав: ${q.correct + 1})</span>
+                  <button class="btn btn-small btn-danger delete-question-btn" data-qid="${doc.id}">🗑️</button>
+                </li>`;
+              });
+              html += '</ul>';
+              container.innerHTML = html;
+
+              // Обработчики удаления
+              document.querySelectorAll('.delete-question-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                  if (confirm('Удалить вопрос?')) {
+                    await db.collection('events').doc(eventId).collection('questions').doc(btn.dataset.qid).delete();
+                    renderQuestionsList();
+                  }
+                });
+              });
+            } catch (e) {
+              container.innerHTML = '<p style="color:red;">Ошибка загрузки вопросов.</p>';
+            }
+          }
+
+          renderQuestionsList();
+
+          // Добавление вопроса
+          document.getElementById('add-question-btn').addEventListener('click', async () => {
+            const text = document.getElementById('new-question-text').value.trim();
+            const opts = [
+              document.getElementById('new-option-1').value.trim(),
+              document.getElementById('new-option-2').value.trim(),
+              document.getElementById('new-option-3').value.trim(),
+              document.getElementById('new-option-4').value.trim()
+            ];
+            const correct = parseInt(document.getElementById('new-correct').value) - 1;
+            const timeLimit = parseInt(document.getElementById('new-time-limit').value) || 0;
+
+            if (!text || opts.some(o => !o)) {
+              showToast('Заполните вопрос и все 4 варианта', 'error');
+              return;
+            }
+            if (isNaN(correct) || correct < 0 || correct > 3) {
+              showToast('Правильный ответ должен быть от 1 до 4', 'error');
+              return;
+            }
+
+            try {
+              await db.collection('events').doc(eventId).collection('questions').add({
+                text, options: opts, correct, timeLimit: timeLimit || null
+              });
+              // Очищаем поля
+              document.getElementById('new-question-text').value = '';
+              document.getElementById('new-option-1').value = '';
+              document.getElementById('new-option-2').value = '';
+              document.getElementById('new-option-3').value = '';
+              document.getElementById('new-option-4').value = '';
+              document.getElementById('new-correct').value = '1';
+              document.getElementById('new-time-limit').value = '0';
+              showToast('Вопрос добавлен', 'success');
+              renderQuestionsList();
+            } catch (err) {
+              showToast('Ошибка: ' + err.message, 'error');
+            }
+          });
+
+          // Импорт CSV
           document.getElementById('import-csv-btn').addEventListener('click', async () => {
             const fileInput = document.getElementById('csv-file-input');
             const statusEl = document.getElementById('csv-import-status');
@@ -501,9 +605,12 @@
                 statusEl.innerHTML = '<span style="color:red;">Файл пуст или недостаточно строк.</span>';
                 return;
               }
+
+              const headerLine = lines[0];
+              const delimiter = headerLine.includes(';') ? ';' : ',';
               const dataLines = lines.slice(1);
-              const eventId = document.getElementById('event-id').value.trim() || (isEdit ? ev.id : '');
-              if (!eventId) {
+
+              if (!eventId || eventId === 'temp') {
                 statusEl.innerHTML = '<span style="color:red;">Сначала укажите ID ивента.</span>';
                 return;
               }
@@ -511,12 +618,21 @@
               const questionsRef = db.collection('events').doc(eventId).collection('questions');
               let imported = 0;
               for (const line of dataLines) {
-                const cols = line.split(',').map(c => c.trim());
-                if (cols.length < 6) continue;
-                const question = cols[0];
-                const options = [cols[1], cols[2], cols[3], cols[4]];
-                const correct = parseInt(cols[5]) - 1;
-                const timeLimit = cols[6] ? parseInt(cols[6]) : (mergedSettings.defaultTimeLimit || 30);
+                const cols = [];
+                let current = '';
+                let insideQuotes = false;
+                for (const ch of line) {
+                  if (ch === '"') insideQuotes = !insideQuotes;
+                  else if (ch === delimiter && !insideQuotes) { cols.push(current.trim()); current = ''; }
+                  else current += ch;
+                }
+                cols.push(current.trim());
+                const cleanCols = cols.map(c => c.replace(/^"|"$/g, ''));
+                if (cleanCols.length < 6) continue;
+                const question = cleanCols[0];
+                const options = [cleanCols[1], cleanCols[2], cleanCols[3], cleanCols[4]];
+                const correct = parseInt(cleanCols[5]) - 1;
+                const timeLimit = cleanCols[6] ? parseInt(cleanCols[6]) : (mergedSettings.defaultTimeLimit || 30);
                 if (isNaN(correct) || correct < 0 || correct > 3) continue;
                 batch.set(questionsRef.doc(), { text: question, options, correct, timeLimit });
                 imported++;
@@ -524,11 +640,12 @@
               if (imported > 0) {
                 await batch.commit();
                 statusEl.innerHTML = `<span style="color:green;">✅ Импортировано ${imported} вопросов.</span>`;
+                renderQuestionsList();
               } else {
                 statusEl.innerHTML = '<span style="color:red;">Не найдено корректных строк.</span>';
               }
             };
-            reader.readAsText(file);
+            reader.readAsText(file, 'UTF-8');
           });
         }
 
