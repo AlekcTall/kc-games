@@ -6,91 +6,20 @@
   <title>Игры – Геймификация КЦ</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    /* Скелетоны */
-    .skeleton-card {
-      background: var(--color-white);
-      border-radius: var(--border-radius);
-      padding: 1.5rem;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      text-align: center;
-      animation: shimmer 1.5s infinite;
-    }
-    .skeleton-icon {
-      width: 3rem;
-      height: 3rem;
-      border-radius: 50%;
-      background: #e0e0e0;
-      margin: 0 auto 0.5rem;
-    }
-    .skeleton-title {
-      height: 1.2rem;
-      width: 60%;
-      background: #e0e0e0;
-      margin: 0 auto 0.5rem;
-      border-radius: 4px;
-    }
-    .skeleton-text {
-      height: 0.9rem;
-      width: 80%;
-      background: #e0e0e0;
-      margin: 0 auto 0.5rem;
-      border-radius: 4px;
-    }
-    .skeleton-btn {
-      height: 2rem;
-      width: 40%;
-      background: #e0e0e0;
-      margin: 0.5rem auto 0;
-      border-radius: 4px;
-    }
-    @keyframes shimmer {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
-    .games-error {
-      text-align: center;
-      padding: 2rem;
-      color: #e74c3c;
-    }
+    .skeleton-card { background: var(--color-white); border-radius: var(--border-radius); padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; animation: shimmer 1.5s infinite; }
+    .skeleton-icon { width: 3rem; height: 3rem; border-radius: 50%; background: #e0e0e0; margin: 0 auto 0.5rem; }
+    .skeleton-title { height: 1.2rem; width: 60%; background: #e0e0e0; margin: 0 auto 0.5rem; border-radius: 4px; }
+    .skeleton-text { height: 0.9rem; width: 80%; background: #e0e0e0; margin: 0 auto 0.5rem; border-radius: 4px; }
+    .skeleton-btn { height: 2rem; width: 40%; background: #e0e0e0; margin: 0.5rem auto 0; border-radius: 4px; }
+    @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+    .games-error { text-align: center; padding: 2rem; color: #e74c3c; }
   </style>
 </head>
 <body>
+  <header class="header"><div class="container header__inner"><a href="index.html" class="logo">КЦ-Игры</a><button class="burger" id="burger-btn" aria-label="Меню">☰</button><nav class="nav" id="main-nav"><ul class="nav__list"><li><a href="index.html" class="nav__link">Главная</a></li><li><a href="games.html" class="nav__link active">Игры</a></li><li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li><li><a href="shop.html" class="nav__link">Магазин</a></li><li><a href="profile.html" class="nav__link">Профиль</a></li><li><a href="admin.html" class="nav__link">Админ</a></li></ul></nav><div id="auth-status" class="auth-status"></div></div></header>
+  <main class="main"><div class="container"><h2>Доступные игры</h2><div id="games-grid" class="games-grid"></div></div></main>
+  <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
-  <header class="header">
-    <div class="container header__inner">
-      <a href="index.html" class="logo">КЦ-Игры</a>
-      <button class="burger" id="burger-btn" aria-label="Меню">☰</button>
-      <nav class="nav" id="main-nav">
-        <ul class="nav__list">
-          <li><a href="index.html" class="nav__link">Главная</a></li>
-          <li><a href="games.html" class="nav__link active">Игры</a></li>
-          <li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li>
-          <li><a href="shop.html" class="nav__link">Магазин</a></li>
-          <li><a href="profile.html" class="nav__link">Профиль</a></li>
-          <li><a href="admin.html" class="nav__link">Админ</a></li>
-        </ul>
-      </nav>
-      <div id="auth-status" class="auth-status"></div>
-    </div>
-  </header>
-
-  <main class="main">
-    <div class="container">
-      <h2>Доступные игры</h2>
-      <div id="games-grid" class="games-grid">
-        <!-- Скелетоны будут заменены данными -->
-      </div>
-    </div>
-  </main>
-
-  <footer class="footer">
-    <div class="container">
-      <p>© 2026 ваши амбассадоры</p>
-    </div>
-  </footer>
-
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -108,7 +37,6 @@
       const grid = document.getElementById('games-grid');
       const CACHE_KEY = 'krugames_games_cache';
 
-      // Функция отрисовки скелетонов (4 штуки)
       function renderSkeletons() {
         grid.innerHTML = Array.from({ length: 4 }, () => `
           <div class="skeleton-card">
@@ -120,15 +48,16 @@
         `).join('');
       }
 
-      // Функция рендера настоящих карточек
       function renderGames(games) {
-        if (!games || games.length === 0) {
+        // Показываем только нескрытые игры
+        const visibleGames = games.filter(g => !g.hidden);
+        if (!visibleGames.length) {
           grid.innerHTML = '<p class="no-results">Пока нет игр. Загляните позже!</p>';
           return;
         }
 
         let html = '';
-        games.forEach(game => {
+        visibleGames.forEach(game => {
           html += `
             <div class="game-card">
               <div class="game-card__icon">${game.icon || '🎮'}</div>
@@ -140,7 +69,6 @@
         });
         grid.innerHTML = html;
 
-        // Обработчики кликов
         document.querySelectorAll('.game-card__btn').forEach(btn => {
           btn.addEventListener('click', (e) => {
             const gameId = e.target.dataset.gameId;
@@ -156,40 +84,31 @@
         });
       }
 
-      // Загрузка из Firestore с кешированием
       async function loadGames() {
-        // 1. Попытка взять из sessionStorage
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           try {
             const games = JSON.parse(cached);
             renderGames(games);
-          } catch (e) { /* некорректный кеш – проигнорируем */ }
+          } catch (e) {}
         } else {
           renderSkeletons();
         }
 
-        // 2. Загрузка из сети
         try {
           const snap = await db.collection('games').get();
           const games = [];
           snap.forEach(doc => games.push({ id: doc.id, ...doc.data() }));
-
-          // Сохраняем в кеш
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
-
-          // Если данные изменились или отображались скелетоны – перерисовать
           renderGames(games);
         } catch (e) {
           console.error('Ошибка загрузки игр:', e);
-          // Если кеш уже был показан, оставляем его, иначе сообщение об ошибке
           if (!cached) {
             grid.innerHTML = '<p class="games-error">Не удалось загрузить игры. Попробуйте позже.</p>';
           }
         }
       }
 
-      // Запускаем загрузку сразу при готовности DOM
       document.addEventListener('DOMContentLoaded', loadGames);
     })();
   </script>
