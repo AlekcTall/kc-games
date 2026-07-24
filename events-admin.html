@@ -34,9 +34,10 @@
     .final-stats th, .final-stats td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; text-align: left; }
     .final-stats th { background: #e6f7e6; }
     .final-stats img { max-width: 200px; border-radius: 6px; margin: 0.5rem 0; }
-    .type-specific-fields { display: block; }
+    .type-selector { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .type-btn { padding: 0.5rem 1rem; border: 2px solid #d0d8e0; border-radius: 8px; background: white; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+    .type-btn.active { border-color: var(--color-primary); background: #e6f0ff; font-weight: 600; }
     .csv-import-area { border: 2px dashed #ccc; border-radius: 8px; padding: 1rem; text-align: center; margin: 1rem 0; }
-    .csv-import-area input[type="file"] { margin: 0.5rem 0; }
   </style>
 </head>
 <body>
@@ -80,7 +81,7 @@
   <script src="js/main.js"></script>
 
   <script>
-    // ---- КОНФИГУРАЦИЯ ТИПОВ ИВЕНТОВ (добавлять сюда) ----
+    // ---- КОНФИГУРАЦИЯ ТИПОВ ИВЕНТОВ ----
     const EVENT_TYPES = {
       tree: {
         label: 'Живое дерево',
@@ -274,7 +275,6 @@
         }
         content.innerHTML = html;
 
-        // привязка кнопок (edit, start, stop, restart, delete)
         document.querySelectorAll('.edit-event-btn').forEach(b => b.addEventListener('click', () => {
           const ev = events.find(e => e.id === b.dataset.id);
           if (ev) renderCreateForm(ev);
@@ -334,6 +334,11 @@
         const typeCfg = EVENT_TYPES[currentEventType];
         const settings = ev.settings || {};
 
+        // Генерируем кнопки выбора типа
+        const typeButtons = Object.entries(EVENT_TYPES).map(([key, val]) => 
+          `<button class="type-btn ${currentEventType === key ? 'active' : ''}" data-type="${key}">${val.icon} ${val.label}</button>`
+        ).join('');
+
         let fieldsHtml = '';
         typeCfg.fields.forEach(f => {
           const val = settings[f.id] !== undefined ? settings[f.id] : f.default;
@@ -363,7 +368,10 @@
           <div class="event-form">
             <div class="row">
               <div><label>ID ивента</label><input type="text" id="event-id" value="${ev.id || ''}" ${isEdit ? 'disabled' : ''} required></div>
-              <div><label>Тип</label><select id="event-type">${Object.entries(EVENT_TYPES).map(([k, v]) => `<option value="${k}" ${currentEventType === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select></div>
+              <div>
+                <label>Тип</label>
+                <div class="type-selector" id="type-selector">${typeButtons}</div>
+              </div>
             </div>
             <div class="row">
               <div><label>Название</label><input type="text" id="event-title" value="${ev.title || ''}" required></div>
@@ -383,9 +391,19 @@
           </div>
         `;
 
-        document.getElementById('event-type').addEventListener('change', function() {
-          currentEventType = this.value;
-          renderCreateForm(isEdit ? { ...ev, type: currentEventType } : null);
+        // Обработчики кнопок типов
+        document.querySelectorAll('.type-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentEventType = btn.dataset.type;
+            // Обновляем URL и иконку при смене типа
+            const newCfg = EVENT_TYPES[currentEventType];
+            document.getElementById('event-icon').value = newCfg.icon;
+            document.getElementById('event-url').value = currentEventType === 'pixel' ? 'events/pixel-board.html' : (currentEventType === 'quiz' ? 'events/quiz.html' : 'events/tree.html');
+            // Перерисовываем форму
+            renderCreateForm(isEdit ? { ...ev, type: currentEventType } : null);
+          });
         });
 
         if (currentEventType === 'quiz') {
@@ -405,7 +423,6 @@
                 statusEl.innerHTML = '<span style="color:red;">Файл пуст или недостаточно строк.</span>';
                 return;
               }
-              // Пропускаем заголовок
               const dataLines = lines.slice(1);
               const eventId = document.getElementById('event-id').value.trim() || existing?.id;
               if (!eventId) {
@@ -420,7 +437,7 @@
                 if (cols.length < 6) continue;
                 const question = cols[0];
                 const options = [cols[1], cols[2], cols[3], cols[4]];
-                const correct = parseInt(cols[5]) - 1; // в CSV 1-4, в коде 0-3
+                const correct = parseInt(cols[5]) - 1;
                 const timeLimit = cols[6] ? parseInt(cols[6]) : (settings.defaultTimeLimit || 30);
                 if (isNaN(correct) || correct < 0 || correct > 3) continue;
                 const docRef = questionsRef.doc();
