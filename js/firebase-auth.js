@@ -16,7 +16,7 @@ async function firebaseRegister(email, password, username, department) {
     // Пытаемся создать документ в Firestore
     try {
       await db.collection('users').doc(user.uid).set({
-        username: email,          // <-- ИСХОДНОЕ ПОВЕДЕНИЕ: записываем email как имя
+        username: username,          // <-- ИСПРАВЛЕНО: теперь используется переданное имя
         email: email,
         department: department,
         points: 0,
@@ -46,7 +46,7 @@ async function firebaseRegister(email, password, username, department) {
     }
     
     const userData = {
-      uid: user.uid, email: email, username: email, department: department,
+      uid: user.uid, email: email, username: username, department: department, // <-- ИСПРАВЛЕНО: username вместо email
       points: 0, lokoin_balance: 0, purchasedItems: [], role: 'user',
       description: '', achievements: [], easterEggsFound: [], completedGames: [],
       disabled: false, dailyLogin: { lastLoginDate: null, streak: 0, longestStreak: 0, totalLogins: 0, loginHistory: [] },
