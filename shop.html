@@ -13,62 +13,17 @@
     .shop-card__stock { font-size: 0.8rem; color: #e74c3c; margin-bottom: 0.5rem; font-weight: 600; }
     .shop-card__effect { font-size: 0.75rem; color: #27ae60; margin-bottom: 0.3rem; font-weight: 500; }
     .modal { max-width: 450px; }
-    /* Скелетоны */
-    .skeleton-card {
-      background: var(--color-white);
-      border-radius: var(--border-radius);
-      padding: 1.5rem 1rem;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-      text-align: center;
-      animation: shimmer 1.5s infinite;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .skeleton-icon {
-      width: 3rem;
-      height: 3rem;
-      border-radius: 50%;
-      background: #e0e0e0;
-      margin-bottom: 0.5rem;
-    }
-    .skeleton-title {
-      height: 1.2rem;
-      width: 60%;
-      background: #e0e0e0;
-      margin-bottom: 0.5rem;
-      border-radius: 4px;
-    }
-    .skeleton-text {
-      height: 0.9rem;
-      width: 80%;
-      background: #e0e0e0;
-      margin-bottom: 0.5rem;
-      border-radius: 4px;
-    }
-    .skeleton-price {
-      height: 1rem;
-      width: 40%;
-      background: #e0e0e0;
-      border-radius: 4px;
-      margin-top: 0.5rem;
-    }
-    @keyframes shimmer {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
-    .shop-error {
-      text-align: center;
-      padding: 2rem;
-      color: #e74c3c;
-    }
+    .skeleton-card { background: var(--color-white); border-radius: var(--border-radius); padding: 1.5rem 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; animation: shimmer 1.5s infinite; display: flex; flex-direction: column; align-items: center; }
+    .skeleton-icon { width: 3rem; height: 3rem; border-radius: 50%; background: #e0e0e0; margin-bottom: 0.5rem; }
+    .skeleton-title { height: 1.2rem; width: 60%; background: #e0e0e0; margin-bottom: 0.5rem; border-radius: 4px; }
+    .skeleton-text { height: 0.9rem; width: 80%; background: #e0e0e0; margin-bottom: 0.5rem; border-radius: 4px; }
+    .skeleton-price { height: 1rem; width: 40%; background: #e0e0e0; border-radius: 4px; margin-top: 0.5rem; }
+    @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+    .shop-error { text-align: center; padding: 2rem; color: #e74c3c; }
   </style>
 </head>
 <body>
-  <header class="header">
-    <div class="container header__inner"><a href="index.html" class="logo">КЦ-Игры</a><button class="burger" id="burger-btn" aria-label="Меню">☰</button><nav class="nav" id="main-nav"><ul class="nav__list"><li><a href="index.html" class="nav__link">Главная</a></li><li><a href="games.html" class="nav__link">Игры</a></li><li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li><li><a href="shop.html" class="nav__link active">Магазин</a></li><li><a href="profile.html" class="nav__link">Профиль</a></li><li><a href="admin.html" class="nav__link">Админ</a></li></ul></nav><div id="auth-status" class="auth-status"></div></div>
-  </header>
+  <header class="header"><div class="container header__inner"><a href="index.html" class="logo">КЦ-Игры</a><button class="burger" id="burger-btn" aria-label="Меню">☰</button><nav class="nav" id="main-nav"><ul class="nav__list"><li><a href="index.html" class="nav__link">Главная</a></li><li><a href="games.html" class="nav__link">Игры</a></li><li><a href="leaderboard.html" class="nav__link">Рейтинг</a></li><li><a href="shop.html" class="nav__link active">Магазин</a></li><li><a href="profile.html" class="nav__link">Профиль</a></li><li><a href="admin.html" class="nav__link">Админ</a></li></ul></nav><div id="auth-status" class="auth-status"></div></div></header>
   <main class="main"><div class="container"><h2>Магазин</h2><div id="shop-content"></div></div></main>
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
@@ -90,7 +45,7 @@
   <script>
     (function() {
       let allItems = [];
-      let currentUserDoc = null; // данные пользователя из Firestore (для точного баланса)
+      let currentUserDoc = null;
       const shopContent = document.getElementById('shop-content');
       let grid, searchInput, categorySelect, sortSelect;
       const CACHE_KEY = 'krugames_shop_cache';
@@ -99,7 +54,6 @@
       const confirmModal = document.getElementById('confirm-modal'), confirmText = document.getElementById('confirm-text'), confirmYes = document.getElementById('confirm-yes'), confirmNo = document.getElementById('confirm-no');
       let pendingItem = null;
 
-      // Быстрый рендер скелетонов
       function renderSkeletons() {
         grid.innerHTML = Array.from({ length: 8 }, () => `
           <div class="skeleton-card">
@@ -111,9 +65,7 @@
         `).join('');
       }
 
-      // Загрузка товаров с кешированием
       async function loadShopItems() {
-        // 1. Пробуем взять из кеша
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           try {
@@ -124,7 +76,6 @@
           renderSkeletons();
         }
 
-        // 2. Загружаем из сети
         try {
           const snap = await db.collection('shopItems').get();
           allItems = [];
@@ -145,10 +96,8 @@
         categorySelect.innerHTML = '<option value="">Все категории</option>';
         cats.forEach(c => categorySelect.add(new Option(c, c)));
 
-        // Обновляем кнопки категорий
         const catContainer = document.getElementById('shop-categories');
         if (catContainer) {
-          // Удаляем старые кнопки, оставляя "Все"
           catContainer.querySelectorAll('.shop-category-btn:not([data-category=""])').forEach(b => b.remove());
           cats.forEach(cat => {
             const btn = document.createElement('button');
@@ -166,7 +115,6 @@
         }
       }
 
-      // Получение актуальных данных пользователя (из Firestore), тихо обновляя кеш
       async function refreshCurrentUser() {
         if (!auth.currentUser) return;
         try {
@@ -174,14 +122,16 @@
           if (doc.exists) {
             const data = doc.data();
             currentUserDoc = { uid: auth.currentUser.uid, ...data };
-            // Обновляем кеш в localStorage
             setCurrentUser(currentUserDoc);
           }
         } catch (e) { console.error(e); }
       }
 
       function renderShop() {
-        if (!allItems.length) {
+        // Фильтрация: показываем только нескрытые товары (hidden !== true)
+        let visibleItems = allItems.filter(item => !item.hidden);
+
+        if (!visibleItems.length) {
           grid.innerHTML = '<p class="no-results">Товаров пока нет.</p>';
           return;
         }
@@ -190,7 +140,7 @@
               category = categorySelect.value,
               sort = sortSelect.value;
 
-        let filtered = allItems.filter(item => {
+        let filtered = visibleItems.filter(item => {
           if (searchTerm && !item.title.toLowerCase().includes(searchTerm)) return false;
           if (category && item.category !== category) return false;
           return true;
@@ -204,7 +154,6 @@
           return;
         }
 
-        // Берём purchasedItems из кеша (быстро) или из currentUserDoc
         const purchasedItems = currentUserDoc?.purchasedItems || getCurrentUser()?.purchasedItems || [];
 
         let html = '';
@@ -346,7 +295,6 @@
 
           showToast(`Вы приобрели «${item.title}»!`, 'success');
 
-          // Обновляем локальный кеш пользователя
           if (currentUserDoc) {
             currentUserDoc.lokoin_balance = newBalance;
             if (!currentUserDoc.purchasedItems) currentUserDoc.purchasedItems = [];
@@ -360,7 +308,6 @@
             setCurrentUser(cachedUser);
           }
 
-          // Обновляем кеш товаров (остатки могли измениться)
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(allItems));
           renderShop();
           itemModal.style.display = 'none';
@@ -375,14 +322,12 @@
         if (e.target === confirmModal) confirmModal.style.display = 'none';
       });
 
-      // Инициализация магазина при авторизации
       auth.onAuthStateChanged(async user => {
         if (!user) {
           shopContent.innerHTML = '<p class="no-results">Войдите, чтобы просматривать магазин.</p>';
           return;
         }
 
-        // Строим интерфейс сразу
         shopContent.innerHTML = `
           <div class="shop-categories" id="shop-categories">
             <button class="shop-category-btn active" data-category="">Все</button>
@@ -400,7 +345,6 @@
         categorySelect = document.getElementById('shop-category');
         sortSelect = document.getElementById('shop-sort');
 
-        // Загружаем данные пользователя в фоне
         refreshCurrentUser().then(() => {
           if (currentUserDoc?.activeTheme === 'dark') {
             document.body.classList.add('dark-theme');
@@ -409,10 +353,8 @@
           }
         });
 
-        // Загружаем товары с кешированием
         await loadShopItems();
 
-        // Навешиваем обработчики фильтров
         const catContainer = document.getElementById('shop-categories');
         catContainer.querySelector('.shop-category-btn[data-category=""]').addEventListener('click', () => {
           catContainer.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
