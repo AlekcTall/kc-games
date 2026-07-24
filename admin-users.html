@@ -175,7 +175,311 @@
           }
         }
 
-        // ... (весь код отрисовки пользователей и редактирования остаётся без изменений) ...
+        // ----- Пользователи -----
+        async function renderUsersTab() {
+          const content = document.getElementById('admin-tab-content');
+          content.innerHTML = '<p>Загрузка...</p>';
+
+          // Скелетоны
+          content.innerHTML = `
+            <table class="admin-users-table">
+              <thead><tr><th>Игрок</th><th>Email</th><th>Отдел</th><th>Баллы</th><th>Локоины</th><th>Роль</th><th>Статус</th><th>🏆</th><th>Действия</th></tr></thead>
+              <tbody id="users-tbody">${Array.from({ length: 8 }, () => `<tr class="skeleton-row"><td><div class="skeleton-cell" style="width:120px;"></div></td><td><div class="skeleton-cell" style="width:150px;"></div></td><td><div class="skeleton-cell" style="width:80px;"></div></td><td><div class="skeleton-cell" style="width:50px;"></div></td><td><div class="skeleton-cell" style="width:50px;"></div></td><td><div class="skeleton-cell" style="width:60px;"></div></td><td><div class="skeleton-cell" style="width:60px;"></div></td><td><div class="skeleton-cell" style="width:30px;"></div></td><td><div class="skeleton-cell" style="width:100px;"></div></td></tr>`).join('')}</tbody>
+            </table>
+          `;
+
+          // Пробуем загрузить из кеша
+          const cached = getCachedUsers();
+          if (cached) {
+            allUsers = cached;
+            renderUsersTable(allUsers);
+          }
+
+          // Свежие данные из Firestore
+          try {
+            const snap = await db.collection('users').get();
+            allUsers = [];
+            snap.forEach(doc => {
+              const x = doc.data();
+              allUsers.push({
+                uid: doc.id,
+                username: x.username || 'Без имени',
+                email: x.email || '',
+                department: x.department || '',
+                points: x.points || 0,
+                lokoin_balance: x.lokoin_balance || 0,
+                role: x.role || 'user',
+                achievements: x.achievements || [],
+                disabled: x.disabled || false
+              });
+            });
+            allUsers.sort((a, b) => b.points - a.points);
+            setCachedUsers(allUsers);
+            renderUsersTable(allUsers);
+          } catch (e) {
+            console.error(e);
+            if (!allUsers.length) content.innerHTML = '<p>Ошибка загрузки.</p>';
+          }
+        }
+
+        function renderUsersTable(users) {
+          const tbody = document.getElementById('users-tbody');
+          if (!tbody) return;
+
+          let html = '';
+          users.forEach(user => {
+            const av = typeof renderAvatarDiv === 'function'
+              ? renderAvatarDiv(user)
+              : `<div class="avatar-circle" style="background-color:${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
+            html += `<tr data-user-id="${user.uid}">
+              <td class="player-cell">${av}<span class="editable" data-field="username">${user.username}</span></td>
+              <td>${user.email}</td>
+              <td class="editable" data-field="department">${user.department || '—'}</td>
+              <td class="editable" data-field="points">${user.points}</td>
+              <td><span class="lokoin-display">${user.lokoin_balance}</span></td>
+              <td class="editable" data-field="role">${user.role}</td>
+              <td>${user.disabled ? '🔒' : '✅'}</td>
+              <td>${user.achievements.length}</td>
+              <td>
+                <button class="btn btn-small edit-user-btn">✏️</button>
+                <button class="btn btn-small save-user-btn" style="display:none;">💾</button>
+                <button class="btn btn-small cancel-user-btn" style="display:none;">❌</button>
+                <button class="btn btn-small adjust-lokoin-btn">💰</button>
+                <button class="btn btn-small btn-gift gift-item-btn">🎁</button>
+                <button class="btn btn-small toggle-block-btn">🔓</button>
+                <button class="btn btn-small award-user-btn">🎖️</button>
+              </td>
+            </tr>`;
+          });
+          tbody.innerHTML = html;
+
+          attachUserEditHandlers(users);
+          attachLokoinHandlers(users);
+          attachGiftHandlers(users);
+          attachBlockHandlers(users);
+          attachAwardUserHandlers(users);
+        }
+
+        function attachUserEditHandlers(users) {
+          document.querySelectorAll('#users-tbody tr').forEach((row, i) => {
+            const user = users[i];
+            const edit = row.querySelector('.edit-user-btn'),
+                  save = row.querySelector('.save-user-btn'),
+                  cancel = row.querySelector('.cancel-user-btn'),
+                  cells = row.querySelectorAll('.editable');
+
+            cells.forEach(c => c.dataset.original = c.innerText);
+
+            edit.addEventListener('click', () => {
+              cells.forEach(c => {
+                const f = c.dataset.field,
+                      v = c.innerText;
+                if (f === 'username') c.innerHTML = `<input type="text" class="edit-username" value="${v}" style="width:150px;">`;
+                else if (f === 'role') c.innerHTML = `<select class="edit-role"><option value="user" ${v === 'user' ? 'selected' : ''}>user</option><option value="admin" ${v === 'admin' ? 'selected' : ''}>admin</option></select>`;
+                else if (f === 'department') c.innerHTML = `<select class="edit-department">${departmentsCache.map(d => `<option value="${d.name}" ${v === d.name ? 'selected' : ''}>${d.name}</option>`).join('')}</select>`;
+                else if (f === 'points') c.innerHTML = `<input type="number" class="edit-points" value="${v}" min="0">`;
+              });
+              edit.style.display = 'none';
+              save.style.display = 'inline-block';
+              cancel.style.display = 'inline-block';
+            });
+
+            save.addEventListener('click', async () => {
+              const nd = {};
+              cells.forEach(c => {
+                const f = c.dataset.field;
+                if (f === 'username') nd.username = c.querySelector('input').value.trim();
+                else if (f === 'role') nd.role = c.querySelector('select').value;
+                else if (f === 'department') nd.department = c.querySelector('select').value;
+                else if (f === 'points') nd.points = parseInt(c.querySelector('input').value, 10) || 0;
+              });
+              try {
+                await db.collection('users').doc(user.uid).update(nd);
+                showToast('Обновлено', 'success');
+                Object.assign(user, nd);
+                cells.forEach(c => {
+                  if (c.dataset.field === 'username') c.innerText = nd.username || user.username;
+                  else c.innerText = nd[c.dataset.field] !== undefined ? nd[c.dataset.field] : user[c.dataset.field];
+                  c.dataset.original = c.innerText;
+                });
+                const nameSpan = row.querySelector('.editable[data-field="username"]');
+                if (nameSpan) nameSpan.innerText = nd.username || user.username;
+                edit.style.display = 'inline-block';
+                save.style.display = 'none';
+                cancel.style.display = 'none';
+              } catch (err) {
+                showToast('Ошибка: ' + err.message, 'error');
+              }
+            });
+
+            cancel.addEventListener('click', () => {
+              cells.forEach(c => c.innerText = c.dataset.original);
+              edit.style.display = 'inline-block';
+              save.style.display = 'none';
+              cancel.style.display = 'none';
+            });
+          });
+        }
+
+        function attachLokoinHandlers(users) {
+          document.querySelectorAll('#users-tbody tr').forEach((row, i) => {
+            const u = users[i],
+                  btn = row.querySelector('.adjust-lokoin-btn'),
+                  d = row.querySelector('.lokoin-display');
+            if (btn) btn.addEventListener('click', () => openLokoinModal(u, d));
+          });
+        }
+
+        let curLokoinUser = null, curLokoinDisp = null;
+        function openLokoinModal(u, d) {
+          curLokoinUser = u;
+          curLokoinDisp = d;
+          document.getElementById('lokoin-amount').value = '';
+          document.getElementById('lokoin-comment').value = '';
+          document.getElementById('lokoin-message').textContent = '';
+          document.getElementById('lokoin-modal').style.display = 'flex';
+        }
+        document.getElementById('lokoin-modal-close').addEventListener('click', () => { document.getElementById('lokoin-modal').style.display = 'none'; });
+        document.getElementById('lokoin-submit').addEventListener('click', async () => {
+          const a = parseInt(document.getElementById('lokoin-amount').value.trim(), 10);
+          if (isNaN(a) || a === 0) {
+            document.getElementById('lokoin-message').textContent = 'Введите число.';
+            return;
+          }
+          try {
+            const ref = db.collection('users').doc(curLokoinUser.uid);
+            const doc = await ref.get();
+            const old = doc.data().lokoin_balance || 0;
+            const nb = old + a;
+            if (nb < 0) {
+              document.getElementById('lokoin-message').textContent = 'Недостаточно.';
+              return;
+            }
+            await ref.update({ lokoin_balance: nb });
+            curLokoinUser.lokoin_balance = nb;
+            curLokoinDisp.textContent = nb;
+            document.getElementById('lokoin-modal').style.display = 'none';
+            showToast('Обновлено', 'success');
+            if (typeof addLokoinNotification === 'function') addLokoinNotification(curLokoinUser.uid, a, document.getElementById('lokoin-comment').value.trim());
+          } catch (err) {
+            document.getElementById('lokoin-message').textContent = 'Ошибка: ' + err.message;
+          }
+        });
+
+        function attachGiftHandlers(users) {
+          document.querySelectorAll('#users-tbody tr').forEach((row, i) => {
+            const u = users[i],
+                  btn = row.querySelector('.gift-item-btn');
+            if (btn) btn.addEventListener('click', () => openGiftModal(u));
+          });
+        }
+        let curGiftUser = null;
+        async function openGiftModal(u) {
+          curGiftUser = u;
+          document.getElementById('gift-user-name').textContent = `Пользователь: ${u.username}`;
+          document.getElementById('gift-message').textContent = '';
+          const s = document.getElementById('gift-item-select');
+          s.innerHTML = '<option value="">Загрузка...</option>';
+          document.getElementById('gift-modal').style.display = 'flex';
+          try {
+            const snap = await db.collection('shopItems').get();
+            const items = [];
+            snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+            s.innerHTML = items.length
+              ? items.map(i => `<option value="${i.id}">${i.icon || '🛒'} ${i.title} (${i.price} лок.)</option>`).join('')
+              : '<option>Нет товаров</option>';
+          } catch (e) { s.innerHTML = '<option>Ошибка</option>'; }
+        }
+        document.getElementById('gift-modal-close').addEventListener('click', () => { document.getElementById('gift-modal').style.display = 'none'; });
+        document.getElementById('gift-submit').addEventListener('click', async () => {
+          const s = document.getElementById('gift-item-select');
+          const id = s.value;
+          if (!id || !curGiftUser) return;
+          try {
+            await db.collection('users').doc(curGiftUser.uid).update({
+              purchasedItems: firebase.firestore.FieldValue.arrayUnion(id)
+            });
+            if (typeof addNotification === 'function') addNotification(curGiftUser.uid, `🎁 Вам подарен товар: ${s.options[s.selectedIndex].text}`, 'gift', 'shop.html');
+            showToast('Подарен!', 'success');
+            document.getElementById('gift-modal').style.display = 'none';
+          } catch (err) {
+            document.getElementById('gift-message').textContent = 'Ошибка: ' + err.message;
+          }
+        });
+
+        function attachBlockHandlers(users) {
+          document.querySelectorAll('#users-tbody tr').forEach((row, i) => {
+            const u = users[i],
+                  btn = row.querySelector('.toggle-block-btn');
+            if (!btn) return;
+            btn.textContent = u.disabled ? '🔓' : '🔒';
+            btn.addEventListener('click', async () => {
+              const nd = !u.disabled;
+              await db.collection('users').doc(u.uid).update({ disabled: nd });
+              u.disabled = nd;
+              btn.textContent = nd ? '🔓' : '🔒';
+              row.querySelector('td:nth-child(7)').textContent = nd ? '🔒 Заблокирован' : '✅ Активен';
+              showToast(nd ? 'Заблокирован' : 'Разблокирован', 'success');
+            });
+          });
+        }
+
+        function attachAwardUserHandlers(users) {
+          document.querySelectorAll('#users-tbody tr').forEach((row, i) => {
+            const u = users[i],
+                  btn = row.querySelector('.award-user-btn');
+            if (btn) btn.addEventListener('click', () => openAwardUserModal(u));
+          });
+        }
+        let curAwardUser = null;
+        async function openAwardUserModal(u) {
+          curAwardUser = u;
+          document.getElementById('award-user-name').textContent = `Пользователь: ${u.username}`;
+          document.getElementById('award-comment').value = '';
+          document.getElementById('award-user-message').textContent = '';
+          const s = document.getElementById('award-select');
+          s.innerHTML = '<option value="">Загрузка...</option>';
+          document.getElementById('award-user-modal').style.display = 'flex';
+          try {
+            const snap = await db.collection('awards').get();
+            const a = [];
+            snap.forEach(d => a.push({ id: d.id, ...d.data() }));
+            s.innerHTML = a.length
+              ? a.map(x => `<option value="${x.id}">${x.icon ? `<img src="img/awards/${x.icon}" class="award-icon-preview" onerror="this.style.display='none'">` : ''} ${x.name}</option>`).join('')
+              : '<option>Нет наград</option>';
+          } catch (e) { s.innerHTML = '<option>Ошибка</option>'; }
+        }
+        document.getElementById('award-user-modal-close').addEventListener('click', () => { document.getElementById('award-user-modal').style.display = 'none'; });
+        document.getElementById('award-user-submit').addEventListener('click', async () => {
+          const aid = document.getElementById('award-select').value,
+                comment = document.getElementById('award-comment').value.trim();
+          if (!aid || !curAwardUser) {
+            document.getElementById('award-user-message').textContent = 'Выберите награду.';
+            return;
+          }
+          try {
+            const adoc = await db.collection('awards').doc(aid).get();
+            if (!adoc.exists) throw new Error('Не найдена');
+            const a = adoc.data();
+            await db.collection('users').doc(curAwardUser.uid).collection('awarded').add({
+              awardId: aid,
+              awardedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              awardedBy: auth.currentUser.uid,
+              comment
+            });
+            if (a.lokoinReward > 0) await db.collection('users').doc(curAwardUser.uid).update({
+              lokoin_balance: firebase.firestore.FieldValue.increment(a.lokoinReward)
+            });
+            let msg = `Вы получили награду «${a.name}»!`;
+            if (comment) msg += ` Комментарий: ${comment}`;
+            if (a.lokoinReward > 0) msg += ` (+${a.lokoinReward} лок.)`;
+            if (typeof addNotification === 'function') addNotification(curAwardUser.uid, msg, 'award', 'profile.html');
+            showToast('Награда выдана!', 'success');
+            document.getElementById('award-user-modal').style.display = 'none';
+          } catch (err) {
+            document.getElementById('award-user-message').textContent = 'Ошибка: ' + err.message;
+          }
+        });
 
         // ----- Заявки -----
         async function renderRequestsTab() {
