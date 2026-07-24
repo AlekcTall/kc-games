@@ -123,7 +123,7 @@
             ranked.push({ username: u.username || 'Аноним', department: u.department || '—', total: Object.values(data.actions || {}).reduce((a, b) => a + b, 0) });
           }
           ranked.sort((a, b) => b.total - a.total);
-          const topPlayer = ranked[0];
+          const topPlayer = ranked[0] || null;
           const deptMap = {};
           ranked.forEach(p => {
             if (!deptMap[p.department]) deptMap[p.department] = { totalActions: 0, topPlayer: '', topActions: 0 };
@@ -214,7 +214,7 @@
           ranked.sort((a, b) => b.score - a.score);
           return {
             uniqueParticipants: ranked.length,
-            topPlayer: ranked[0],
+            topPlayer: ranked[0] || null,
             topParticipants: ranked.slice(0, 10)
           };
         }
@@ -362,7 +362,6 @@
         } catch (e) { console.error(e); content.innerHTML = '<p>Ошибка загрузки.</p>'; }
       }
 
-      // Обновлённая функция создания/редактирования с поддержкой ручного управления вопросами
       function renderCreateForm(existingEvent = null) {
         const content = document.getElementById('events-tab-content');
         const isEdit = !!existingEvent?.id;
@@ -388,7 +387,6 @@
           }
         });
 
-        // Блок управления вопросами для квиза
         let questionsBlock = '';
         if (eventType === 'quiz') {
           questionsBlock = `
@@ -469,7 +467,6 @@
           </div>
         `;
 
-        // Обработчик смены типа
         document.getElementById('event-type').addEventListener('change', function() {
           const newType = this.value;
           const currentId = document.getElementById('event-id').value.trim();
@@ -507,7 +504,6 @@
           }
         });
 
-        // Загрузка существующих вопросов и добавление нового
         if (eventType === 'quiz') {
           const questionsContainer = document.getElementById('questions-list-container');
 
@@ -549,7 +545,6 @@
 
           renderQuestionsList();
 
-          // Добавление вопроса
           document.getElementById('add-question-btn').addEventListener('click', async () => {
             const currentEventId = isEdit ? ev.id : document.getElementById('event-id').value.trim();
             if (!currentEventId) {
@@ -593,7 +588,6 @@
             }
           });
 
-          // Импорт CSV
           document.getElementById('import-csv-btn').addEventListener('click', async () => {
             const currentEventId = isEdit ? ev.id : document.getElementById('event-id').value.trim();
             if (!currentEventId) {
