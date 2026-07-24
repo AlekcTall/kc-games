@@ -92,7 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
       mainNav.classList.toggle('nav--open');
     });
   }
-
+// Добавляем ссылку "Помощь" в навигацию, если её ещё нет
+const navList = document.querySelector('.nav__list');
+if (navList && !navList.querySelector('a[href="faq.html"]')) {
+  const helpLi = document.createElement('li');
+  helpLi.innerHTML = '<a href="faq.html" class="nav__link">Помощь</a>';
+  navList.appendChild(helpLi);
+}
   // FAQ аккордеон
   document.querySelectorAll('.faq-item__question').forEach(btn => {
     btn.addEventListener('click', () => {
