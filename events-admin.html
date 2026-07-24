@@ -34,7 +34,9 @@
     .final-stats th, .final-stats td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #ddd; text-align: left; }
     .final-stats th { background: #e6f7e6; }
     .final-stats img { max-width: 200px; border-radius: 6px; margin: 0.5rem 0; }
-    .type-specific-fields { display: none; }
+    .type-specific-fields { display: block; }
+    .csv-import-area { border: 2px dashed #ccc; border-radius: 8px; padding: 1rem; text-align: center; margin: 1rem 0; }
+    .csv-import-area input[type="file"] { margin: 0.5rem 0; }
   </style>
 </head>
 <body>
@@ -169,6 +171,39 @@
             uniqueParticipants: Object.keys(painters).length,
             imageData: tempCanvas.toDataURL('image/png'),
             topParticipants: ranked.slice(0, 5)
+          };
+        }
+      },
+      quiz: {
+        label: 'Квиз',
+        icon: '🧠',
+        fields: [
+          { id: 'randomOrder', label: 'Случайный порядок вопросов', type: 'checkbox', default: true },
+          { id: 'shuffleOptions', label: 'Перемешивать варианты ответов', type: 'checkbox', default: true },
+          { id: 'defaultTimeLimit', label: 'Время на вопрос по умолчанию (сек)', type: 'number', default: 30 }
+        ],
+        monitor: async (event) => {
+          const p = event.participants || {};
+          const users = Object.keys(p).filter(k => k !== '_lastDecay');
+          const completed = users.filter(u => p[u]?.currentIndex >= (event.questions || []).length).length;
+          return `<div class="monitor-card"><div class="value">${users.length}</div><div class="label">Участников</div></div>
+                  <div class="monitor-card"><div class="value">${completed}</div><div class="label">Завершили</div></div>`;
+        },
+        finish: async (event) => {
+          const participants = event.participants || {};
+          const ranked = [];
+          for (const [uid, data] of Object.entries(participants)) {
+            if (uid === '_lastDecay') continue;
+            const userDoc = await db.collection('users').doc(uid).get();
+            const u = userDoc.data() || {};
+            if (u.role === 'admin') continue;
+            ranked.push({ username: u.username || 'Аноним', department: u.department || '—', score: data.score || 0 });
+          }
+          ranked.sort((a, b) => b.score - a.score);
+          return {
+            uniqueParticipants: ranked.length,
+            topPlayer: ranked[0],
+            topParticipants: ranked.slice(0, 10)
           };
         }
       }
@@ -311,6 +346,18 @@
           }
         });
 
+        let importBlock = '';
+        if (currentEventType === 'quiz') {
+          importBlock = `
+            <div class="csv-import-area">
+              <p><strong>📋 Импорт вопросов из CSV</strong></p>
+              <p style="font-size:0.8rem;color:#666;">Формат: question, option1, option2, option3, option4, correct(1-4), timeLimit(сек)</p>
+              <input type="file" id="csv-file-input" accept=".csv">
+              <button class="btn btn-small" id="import-csv-btn">Импортировать</button>
+              <div id="csv-import-status"></div>
+            </div>`;
+        }
+
         content.innerHTML = `
           <h3>${isEdit ? 'Редактировать' : 'Создать'} ивент</h3>
           <div class="event-form">
@@ -323,10 +370,11 @@
               <div><label>Иконка</label><input type="text" id="event-icon" value="${ev.icon || typeCfg.icon}"></div>
             </div>
             <label>Описание</label><textarea id="event-desc" rows="2">${ev.description || ''}</textarea>
-            <label>URL страницы ивента</label><input type="text" id="event-url" value="${ev.url || (currentEventType === 'pixel' ? 'events/pixel-board.html' : 'events/tree.html')}">
+            <label>URL страницы ивента</label><input type="text" id="event-url" value="${ev.url || (currentEventType === 'pixel' ? 'events/pixel-board.html' : (currentEventType === 'quiz' ? 'events/quiz.html' : 'events/tree.html'))}">
             <div class="row"><div><label>Начало</label><input type="datetime-local" id="event-start" value="${ev.startTime ? toDatetimeLocal(ev.startTime.toDate()) : ''}"></div><div><label>Окончание</label><input type="datetime-local" id="event-end" value="${ev.endTime ? toDatetimeLocal(ev.endTime.toDate()) : ''}"></div></div>
             <h4>Настройки типа «${typeCfg.label}»</h4>
             <div id="type-specific-fields">${fieldsHtml}</div>
+            ${importBlock}
             <h4>Награды</h4>
             <div class="row"><div><label>За участие (баллы)</label><input type="number" id="reward-participation" value="${(ev.rewards?.participation?.points) || 10}"></div><div><label>За участие (локоины)</label><input type="number" id="reward-participation-lokoin" value="${(ev.rewards?.participation?.lokoin) || 2}"></div></div>
             <div class="row"><div><label>За победу (баллы)</label><input type="number" id="reward-win" value="${(ev.rewards?.win?.points) || 50}"></div><div><label>За победу (локоины)</label><input type="number" id="reward-win-lokoin" value="${(ev.rewards?.win?.lokoin) || 10}"></div></div>
@@ -339,6 +387,56 @@
           currentEventType = this.value;
           renderCreateForm(isEdit ? { ...ev, type: currentEventType } : null);
         });
+
+        if (currentEventType === 'quiz') {
+          document.getElementById('import-csv-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('csv-file-input');
+            const statusEl = document.getElementById('csv-import-status');
+            if (!fileInput.files.length) {
+              statusEl.innerHTML = '<span style="color:red;">Выберите CSV-файл.</span>';
+              return;
+            }
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              const text = e.target.result;
+              const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+              if (lines.length < 2) {
+                statusEl.innerHTML = '<span style="color:red;">Файл пуст или недостаточно строк.</span>';
+                return;
+              }
+              // Пропускаем заголовок
+              const dataLines = lines.slice(1);
+              const eventId = document.getElementById('event-id').value.trim() || existing?.id;
+              if (!eventId) {
+                statusEl.innerHTML = '<span style="color:red;">Сначала укажите ID ивента.</span>';
+                return;
+              }
+              const batch = db.batch();
+              const questionsRef = db.collection('events').doc(eventId).collection('questions');
+              let imported = 0;
+              for (const line of dataLines) {
+                const cols = line.split(',').map(c => c.trim());
+                if (cols.length < 6) continue;
+                const question = cols[0];
+                const options = [cols[1], cols[2], cols[3], cols[4]];
+                const correct = parseInt(cols[5]) - 1; // в CSV 1-4, в коде 0-3
+                const timeLimit = cols[6] ? parseInt(cols[6]) : (settings.defaultTimeLimit || 30);
+                if (isNaN(correct) || correct < 0 || correct > 3) continue;
+                const docRef = questionsRef.doc();
+                batch.set(docRef, { text: question, options, correct, timeLimit });
+                imported++;
+              }
+              if (imported > 0) {
+                await batch.commit();
+                statusEl.innerHTML = `<span style="color:green;">✅ Импортировано ${imported} вопросов.</span>`;
+              } else {
+                statusEl.innerHTML = '<span style="color:red;">Не найдено корректных строк.</span>';
+              }
+            };
+            reader.readAsText(file);
+          });
+        }
 
         document.getElementById('save-event-btn').addEventListener('click', async () => {
           const id = document.getElementById('event-id').value.trim();
