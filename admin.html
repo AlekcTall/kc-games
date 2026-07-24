@@ -323,11 +323,11 @@
 
           document.querySelectorAll('.remove-game-btn').forEach(btn => {
             btn.addEventListener('click', async e => {
-              if (confirm('Удалить игру?')) {
-                await db.collection('games').doc(e.target.dataset.gameId).delete();
-                showToast('Удалена', 'success');
-                loadGames();
-              }
+              showConfirmModal('Удалить игру?', async () => {
+  await db.collection('games').doc(e.target.dataset.gameId).delete();
+  showToast('Удалена', 'success');
+  loadGames();
+});
             });
           });
 
