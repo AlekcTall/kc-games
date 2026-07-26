@@ -41,6 +41,7 @@
   <script src="js/easter-eggs.js"></script>
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/effects-engine.js"></script>
 
   <script>
     (function() {
@@ -128,7 +129,6 @@
       }
 
       function renderShop() {
-        // Фильтрация: показываем только нескрытые товары (hidden !== true)
         let visibleItems = allItems.filter(item => !item.hidden);
 
         if (!visibleItems.length) {
@@ -164,7 +164,7 @@
           html += `<div class="shop-card" data-item-id="${item.id}">
             <div class="shop-card__icon">${item.icon || '🛒'}</div>
             <h3 class="shop-card__title">${item.title}</h3>
-            ${item.effect ? `<p class="shop-card__effect">${item.effect}</p>` : ''}
+            ${item.effectType || item.effect ? `<p class="shop-card__effect">${item.effectType || item.effect}</p>` : ''}
             ${durationText ? `<p class="shop-card__duration">${durationText}</p>` : ''}
             ${stockText ? `<p class="shop-card__stock">${stockText}</p>` : ''}
             <p class="shop-card__price">${item.price} локоин${pluralizeLokoin(item.price)}</p>
@@ -259,10 +259,13 @@
 
           await userRef.update(updateData);
 
-          if (item.effect && item.duration > 0 && typeof activateEffect === 'function') {
-            await activateEffect(auth.currentUser.uid, item.effect, item.duration);
+          // Применяем эффект товара через универсальную функцию
+          if ((item.effectType || item.effect) && typeof applyItemEffect === 'function') {
+            await applyItemEffect(auth.currentUser.uid, item);
           }
-          if ((item.effect === 'dark_theme' || item.id === 'dark_theme') && item.duration === 0) {
+
+          // Обратная совместимость: если была старая проверка dark_theme через effect
+          if (!item.effectType && item.effect === 'dark_theme' && item.duration === 0) {
             await userRef.update({ activeTheme: 'dark' });
             document.body.classList.add('dark-theme');
           }
@@ -280,7 +283,7 @@
               itemId: item.id,
               itemTitle: item.title,
               itemPrice: item.price,
-              itemEffect: item.effect || '',
+              itemEffect: item.effectType || item.effect || '',
               status: 'new',
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
