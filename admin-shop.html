@@ -22,6 +22,7 @@
     @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     .modal { max-width: 550px; }
     .checkbox-group { display: flex; align-items: center; gap: 0.5rem; }
+    .effect-params { margin-top: 0.5rem; }
   </style>
 </head>
 <body>
@@ -43,8 +44,17 @@
       </select></div>
       <div class="form-group"><label>Цена *</label><input type="number" id="shop-item-price" min="1" required></div>
       <div class="form-group"><label>Иконка</label><input type="text" id="shop-item-icon" value="🛒"></div>
-      <div class="form-group"><label>Эффект</label><input type="text" id="shop-item-effect"></div>
-      <div class="form-group"><label>Длительность (ч, 0=бессрочно)</label><input type="number" id="shop-item-duration" value="0" min="0"></div>
+      <div class="form-group">
+        <label>Тип эффекта</label>
+        <select id="shop-item-effect-type">
+          <option value="">Нет эффекта</option>
+        </select>
+      </div>
+      <div class="form-group effect-params" id="shop-item-effect-params-group" style="display:none;">
+        <label>Параметры эффекта (JSON)</label>
+        <textarea id="shop-item-effect-params" rows="2">{"duration": 0}</textarea>
+      </div>
+      <div class="form-group"><label>Длительность (ч, 0=бессрочно) *</label><input type="number" id="shop-item-duration" value="0" min="0"></div>
       <div class="form-group"><label>Уникальный</label><select id="shop-item-unique"><option value="true">Да</option><option value="false">Нет</option></select></div>
       <div class="form-group"><label>Уведомить админа</label><select id="shop-item-notify-admin"><option value="false">Нет</option><option value="true">Да</option></select></div>
       <div class="form-group"><label>Количество (пусто=∞)</label><input type="number" id="shop-item-stock"></div>
@@ -68,6 +78,7 @@
   <script src="js/notifications.js"></script>
   <script src="js/main.js"></script>
   <script src="js/feedback.js"></script>
+  <script src="js/effects-engine.js"></script>
 
   <script>
     (function() {
@@ -122,8 +133,17 @@
                 </select></div>
                 <div class="form-group"><label>Цена *</label><input type="number" id="shop-price" min="1" required></div>
                 <div class="form-group"><label>Иконка</label><input type="text" id="shop-icon" value="🛒"></div>
-                <div class="form-group"><label>Эффект</label><input type="text" id="shop-effect"></div>
-                <div class="form-group"><label>Длительность</label><input type="number" id="shop-duration" value="0" min="0"></div>
+                <div class="form-group">
+                  <label>Тип эффекта</label>
+                  <select id="shop-effect-type">
+                    <option value="">Нет эффекта</option>
+                  </select>
+                </div>
+                <div class="form-group effect-params" id="shop-effect-params-group" style="display:none;">
+                  <label>Параметры эффекта (JSON)</label>
+                  <textarea id="shop-effect-params" rows="2">{"duration": 0}</textarea>
+                </div>
+                <div class="form-group"><label>Длительность (ч, 0=бессрочно) *</label><input type="number" id="shop-duration" value="0" min="0"></div>
                 <div class="form-group"><label>Уникальный</label><select id="shop-unique"><option value="true">Да</option><option value="false">Нет</option></select></div>
                 <div class="form-group"><label>Уведомить админа</label><select id="shop-notify-admin"><option value="false">Нет</option><option value="true">Да</option></select></div>
                 <div class="form-group"><label>Количество</label><input type="number" id="shop-stock"></div>
@@ -133,17 +153,45 @@
             </div>
           `;
 
+          // Заполняем список типов эффектов
+          const effectTypes = typeof getAvailableEffectTypes === 'function' ? getAvailableEffectTypes() : [];
+          const effectSelects = document.querySelectorAll('#shop-effect-type, #shop-item-effect-type');
+          effectSelects.forEach(select => {
+            effectTypes.forEach(et => {
+              const option = document.createElement('option');
+              option.value = et.id;
+              option.textContent = et.name;
+              select.appendChild(option);
+            });
+          });
+
+          // Показываем/скрываем параметры эффекта
+          document.getElementById('shop-effect-type').addEventListener('change', function() {
+            document.getElementById('shop-effect-params-group').style.display = this.value ? 'block' : 'none';
+          });
+          document.getElementById('shop-item-effect-type').addEventListener('change', function() {
+            document.getElementById('shop-item-effect-params-group').style.display = this.value ? 'block' : 'none';
+          });
+
           loadShopItems();
           document.getElementById('add-shop-item-form').addEventListener('submit', async e => {
             e.preventDefault();
             const id = document.getElementById('shop-id').value.trim();
+            const effectType = document.getElementById('shop-effect-type').value;
+            let effectParams = {};
+            if (effectType) {
+              try {
+                effectParams = JSON.parse(document.getElementById('shop-effect-params').value);
+              } catch (e) { showToast('Ошибка в JSON параметров', 'error'); return; }
+            }
             const ni = {
               title: document.getElementById('shop-title').value.trim(),
               description: document.getElementById('shop-desc').value.trim(),
               category: document.getElementById('shop-category').value,
               price: parseInt(document.getElementById('shop-price').value, 10),
               icon: document.getElementById('shop-icon').value.trim() || '🛒',
-              effect: document.getElementById('shop-effect').value.trim(),
+              effectType: effectType || null,
+              effectParams: effectType ? effectParams : null,
               duration: parseInt(document.getElementById('shop-duration').value, 10) || 0,
               unique: document.getElementById('shop-unique').value === 'true',
               notifyAdmin: document.getElementById('shop-notify-admin').value === 'true',
@@ -170,13 +218,21 @@
             document.getElementById('shop-item-modal').style.display = 'none';
           });
           document.getElementById('shop-item-save').addEventListener('click', async () => {
+            const effectType = document.getElementById('shop-item-effect-type').value;
+            let effectParams = {};
+            if (effectType) {
+              try {
+                effectParams = JSON.parse(document.getElementById('shop-item-effect-params').value);
+              } catch (e) { document.getElementById('shop-item-message').textContent = 'Ошибка в JSON параметров.'; return; }
+            }
             const u = {
               title: document.getElementById('shop-item-title').value.trim(),
               description: document.getElementById('shop-item-desc').value.trim(),
               category: document.getElementById('shop-item-category').value,
               price: parseInt(document.getElementById('shop-item-price').value, 10),
               icon: document.getElementById('shop-item-icon').value.trim(),
-              effect: document.getElementById('shop-item-effect').value.trim(),
+              effectType: effectType || null,
+              effectParams: effectType ? effectParams : null,
               duration: parseInt(document.getElementById('shop-item-duration').value, 10) || 0,
               unique: document.getElementById('shop-item-unique').value === 'true',
               notifyAdmin: document.getElementById('shop-item-notify-admin').value === 'true',
@@ -226,7 +282,7 @@
                 <td>${i.icon || '🛒'} ${i.title}</td>
                 <td>${i.category || ''}</td>
                 <td>${i.price}</td>
-                <td>${i.effect || ''}</td>
+                <td>${i.effectType || i.effect || ''}</td>
                 <td>${i.unique ? '✓' : '—'}</td>
                 <td>${i.notifyAdmin ? '✓' : '—'}</td>
                 <td>${i.hidden ? '🙈' : '👁️'}</td>
@@ -267,7 +323,8 @@
           document.getElementById('shop-item-category').value = item.category || 'Кастомизация';
           document.getElementById('shop-item-price').value = item.price || 1;
           document.getElementById('shop-item-icon').value = item.icon || '🛒';
-          document.getElementById('shop-item-effect').value = item.effect || '';
+          document.getElementById('shop-item-effect-type').value = item.effectType || '';
+          document.getElementById('shop-item-effect-params').value = item.effectParams ? JSON.stringify(item.effectParams, null, 2) : '{"duration": 0}';
           document.getElementById('shop-item-duration').value = item.duration || 0;
           document.getElementById('shop-item-unique').value = item.unique ? 'true' : 'false';
           document.getElementById('shop-item-notify-admin').value = item.notifyAdmin ? 'true' : 'false';
@@ -276,6 +333,7 @@
           document.getElementById('shop-item-message').textContent = '';
           document.getElementById('shop-item-id-display').innerHTML = `<strong>ID:</strong> <code>${item.id}</code>`;
           document.getElementById('shop-item-modal').style.display = 'flex';
+          document.getElementById('shop-item-effect-params-group').style.display = item.effectType ? 'block' : 'none';
         }
       });
     })();
