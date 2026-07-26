@@ -125,7 +125,51 @@ function updateAuthUI(firebaseUser) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Проверка режима обслуживания
+async function checkMaintenanceMode() {
+  try {
+    const doc = await db.collection('settings').doc('maintenance').get();
+    if (!doc.exists) return false;
+    const data = doc.data();
+    if (!data.enabled) return false;
+
+    // Проверяем, является ли текущий пользователь админом
+    const currentUser = getCurrentUser();
+    const isAdmin = currentUser && currentUser.role === 'admin';
+
+    if (!isAdmin) {
+      // Скрываем весь контент и показываем сообщение
+      document.body.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:#1a1a2e; color:#fff; font-family:'Segoe UI',sans-serif; text-align:center;">
+          <div style="max-width:500px; padding:2rem;">
+            <div style="font-size:3rem; margin-bottom:1rem;">🔧</div>
+            <h2 style="margin-bottom:1rem;">Техническое обслуживание</h2>
+            <p style="font-size:1.1rem; margin-bottom:1.5rem; opacity:0.8;">${data.message || 'Сайт на техническом обслуживании. Попробуйте зайти позже.'}</p>
+            <a href="login.html" style="color:#4a9eff;">Войти как администратор</a>
+          </div>
+        </div>
+      `;
+      return true;
+    } else {
+      // Админ видит сайт, но с предупреждением
+      const banner = document.createElement('div');
+      banner.id = 'maintenance-banner';
+      banner.style.cssText = 'background:#f39c12; color:#000; text-align:center; padding:0.5rem; font-weight:600; position:sticky; top:0; z-index:9999;';
+      banner.textContent = '⚠️ Включён режим обслуживания. Обычные пользователи не видят сайт.';
+      document.body.prepend(banner);
+    }
+    return false;
+  } catch (e) {
+    console.error('Ошибка проверки режима обслуживания:', e);
+    return false;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // Проверка режима обслуживания (до всего остального)
+  const isMaintenance = await checkMaintenanceMode();
+  if (isMaintenance) return; // для не-админов дальнейший код не выполняется
+
   // Бургер-меню
   const burgerBtn = document.getElementById('burger-btn');
   const mainNav = document.getElementById('main-nav');
