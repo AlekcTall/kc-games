@@ -251,12 +251,6 @@
             purchasedItems: firebase.firestore.FieldValue.arrayUnion(item.id)
           };
 
-          if (item.stock !== null && item.stock !== undefined) {
-            const ns = item.stock - 1;
-            await db.collection('shopItems').doc(item.id).update({ stock: ns });
-            item.stock = ns;
-          }
-
           await userRef.update(updateData);
 
           // Применяем эффект товара через универсальную функцию
@@ -264,7 +258,7 @@
             await applyItemEffect(auth.currentUser.uid, item);
           }
 
-          // Обратная совместимость: если была старая проверка dark_theme через effect
+          // Обратная совместимость для старой тёмной темы
           if (!item.effectType && item.effect === 'dark_theme' && item.duration === 0) {
             await userRef.update({ activeTheme: 'dark' });
             document.body.classList.add('dark-theme');
