@@ -133,12 +133,10 @@ async function checkMaintenanceMode() {
     const data = doc.data();
     if (!data.enabled) return false;
 
-    // Проверяем, является ли текущий пользователь админом
     const currentUser = getCurrentUser();
     const isAdmin = currentUser && currentUser.role === 'admin';
 
     if (!isAdmin) {
-      // Скрываем весь контент и показываем сообщение
       document.body.innerHTML = `
         <div style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:#1a1a2e; color:#fff; font-family:'Segoe UI',sans-serif; text-align:center;">
           <div style="max-width:500px; padding:2rem;">
@@ -151,7 +149,6 @@ async function checkMaintenanceMode() {
       `;
       return true;
     } else {
-      // Админ видит сайт, но с предупреждением
       const banner = document.createElement('div');
       banner.id = 'maintenance-banner';
       banner.style.cssText = 'background:#f39c12; color:#000; text-align:center; padding:0.5rem; font-weight:600; position:sticky; top:0; z-index:9999;';
@@ -166,9 +163,17 @@ async function checkMaintenanceMode() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Проверка режима обслуживания (до всего остального)
   const isMaintenance = await checkMaintenanceMode();
-  if (isMaintenance) return; // для не-админов дальнейший код не выполняется
+  if (isMaintenance) return;
+
+  // Добавляем favicon динамически, если его ещё нет
+  if (!document.querySelector('link[rel="icon"]')) {
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/svg+xml';
+    link.href = 'img/favicon.svg';
+    document.head.appendChild(link);
+  }
 
   // Бургер-меню
   const burgerBtn = document.getElementById('burger-btn');
