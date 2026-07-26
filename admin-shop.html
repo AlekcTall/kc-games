@@ -244,11 +244,12 @@
 
           document.querySelectorAll('.delete-shop-item-btn').forEach(btn => {
             btn.addEventListener('click', async e => {
-              showConfirmModal('Удалить товар?', async () => {
-  await db.collection('shopItems').doc(e.target.dataset.id).delete();
-  showToast('Удалён', 'success');
-  loadShopItems();
-});
+              if (confirm('Удалить товар?')) {
+                await db.collection('shopItems').doc(e.target.dataset.id).delete();
+                showToast('Удалён', 'success');
+                loadShopItems();
+              }
+            });
           });
 
           document.querySelectorAll('.edit-shop-item-btn').forEach(btn => {
