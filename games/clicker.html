@@ -59,7 +59,6 @@
     function showToast(msg,type='info'){ let c=document.getElementById('toast-container'); if(!c){c=document.createElement('div');c.id='toast-container';document.body.appendChild(c);} const t=document.createElement('div'); t.className=`toast toast--${type}`; t.textContent=msg; c.appendChild(t); t.offsetHeight; t.classList.add('toast--visible'); setTimeout(()=>{t.classList.remove('toast--visible');t.addEventListener('transitionend',()=>{if(t.parentNode)t.remove();if(!c.children.length)c.remove();});},3500); }
     const POINTS=1, CLICKS=20;
     let score=0, awarded=0, total=0, best=0, currentUid=null;
-    let processing = false;  // защита от спама кликов
     const scoreEl=document.getElementById('score'), clickBtn=document.getElementById('click-btn'), msgEl=document.getElementById('message');
 
     // Инициализация после готовности auth
@@ -114,42 +113,35 @@
     }
 
     clickBtn.addEventListener('click', async () => {
-      if (processing) return;
-      processing = true;
-      try {
-        score++; total++; scoreEl.textContent = score;
-        if (score % CLICKS === 0) { 
-          scoreEl.classList.add('pulse'); 
-          setTimeout(() => scoreEl.classList.remove('pulse'), 300); 
-        }
-        if (total > best) { 
-          best = total; 
-          msgEl.textContent = `Новый личный рекорд: ${best} кликов!`; 
-        }
-        const exp = Math.floor(score / CLICKS);
-        if (exp > awarded) {
-          const add = exp - awarded; 
-          awarded = exp;
-          const cu = getCurrentUser();
-          if (cu && cu.uid && auth.currentUser) {
-            const result = await addPointsToCurrentUser(POINTS * add, 'clicker');
-            if (result && result.success) {
-              const earned = result.points;
-              const hasDouble = earned > (POINTS * add);
-              const toastMsg = `+${earned} балл(ов)${hasDouble ? ' (x2 бонус)' : ''}! Личный рекорд: ${best} кликов`;
-              msgEl.textContent = toastMsg;
-              showToast(toastMsg, 'success');
-              await syncGameStats('clicker', { totalClicks: total });
-              checkAndAwardAchievements();
-              updateTop();
-            }
-          } else {
-            msgEl.textContent = 'Войдите в профиль, чтобы получать баллы.';
+      score++; total++; scoreEl.textContent = score;
+      if (score % CLICKS === 0) { 
+        scoreEl.classList.add('pulse'); 
+        setTimeout(() => scoreEl.classList.remove('pulse'), 300); 
+      }
+      if (total > best) { 
+        best = total; 
+        msgEl.textContent = `Новый личный рекорд: ${best} кликов!`; 
+      }
+      const exp = Math.floor(score / CLICKS);
+      if (exp > awarded) {
+        const add = exp - awarded; 
+        awarded = exp;
+        const cu = getCurrentUser();
+        if (cu && cu.uid && auth.currentUser) {
+          const result = await addPointsToCurrentUser(POINTS * add, 'clicker');
+          if (result && result.success) {
+            const earned = result.points;
+            const hasDouble = earned > (POINTS * add);
+            const toastMsg = `+${earned} балл(ов)${hasDouble ? ' (x2 бонус)' : ''}! Личный рекорд: ${best} кликов`;
+            msgEl.textContent = toastMsg;
+            showToast(toastMsg, 'success');
+            await syncGameStats('clicker', { totalClicks: total });
+            checkAndAwardAchievements();
+            updateTop();
           }
+        } else {
+          msgEl.textContent = 'Войдите в профиль, чтобы получать баллы.';
         }
-      } finally {
-        processing = false;
-        clickBtn.blur(); // снимаем фокус, чтобы клавиатура не продолжала слать клики
       }
     });
     window.addEventListener('beforeunload',()=>{ if(auth.currentUser) syncGameStats('clicker',{totalClicks:total}); });
