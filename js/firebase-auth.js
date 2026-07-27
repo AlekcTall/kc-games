@@ -214,13 +214,14 @@ async function firebaseUpdateProfile(uid, data) {
 
 // ================== НАЧИСЛЕНИЕ БАЛЛОВ ==================
 
+// УЛУЧШЕНО: теперь возвращает объект { success: true, points: actualPoints }
 async function addPointsToCurrentUser(points, gameId = null) {
   const user = auth.currentUser;
-  if (!user) return false;
+  if (!user) return { success: false };
   try {
     const userRef = db.collection('users').doc(user.uid);
     const doc = await userRef.get();
-    if (!doc.exists) return false;
+    if (!doc.exists) return { success: false };
     const data = doc.data();
     let multiplier = 1;
     if (hasActiveEffect('double_xp')) multiplier = 2;
@@ -258,8 +259,8 @@ async function addPointsToCurrentUser(points, gameId = null) {
       if (updateData.gameHistory) current.gameHistory = updateData.gameHistory;
       setCurrentUser(current);
     }
-    return true;
-  } catch (error) { console.error(error); return false; }
+    return { success: true, points: actualPoints };
+  } catch (error) { console.error(error); return { success: false }; }
 }
 
 // ================== СИНХРОНИЗАЦИЯ ==================
