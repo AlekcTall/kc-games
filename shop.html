@@ -305,7 +305,19 @@
             setCurrentUser(cachedUser);
           }
 
+          // Обновляем кеш товаров
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(allItems));
+
+          // Сбрасываем кеш профиля и рейтинга, чтобы изменения отобразились сразу
+          sessionStorage.removeItem('krugames_profile_cache');
+          sessionStorage.removeItem('krugames_leaderboard');
+          // Сбрасываем кеш публичных профилей (на случай, если кто-то смотрел)
+          Object.keys(sessionStorage).forEach(key => {
+            if (key.startsWith('krugames_public_profile_')) {
+              sessionStorage.removeItem(key);
+            }
+          });
+
           renderShop();
           itemModal.style.display = 'none';
         } catch (e) {
