@@ -32,7 +32,7 @@
     <h2>🖱️ Кликер</h2>
     <p class="clicker-goal">Каждые <strong>20</strong> кликов = <strong>1</strong> балл</p>
     <div class="clicker-score" id="score">0</div>
-    <button class="clicker-btn" id="click-btn">КЛИК</button>
+    <button class="clicker-btn" id="click-btn" tabindex="-1">КЛИК</button>
     <p id="message" style="margin-top:1rem; font-weight:bold; min-height:1.5rem;"></p>
     <div class="leaderboard-clicker" id="clicker-leaderboard">
       <h3>🏆 Лучшие кликеры</h3>
@@ -113,6 +113,7 @@
     }
 
     clickBtn.addEventListener('click', async () => {
+      clickBtn.blur(); // убираем фокус, чтобы клавиатура не слала повторные клики
       score++; total++; scoreEl.textContent = score;
       if (score % CLICKS === 0) { 
         scoreEl.classList.add('pulse'); 
