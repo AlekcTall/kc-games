@@ -132,10 +132,13 @@
           awarded = exp;
           const cu = getCurrentUser();
           if (cu && cu.uid && auth.currentUser) {
-            const success = await addPointsToCurrentUser(POINTS * add, 'clicker');
-            if (success) {
-              msgEl.textContent = `+${POINTS * add} балл(ов)! Личный рекорд: ${best} кликов`;
-              showToast(`+${POINTS * add} балл(ов)!`, 'success');
+            const result = await addPointsToCurrentUser(POINTS * add, 'clicker');
+            if (result && result.success) {
+              const earned = result.points;
+              const hasDouble = earned > (POINTS * add);
+              const toastMsg = `+${earned} балл(ов)${hasDouble ? ' (x2 бонус)' : ''}! Личный рекорд: ${best} кликов`;
+              msgEl.textContent = toastMsg;
+              showToast(toastMsg, 'success');
               await syncGameStats('clicker', { totalClicks: total });
               checkAndAwardAchievements();
               updateTop();
@@ -146,6 +149,7 @@
         }
       } finally {
         processing = false;
+        clickBtn.blur(); // снимаем фокус, чтобы клавиатура не продолжала слать клики
       }
     });
     window.addEventListener('beforeunload',()=>{ if(auth.currentUser) syncGameStats('clicker',{totalClicks:total}); });
