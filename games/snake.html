@@ -64,7 +64,10 @@
     document.addEventListener('keydown',function(e){ if(e.key==='Enter'&&startModal.style.display!=='none'){e.preventDefault();startGame();} });
     const canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d'), scoreEl=document.getElementById('score'), msgEl=document.getElementById('message');
     const GRID=20, CELL=canvas.width/GRID;
-    let snake,dir,food,score,awardedLevel,gameRunning,isSelf,isWall,maxScore=0,gameLoop,bestScore=0,currentUid=null,bulges=[];
+    let snake,dir,food,score,awardedLevel,gameRunning,isSelf,isWall,maxScore=0,gameLoop,bestScore=0,currentUid=null,bulges=[], particles=[];
+    // Для плавного движения
+    let prevSnake = []; // предыдущие позиции для интерполяции
+    let animProgress = 0; // 0..1 прогресс между кадрами
 
     auth.onAuthStateChanged(user => {
       if (user) {
@@ -114,33 +117,142 @@
       }catch(e){console.error(e);}
     }
 
-    function initGame(){ snake=[{x:10,y:10}]; dir={x:1,y:0}; food=randomFood(); score=0; awardedLevel=0; gameRunning=true; isSelf=isWall=false; scoreEl.textContent='0'; msgEl.textContent=bestScore>0?`Личный рекорд: ${bestScore} яблок`:''; bulges=[]; }
+    function initGame(){ snake=[{x:10,y:10}]; dir={x:1,y:0}; food=randomFood(); score=0; awardedLevel=0; gameRunning=true; isSelf=isWall=false; scoreEl.textContent='0'; msgEl.textContent=bestScore>0?`Личный рекорд: ${bestScore} яблок`:''; bulges=[]; particles=[]; prevSnake=[]; animProgress=0; }
     function randomFood(){ let f; do{ f={x:Math.floor(Math.random()*GRID),y:Math.floor(Math.random()*GRID)}; }while(snake.some(s=>s.x===f.x&&s.y===f.y)); return f; }
+
+    // Плавное рисование с интерполяцией
     function draw(){
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.strokeStyle='#f0f0f0'; ctx.lineWidth=0.5;
-      for(let i=0;i<=GRID;i++){ ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,canvas.height); ctx.stroke(); ctx.moveTo(0,i*CELL); ctx.lineTo(canvas.width,i*CELL); ctx.stroke(); }
-      ctx.font=`${CELL*0.8}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      // Фон с клеткой
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.strokeStyle='#e0e0e0';
+      ctx.lineWidth=0.5;
+      for(let i=0;i<=GRID;i++){
+        ctx.beginPath();
+        ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,canvas.height);
+        ctx.moveTo(0,i*CELL); ctx.lineTo(canvas.width,i*CELL);
+        ctx.stroke();
+      }
+
+      if (!prevSnake.length || prevSnake.length !== snake.length) {
+        prevSnake = snake.map(seg => ({x: seg.x, y: seg.y}));
+        animProgress = 0;
+      }
+
+      // Интерполяция
+      const t = animProgress;
+      const interpolatedSnake = snake.map((seg, i) => {
+        const prev = prevSnake[i] || seg;
+        return {
+          x: prev.x + (seg.x - prev.x) * t,
+          y: prev.y + (seg.y - prev.y) * t
+        };
+      });
+
+      // Яблоко с тенью и свечением
+      ctx.save();
+      ctx.shadowColor = 'rgba(255, 0, 0, 0.4)';
+      ctx.shadowBlur = 8;
+      ctx.font=`${CELL*0.8}px serif`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
       ctx.fillText('🍎',food.x*CELL+CELL/2,food.y*CELL+CELL/2);
-      for(const b of bulges){ if(b.segIndex<snake.length){ const seg=snake[b.segIndex]; ctx.fillStyle='rgba(231,76,60,0.6)'; ctx.beginPath(); ctx.arc(seg.x*CELL+CELL/2,seg.y*CELL+CELL/2,CELL*0.7,0,Math.PI*2); ctx.fill(); } }
-      for(let i=snake.length-1;i>=0;i--){
-        const seg=snake[i], x=seg.x*CELL, y=seg.y*CELL, r=CELL*0.35;
+      ctx.restore();
+
+      // Частицы (вспышка при поедании)
+      particles = particles.filter(p => p.life > 0);
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x*CELL+CELL/2, p.y*CELL+CELL/2, CELL*0.5 * (1-p.life), 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+        p.life -= 0.05;
+      });
+
+      // Змейка
+      for(let i=interpolatedSnake.length-1;i>=0;i--){
+        const seg=interpolatedSnake[i], x=seg.x*CELL, y=seg.y*CELL, r=CELL*0.4;
+        const gradient = ctx.createLinearGradient(x, y, x+CELL, y+CELL);
         if(i===0){
-          ctx.fillStyle='#1abc9c'; ctx.shadowColor='rgba(0,0,0,0.2)'; ctx.shadowBlur=4;
-          roundRect(x+2,y+2,CELL-4,CELL-4,r+4); ctx.fill(); ctx.shadowColor='transparent'; ctx.shadowBlur=0;
-          ctx.fillStyle='white'; const ex=x+CELL/2+dir.x*CELL/4, ey=y+CELL/2+dir.y*CELL/4;
-          ctx.beginPath(); ctx.arc(ex,ey,CELL*0.15,0,Math.PI*2); ctx.fill();
-          ctx.fillStyle='black'; ctx.beginPath(); ctx.arc(ex+dir.x*2,ey+dir.y*2,CELL*0.07,0,Math.PI*2); ctx.fill();
+          gradient.addColorStop(0,'#2ecc71');
+          gradient.addColorStop(1,'#1abc9c');
         } else {
-          ctx.fillStyle=`rgba(46,204,113,${0.7+(i/snake.length)*0.3})`; roundRect(x+2,y+2,CELL-4,CELL-4,r); ctx.fill();
+          gradient.addColorStop(0,'#27ae60');
+          gradient.addColorStop(1,'#2ecc71');
+        }
+        ctx.fillStyle = gradient;
+        ctx.shadowColor='rgba(0,0,0,0.2)';
+        ctx.shadowBlur=4;
+        roundRect(x+2,y+2,CELL-4,CELL-4,r);
+        ctx.fill();
+        ctx.shadowColor='transparent';
+        ctx.shadowBlur=0;
+
+        if(i===0){
+          // Глаза
+          ctx.fillStyle='white';
+          const ex=x+CELL/2+dir.x*CELL/4, ey=y+CELL/2+dir.y*CELL/4;
+          ctx.beginPath(); ctx.arc(ex,ey,CELL*0.15,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='black';
+          ctx.beginPath(); ctx.arc(ex+dir.x*2,ey+dir.y*2,CELL*0.07,0,Math.PI*2); ctx.fill();
         }
       }
     }
-    function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); }
-    async function award(){ const cu=getCurrentUser(); if(cu&&cu.uid&&auth.currentUser){ try{ const ok=await addPointsToCurrentUser(1,'snake'); if(ok){ msgEl.textContent=`+1 балл! Личный рекорд: ${Math.max(score,bestScore)} яблок`; showToast('+1 балл за змейку!','success'); await syncGameStats('snake',{maxScore:Math.max(score,bestScore)}); checkAndAwardAchievements(); if(score>bestScore) bestScore=score; updateTop(); } }catch(e){console.error(e);} } }
-    function endGame(){ gameRunning=false; clearInterval(gameLoop); if(score>bestScore){bestScore=score; msgEl.textContent='Новый рекорд! ';} if(isSelf) msgEl.textContent+='(Съел себя) '; else if(isWall) msgEl.textContent+='(Стена) '; msgEl.textContent+='Нажмите ПРОБЕЛ, чтобы сыграть снова.'; if(auth.currentUser) syncGameStats('snake',{maxScore:score,selfEaten:isSelf,wallCrash:isWall}).then(()=>{checkAndAwardAchievements();updateTop();}); }
+
+    function roundRect(x,y,w,h,r){
+      ctx.beginPath();
+      ctx.moveTo(x+r,y);
+      ctx.lineTo(x+w-r,y);
+      ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+      ctx.lineTo(x+w,y+h-r);
+      ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+      ctx.lineTo(x+r,y+h);
+      ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+      ctx.lineTo(x,y+r);
+      ctx.quadraticCurveTo(x,y,x+r,y);
+      ctx.closePath();
+    }
+
+    async function award(){
+      const cu=getCurrentUser();
+      if(cu&&cu.uid&&auth.currentUser){
+        try{
+          const result = await addPointsToCurrentUser(1,'snake');
+          if(result && result.success){
+            const earned = result.points;
+            const hasDouble = earned > 1;
+            const msg = `+${earned} балл(ов)${hasDouble ? ' (x2 бонус)' : ''}! Личный рекорд: ${Math.max(score,bestScore)} яблок`;
+            msgEl.textContent = msg;
+            showToast(`+${earned} балл(ов) за змейку!${hasDouble ? ' (x2 бонус)' : ''}`, 'success');
+            await syncGameStats('snake',{maxScore:Math.max(score,bestScore)});
+            checkAndAwardAchievements();
+            if(score>bestScore) bestScore=score;
+            updateTop();
+          }
+        }catch(e){console.error(e);}
+      }
+    }
+
+    function endGame(){
+      gameRunning=false;
+      clearInterval(gameLoop);
+      if(score>bestScore){bestScore=score; msgEl.textContent='Новый рекорд! ';}
+      if(isSelf) msgEl.textContent+='(Съел себя) ';
+      else if(isWall) msgEl.textContent+='(Стена) ';
+      msgEl.textContent+='Нажмите ПРОБЕЛ, чтобы сыграть снова.';
+      if(auth.currentUser) syncGameStats('snake',{maxScore:score,selfEaten:isSelf,wallCrash:isWall}).then(()=>{checkAndAwardAchievements();updateTop();});
+    }
+
     function update(){
       if(!gameRunning)return;
+      // Сохраняем предыдущие позиции для анимации
+      prevSnake = snake.map(seg => ({x: seg.x, y: seg.y}));
+      animProgress = 0;
+
       const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
       if(head.x<0||head.x>=GRID||head.y<0||head.y>=GRID){isWall=true;endGame();return;}
       if(snake.some(s=>s.x===head.x&&s.y===head.y)){isSelf=true;endGame();return;}
@@ -149,11 +261,26 @@
       if(head.x===food.x&&head.y===food.y){
         score++; if(score>maxScore) maxScore=score; scoreEl.textContent=score;
         bulges.push({segIndex:0});
+        // Вспышка на месте яблока
+        particles.push({x:food.x, y:food.y, life:1, color:'rgba(255,0,0,0.6)'});
         food=randomFood();
         if(score%5===0){awardedLevel++;award();}
       } else snake.pop();
-      draw();
+
+      // Плавная анимация движения
+      let startTime = null;
+      function animate(timestamp){
+        if(!startTime) startTime = timestamp;
+        const progress = Math.min(1, (timestamp - startTime) / 120); // 120ms длительность
+        animProgress = progress;
+        draw();
+        if(progress < 1){
+          requestAnimationFrame(animate);
+        }
+      }
+      requestAnimationFrame(animate);
     }
+
     document.addEventListener('keydown',e=>{
       if(e.code==='Space'){ e.preventDefault(); if(!gameRunning){initGame();draw();gameLoop=setInterval(update,150);} return; }
       if(!gameRunning)return;
