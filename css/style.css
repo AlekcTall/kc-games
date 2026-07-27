@@ -1551,6 +1551,7 @@ body.dark-theme .btn:hover {
   background: #6bb5ff;
 }
 
+/* ИСПРАВЛЕНИЕ: звезда рейтинга в тёмной теме */
 body.dark-theme .player-name-link {
   background: rgba(255,255,255,0.15);
   color: #fff;
@@ -1564,6 +1565,13 @@ body.dark-theme .player-name-link {
 body.dark-theme .player-name-link:hover {
   background: rgba(255,255,255,0.25);
   text-decoration: none;
+}
+
+/* НОВОЕ: звезда в тёмной теме */
+body.dark-theme .player-name-link.star-rating-name {
+  color: #FBBF24;
+  text-shadow: 0 0 5px rgba(251,191,36,0.5);
+  background: transparent;
 }
 
 body.dark-theme .auth-status {
