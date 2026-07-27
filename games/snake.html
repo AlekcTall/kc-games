@@ -65,9 +65,6 @@
     const canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d'), scoreEl=document.getElementById('score'), msgEl=document.getElementById('message');
     const GRID=20, CELL=canvas.width/GRID;
     let snake,dir,food,score,awardedLevel,gameRunning,isSelf,isWall,maxScore=0,gameLoop,bestScore=0,currentUid=null,bulges=[], particles=[];
-    // Для плавного движения
-    let prevSnake = []; // предыдущие позиции для интерполяции
-    let animProgress = 0; // 0..1 прогресс между кадрами
 
     auth.onAuthStateChanged(user => {
       if (user) {
@@ -117,13 +114,12 @@
       }catch(e){console.error(e);}
     }
 
-    function initGame(){ snake=[{x:10,y:10}]; dir={x:1,y:0}; food=randomFood(); score=0; awardedLevel=0; gameRunning=true; isSelf=isWall=false; scoreEl.textContent='0'; msgEl.textContent=bestScore>0?`Личный рекорд: ${bestScore} яблок`:''; bulges=[]; particles=[]; prevSnake=[]; animProgress=0; }
+    function initGame(){ snake=[{x:10,y:10}]; dir={x:1,y:0}; food=randomFood(); score=0; awardedLevel=0; gameRunning=true; isSelf=isWall=false; scoreEl.textContent='0'; msgEl.textContent=bestScore>0?`Личный рекорд: ${bestScore} яблок`:''; bulges=[]; particles=[]; }
     function randomFood(){ let f; do{ f={x:Math.floor(Math.random()*GRID),y:Math.floor(Math.random()*GRID)}; }while(snake.some(s=>s.x===f.x&&s.y===f.y)); return f; }
 
-    // Плавное рисование с интерполяцией
     function draw(){
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      // Фон с клеткой
+      // Фон с сеткой
       ctx.fillStyle = '#f5f5f5';
       ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.strokeStyle='#e0e0e0';
@@ -134,21 +130,6 @@
         ctx.moveTo(0,i*CELL); ctx.lineTo(canvas.width,i*CELL);
         ctx.stroke();
       }
-
-      if (!prevSnake.length || prevSnake.length !== snake.length) {
-        prevSnake = snake.map(seg => ({x: seg.x, y: seg.y}));
-        animProgress = 0;
-      }
-
-      // Интерполяция
-      const t = animProgress;
-      const interpolatedSnake = snake.map((seg, i) => {
-        const prev = prevSnake[i] || seg;
-        return {
-          x: prev.x + (seg.x - prev.x) * t,
-          y: prev.y + (seg.y - prev.y) * t
-        };
-      });
 
       // Яблоко с тенью и свечением
       ctx.save();
@@ -173,9 +154,9 @@
         p.life -= 0.05;
       });
 
-      // Змейка
-      for(let i=interpolatedSnake.length-1;i>=0;i--){
-        const seg=interpolatedSnake[i], x=seg.x*CELL, y=seg.y*CELL, r=CELL*0.4;
+      // Змейка с градиентами и скруглением
+      for(let i=snake.length-1;i>=0;i--){
+        const seg=snake[i], x=seg.x*CELL, y=seg.y*CELL, r=CELL*0.4;
         const gradient = ctx.createLinearGradient(x, y, x+CELL, y+CELL);
         if(i===0){
           gradient.addColorStop(0,'#2ecc71');
@@ -249,10 +230,6 @@
 
     function update(){
       if(!gameRunning)return;
-      // Сохраняем предыдущие позиции для анимации
-      prevSnake = snake.map(seg => ({x: seg.x, y: seg.y}));
-      animProgress = 0;
-
       const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
       if(head.x<0||head.x>=GRID||head.y<0||head.y>=GRID){isWall=true;endGame();return;}
       if(snake.some(s=>s.x===head.x&&s.y===head.y)){isSelf=true;endGame();return;}
@@ -266,19 +243,7 @@
         food=randomFood();
         if(score%5===0){awardedLevel++;award();}
       } else snake.pop();
-
-      // Плавная анимация движения
-      let startTime = null;
-      function animate(timestamp){
-        if(!startTime) startTime = timestamp;
-        const progress = Math.min(1, (timestamp - startTime) / 120); // 120ms длительность
-        animProgress = progress;
-        draw();
-        if(progress < 1){
-          requestAnimationFrame(animate);
-        }
-      }
-      requestAnimationFrame(animate);
+      draw();
     }
 
     document.addEventListener('keydown',e=>{
