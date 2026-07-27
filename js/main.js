@@ -1,4 +1,4 @@
-// main.js
+// js/main.js
 
 // Функция показа тостов
 function showToast(message, type = 'info') {
@@ -41,10 +41,12 @@ function getColorFromUid(uid) {
   return `hsl(${h}, 60%, 70%)`;
 }
 
-function renderAvatarDiv(user) {
+// ИСПРАВЛЕНО: поддержка extraClass для эффектов (золотая рамка, анимация)
+function renderAvatarDiv(user, extraClass = '') {
   const initials = getInitials(user.username);
   const bgColor = getColorFromUid(user.uid || user.id);
-  return `<div class="avatar-circle" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
+  const cls = extraClass ? 'avatar-circle ' + extraClass : 'avatar-circle';
+  return `<div class="${cls}" style="background-color: ${bgColor};" title="${user.username}">${initials}</div>`;
 }
 
 // Склонение слова "локоин"
