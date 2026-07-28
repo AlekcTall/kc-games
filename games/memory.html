@@ -84,7 +84,17 @@
     async function finishGame(){
       gameFinished=true; stopTimer(); msgEl.textContent='🎉 Все пары найдены!';
       if(auth.currentUser){ await syncGameStats('memory',{bestMoves:moves,bestTime:seconds,completed:true}); checkAndAwardAchievements(); }
-      const cu=getCurrentUser(); if(cu&&cu.uid&&auth.currentUser){ try{ await addPointsToCurrentUser(5,'memory'); showToast('+5 баллов за игру!','success'); }catch(e){console.error(e);} } else showToast('Войдите, чтобы получить баллы.','info');
+      const cu=getCurrentUser();
+      if(cu&&cu.uid&&auth.currentUser){
+        try {
+          const result = await addPointsToCurrentUser(5,'memory');
+          if (result && result.success) {
+            const earned = result.points;
+            const hasDouble = earned > 5;
+            showToast(`+${earned} баллов${hasDouble ? ' (x2 бонус)' : ''}!`, 'success');
+          }
+        } catch(e){console.error(e);}
+      } else showToast('Войдите, чтобы получить баллы.','info');
       updateAllLeaderboards(); showGameOverBox();
     }
     function showGameOverBox(){ gameOverCont.innerHTML=`<div class="game-over-box"><h3>Игра окончена!</h3><div class="result-stats">⏱️ Время: ${seconds} сек. | 🔄 Ходов: ${moves}</div><button class="btn" id="restart-btn">Ещё раз</button><a href="../games.html" class="btn" style="background:#666;">К играм</a></div>`; document.getElementById('restart-btn').addEventListener('click',()=>{stopTimer();createBoard();updateAllLeaderboards();}); }
