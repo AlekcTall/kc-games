@@ -33,12 +33,27 @@ const EFFECT_HANDLERS = {
     return true;
   },
 
-  // Кастомный аватар (эмодзи/стикер)
+  // Кастомный аватар (эмодзи/стикер) – обновлённая логика
   custom_avatar: async (userId, params) => {
     const emoji = params.avatar || '🐱'; // эмодзи по умолчанию
-    await db.collection('users').doc(userId).update({
-      avatarEmoji: emoji
-    });
+    const userRef = db.collection('users').doc(userId);
+    const doc = await userRef.get();
+    const userData = doc.data() || {};
+    const ownedAvatars = userData.ownedAvatars || [];
+
+    // Если эмодзи ещё нет в коллекции, добавляем
+    if (!ownedAvatars.includes(emoji)) {
+      ownedAvatars.push(emoji);
+      // Если у пользователя ещё нет текущего аватара, делаем этот текущим
+      const updateData = { ownedAvatars };
+      if (!userData.avatarEmoji) {
+        updateData.avatarEmoji = emoji;
+      }
+      await userRef.update(updateData);
+    } else {
+      // Уже есть в коллекции, просто убедимся, что ownedAvatars записано
+      await userRef.update({ ownedAvatars });
+    }
     return true;
   },
 
@@ -144,6 +159,6 @@ async function applyItemEffect(userId, item) {
 function getAvailableEffectTypes() {
   return Object.keys(EFFECT_HANDLERS).map(key => ({
     id: key,
-    name: key // или можно задать человекочитаемые названия
+    name: key
   }));
 }
