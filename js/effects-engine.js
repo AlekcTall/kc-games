@@ -2,132 +2,140 @@
 
 // Карта обработчиков эффектов
 const EFFECT_HANDLERS = {
-  // Тёмная тема
-  dark_theme: async (userId, params) => {
-    await db.collection('users').doc(userId).update({ activeTheme: 'dark' });
-    document.body.classList.add('dark-theme');
-    return true;
-  },
-
-  // Золотая рамка аватара
-  gold_frame: async (userId, params) => {
-    await db.collection('users').doc(userId).update({
-      purchasedItems: firebase.firestore.FieldValue.arrayUnion('gold_frame')
-    });
-    return true;
-  },
-
-  // Анимированный аватар
-  animated_avatar: async (userId, params) => {
-    await db.collection('users').doc(userId).update({
-      purchasedItems: firebase.firestore.FieldValue.arrayUnion('animated_avatar')
-    });
-    return true;
-  },
-
-  // Кастомный статус
-  custom_status: async (userId, params) => {
-    await db.collection('users').doc(userId).update({
-      purchasedItems: firebase.firestore.FieldValue.arrayUnion('custom_status')
-    });
-    return true;
-  },
-
-  // Кастомный аватар (эмодзи/стикер) – обновлённая логика
-  custom_avatar: async (userId, params) => {
-    const emoji = params.avatar || '🐱'; // эмодзи по умолчанию
-    const userRef = db.collection('users').doc(userId);
-    const doc = await userRef.get();
-    const userData = doc.data() || {};
-    const ownedAvatars = userData.ownedAvatars || [];
-
-    // Если эмодзи ещё нет в коллекции, добавляем
-    if (!ownedAvatars.includes(emoji)) {
-      ownedAvatars.push(emoji);
-      // Если у пользователя ещё нет текущего аватара, делаем этот текущим
-      const updateData = { ownedAvatars };
-      if (!userData.avatarEmoji) {
-        updateData.avatarEmoji = emoji;
-      }
-      await userRef.update(updateData);
-    } else {
-      // Уже есть в коллекции, просто убедимся, что ownedAvatars записано
-      await userRef.update({ ownedAvatars });
+  dark_theme: {
+    displayName: '🌙 Тёмная тема',
+    handler: async (userId, params) => {
+      await db.collection('users').doc(userId).update({ activeTheme: 'dark' });
+      document.body.classList.add('dark-theme');
+      return true;
     }
-    return true;
   },
-
-  // Двойной опыт (временный)
-  double_xp: async (userId, params) => {
-    const durationHours = params.duration || 1;
-    const userRef = db.collection('users').doc(userId);
-    const doc = await userRef.get();
-    const effects = doc.data().activeEffects || {};
-    effects['double_xp'] = {
-      activatedAt: Date.now(),
-      durationHours
-    };
-    await userRef.update({ activeEffects: effects });
-    return true;
+  gold_frame: {
+    displayName: '🖼️ Золотая рамка',
+    handler: async (userId, params) => {
+      await db.collection('users').doc(userId).update({
+        purchasedItems: firebase.firestore.FieldValue.arrayUnion('gold_frame')
+      });
+      return true;
+    }
   },
-
-  // Быстрый кулдаун (временный)
-  fast_cooldown: async (userId, params) => {
-    const durationHours = params.duration || 24;
-    const userRef = db.collection('users').doc(userId);
-    const doc = await userRef.get();
-    const effects = doc.data().activeEffects || {};
-    effects['fast_cooldown'] = {
-      activatedAt: Date.now(),
-      durationHours
-    };
-    await userRef.update({ activeEffects: effects });
-    return true;
+  animated_avatar: {
+    displayName: '✨ Анимированный аватар',
+    handler: async (userId, params) => {
+      await db.collection('users').doc(userId).update({
+        purchasedItems: firebase.firestore.FieldValue.arrayUnion('animated_avatar')
+      });
+      return true;
+    }
   },
-
-  // Звезда в рейтинге
-  star_rating: async (userId, params) => {
-    await db.collection('users').doc(userId).update({
-      purchasedItems: firebase.firestore.FieldValue.arrayUnion('star_rating')
-    });
-    return true;
+  custom_status: {
+    displayName: '💬 Кастомный статус',
+    handler: async (userId, params) => {
+      await db.collection('users').doc(userId).update({
+        purchasedItems: firebase.firestore.FieldValue.arrayUnion('custom_status')
+      });
+      return true;
+    }
   },
-
-  // Возможность ставить 2 реакции
-  double_reactions: async (userId, params) => {
-    await db.collection('users').doc(userId).update({
-      purchasedItems: firebase.firestore.FieldValue.arrayUnion('double_reactions')
-    });
-    return true;
+  custom_avatar: {
+    displayName: '🐱 Кастомный аватар',
+    handler: async (userId, params) => {
+      const emoji = params.avatar || '🐱';
+      const userRef = db.collection('users').doc(userId);
+      const doc = await userRef.get();
+      const userData = doc.data() || {};
+      const ownedAvatars = userData.ownedAvatars || [];
+      if (!ownedAvatars.includes(emoji)) {
+        ownedAvatars.push(emoji);
+        const updateData = { ownedAvatars };
+        if (!userData.avatarEmoji) updateData.avatarEmoji = emoji;
+        await userRef.update(updateData);
+      } else {
+        await userRef.update({ ownedAvatars });
+      }
+      return true;
+    }
   },
-
-  // Специальные реакции
-  special_reactions: async (userId, params) => {
-    await db.collection('users').doc(userId).update({
-      purchasedItems: firebase.firestore.FieldValue.arrayUnion('special_reactions')
-    });
-    return true;
+  double_xp: {
+    displayName: '⚡ Двойной опыт',
+    handler: async (userId, params) => {
+      const durationHours = params.duration || 1;
+      const userRef = db.collection('users').doc(userId);
+      const doc = await userRef.get();
+      const effects = doc.data().activeEffects || {};
+      effects['double_xp'] = {
+        activatedAt: Date.now(),
+        durationHours
+      };
+      await userRef.update({ activeEffects: effects });
+      return true;
+    }
   },
-
-  // Товары с уведомлением админа – просто отмечаем, что нужна обработка,
-  // и ничего не делаем с самим пользователем (админ обработает вручную)
-  coffee_boss: async (userId, params) => {
-    return true;
+  fast_cooldown: {
+    displayName: '⏱️ Ускорение кулдауна',
+    handler: async (userId, params) => {
+      const durationHours = params.duration || 24;
+      const userRef = db.collection('users').doc(userId);
+      const doc = await userRef.get();
+      const effects = doc.data().activeEffects || {};
+      effects['fast_cooldown'] = {
+        activatedAt: Date.now(),
+        durationHours
+      };
+      await userRef.update({ activeEffects: effects });
+      return true;
+    }
   },
-  gift_certificate: async (userId, params) => {
-    return true;
+  star_rating: {
+    displayName: '⭐ Звезда в рейтинге',
+    handler: async (userId, params) => {
+      await db.collection('users').doc(userId).update({
+        purchasedItems: firebase.firestore.FieldValue.arrayUnion('star_rating')
+      });
+      return true;
+    }
   },
-  extra_break: async (userId, params) => {
-    return true;
+  double_reactions: {
+    displayName: '💯 Двойная реакция',
+    handler: async (userId, params) => {
+      await db.collection('users').doc(userId).update({
+        purchasedItems: firebase.firestore.FieldValue.arrayUnion('double_reactions')
+      });
+      return true;
+    }
   },
-  priority_vacation: async (userId, params) => {
-    return true;
+  special_reactions: {
+    displayName: '🚀 Особые реакции',
+    handler: async (userId, params) => {
+      await db.collection('users').doc(userId).update({
+        purchasedItems: firebase.firestore.FieldValue.arrayUnion('special_reactions')
+      });
+      return true;
+    }
   },
-  quality_10: async (userId, params) => {
-    return true;
+  coffee_boss: {
+    displayName: '☕ Кофе с руководителем',
+    handler: async (userId, params) => { return true; }
   },
-  short_shift: async (userId, params) => {
-    return true;
+  gift_certificate: {
+    displayName: '🎖️ Именная награда',
+    handler: async (userId, params) => { return true; }
+  },
+  extra_break: {
+    displayName: '☕ Дополнительный перерыв',
+    handler: async (userId, params) => { return true; }
+  },
+  priority_vacation: {
+    displayName: '🏖️ Приоритет отпуска',
+    handler: async (userId, params) => { return true; }
+  },
+  quality_10: {
+    displayName: '💯 +10 к оценке',
+    handler: async (userId, params) => { return true; }
+  },
+  short_shift: {
+    displayName: '⏰ Сокращённая смена',
+    handler: async (userId, params) => { return true; }
   }
 };
 
@@ -136,8 +144,8 @@ async function applyItemEffect(userId, item) {
   const effectType = item.effectType || item.effect;
   if (!effectType) return false;
 
-  const handler = EFFECT_HANDLERS[effectType];
-  if (!handler) {
+  const entry = EFFECT_HANDLERS[effectType];
+  if (!entry) {
     console.error('Неизвестный тип эффекта:', effectType);
     return false;
   }
@@ -147,7 +155,7 @@ async function applyItemEffect(userId, item) {
       ...(item.effectParams || {}),
       duration: item.duration || 0
     };
-    await handler(userId, params);
+    await entry.handler(userId, params);
     return true;
   } catch (e) {
     console.error('Ошибка применения эффекта:', e);
@@ -159,6 +167,11 @@ async function applyItemEffect(userId, item) {
 function getAvailableEffectTypes() {
   return Object.keys(EFFECT_HANDLERS).map(key => ({
     id: key,
-    name: key
+    name: EFFECT_HANDLERS[key].displayName || key
   }));
+}
+
+// Получить человекочитаемое название эффекта по ключу
+function getEffectDisplayName(effectId) {
+  return EFFECT_HANDLERS[effectId]?.displayName || effectId;
 }
