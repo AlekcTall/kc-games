@@ -190,6 +190,43 @@ async function checkCacheVersion() {
   }
 }
 
+/**
+ * Возвращает массив активных эффектов с информацией для отображения
+ * @param {Object} user - объект пользователя (из getCurrentUser())
+ * @returns {Array<{id: string, name: string, remainingMs: number, remainingText: string}>}
+ */
+function getActiveEffectsInfo(user) {
+  if (!user || !user.activeEffects) return [];
+  const now = Date.now();
+  const result = [];
+  for (const [effectId, effectData] of Object.entries(user.activeEffects)) {
+    if (!effectData || !effectData.activatedAt) continue;
+    const durationMs = (effectData.durationHours || 0) * 3600000;
+    if (durationMs === 0) continue;
+    const expiresAt = effectData.activatedAt + durationMs;
+    const remainingMs = Math.max(0, expiresAt - now);
+    if (remainingMs <= 0) continue;
+    const hours = Math.floor(remainingMs / 3600000);
+    const minutes = Math.floor((remainingMs % 3600000) / 60000);
+    let remainingText;
+    if (hours > 0) {
+      remainingText = `${hours} ч ${minutes} мин`;
+    } else {
+      remainingText = `${minutes} мин`;
+    }
+    const displayName = typeof getEffectDisplayName === 'function'
+      ? getEffectDisplayName(effectId)
+      : effectId;
+    result.push({
+      id: effectId,
+      name: displayName,
+      remainingMs,
+      remainingText
+    });
+  }
+  return result;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const isMaintenance = await checkMaintenanceMode();
   if (isMaintenance) return;
