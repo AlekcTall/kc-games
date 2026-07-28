@@ -131,6 +131,9 @@
             async function syncWin() {
                 if (!auth.currentUser) return;
                 try {
+                    // Сбрасываем счётчик поражений для пасхалки "Метеоризм"
+                    sessionStorage.removeItem('minesweeper_losses');
+                    
                     const result = await addPointsToCurrentUser(3, 'minesweeper');
                     if (result && result.success) {
                         const earned = result.points;
@@ -146,6 +149,10 @@
                 if (!auth.currentUser) return;
                 try {
                     await syncGameStats('minesweeper', { loss: true });
+                    // Проверяем пасхалку "Метеоризм"
+                    if (typeof checkMeteorism === 'function') {
+                        await checkMeteorism();
+                    }
                     await checkAndAwardAchievements();
                 } catch (e) { console.error(e); }
             }
