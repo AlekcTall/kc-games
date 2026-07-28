@@ -79,6 +79,12 @@
     @keyframes avatarGlowGold { from { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 5px #FBBF24; } to { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 20px #FBBF24; } }
     .custom-status-text { font-size: 0.9rem; color: #888; font-style: italic; margin-top: 0.2rem; }
     .effect-toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+    /* Стили для меню выбора аватара */
+    .avatar-picker { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; margin-top: 0.5rem; }
+    .avatar-option { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; cursor: pointer; border: 3px solid transparent; background: #f0f0f0; transition: all 0.2s; }
+    .avatar-option:hover { transform: scale(1.1); border-color: var(--color-primary); }
+    .avatar-option.selected { border-color: var(--color-primary); background: #e6f0ff; }
+    .avatar-option.default { background: #e0e0e0; }
     @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
     @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240,192,64,0.4); } 50% { box-shadow: 0 0 0 6px rgba(240,192,64,0); } }
     .login-prompt { text-align: center; padding: 3rem 1rem; }
@@ -245,6 +251,37 @@
         </div>`;
       }
 
+      async function switchAvatarEmoji(emoji, user) {
+        try {
+          const updateData = emoji ? { avatarEmoji: emoji } : { avatarEmoji: firebase.firestore.FieldValue.delete() };
+          await firebaseUpdateProfile(user.uid, updateData);
+          user.avatarEmoji = emoji || null;
+          setCurrentUser(user);
+          // Обновляем DOM
+          const avatarDiv = document.querySelector('.avatar-circle');
+          if (avatarDiv) {
+            if (emoji) {
+              avatarDiv.textContent = emoji;
+              avatarDiv.style.fontSize = '2.5rem';
+              avatarDiv.style.backgroundColor = '';
+              avatarDiv.classList.add('avatar-emoji');
+            } else {
+              avatarDiv.textContent = getInitials(user.username);
+              avatarDiv.style.fontSize = '';
+              avatarDiv.style.backgroundColor = getColorFromUid(user.uid);
+              avatarDiv.classList.remove('avatar-emoji');
+            }
+          }
+          // Обновляем выделение в меню
+          document.querySelectorAll('.avatar-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.emoji === (emoji || ''));
+          });
+          showToast(emoji ? `Аватар изменён на ${emoji}` : 'Аватар сброшен на инициалы', 'success');
+        } catch (e) {
+          showToast('Ошибка смены аватара', 'error');
+        }
+      }
+
       async function renderProfile(user, awards, isCached = false) {
         const container = document.getElementById('profile-container');
         if (!container) return;
@@ -292,7 +329,10 @@
           <div class="accordion"><button class="accordion-header"><span>✏️ Редактировать профиль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-edit">
             <div class="form-group"><label for="desc">О себе</label><textarea id="desc" rows="3">${user.description || ''}</textarea></div>
             ${hasCustomStatus ? `<div class="form-group"><label for="custom-status">Кастомный статус</label><input type="text" id="custom-status" value="${customStatus}"></div>` : ''}
-            ${ownedAvatars.length > 1 ? `<div class="form-group"><label for="avatar-select">Аватар</label><select id="avatar-select">${ownedAvatars.map(e => `<option value="${e}" ${user.avatarEmoji === e ? 'selected' : ''}>${e}</option>`).join('')}</select></div>` : ''}
+            ${ownedAvatars.length > 0 ? `<div class="form-group"><label>Аватар</label><div class="avatar-picker" id="avatar-picker">
+              <div class="avatar-option default ${!user.avatarEmoji ? 'selected' : ''}" data-emoji="" title="По умолчанию (инициалы)">${getInitials(user.username)}</div>
+              ${ownedAvatars.map(e => `<div class="avatar-option ${user.avatarEmoji === e ? 'selected' : ''}" data-emoji="${e}" title="${e}">${e}</div>`).join('')}
+            </div></div>` : ''}
             <button class="btn" id="save-profile-btn">Сохранить</button>
           </div></div></div>
           <div class="accordion"><button class="accordion-header"><span>🔒 Сменить пароль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-password-change"><div class="form-group"><label for="old-password">Старый пароль</label><input type="password" id="old-password"></div><div class="form-group"><label for="new-password">Новый пароль</label><input type="password" id="new-password"></div><button class="btn" id="change-password-btn">Сменить</button></div></div></div>
@@ -300,6 +340,14 @@
         </div>`;
 
         container.innerHTML = html;
+
+        // Обработчики кликов по аватаркам (мгновенная смена)
+        document.querySelectorAll('.avatar-option').forEach(option => {
+          option.addEventListener('click', () => {
+            const emoji = option.dataset.emoji || null; // пустая строка → null (инициалы)
+            switchAvatarEmoji(emoji, user);
+          });
+        });
 
         if (awards && awards.length) {
           document.querySelectorAll('.award-card').forEach(c => {
@@ -368,29 +416,8 @@
           const desc = document.getElementById('desc').value.trim();
           const data = { description: desc };
           if (hasCustomStatus) data.customStatus = document.getElementById('custom-status').value.trim();
-          // Обработка выбора аватара
-          const avatarSelect = document.getElementById('avatar-select');
-          if (avatarSelect) {
-            const newAvatarEmoji = avatarSelect.value;
-            if (newAvatarEmoji !== user.avatarEmoji) {
-              data.avatarEmoji = newAvatarEmoji;
-            }
-          }
           try {
             await firebaseUpdateProfile(user.uid, data);
-            // Сразу обновляем кеш, чтобы аватар отобразился
-            if (data.avatarEmoji) {
-              user.avatarEmoji = data.avatarEmoji;
-              setCurrentUser(user);
-              // Перерисовываем аватар в текущем DOM
-              const avatarDiv = document.querySelector('.avatar-circle');
-              if (avatarDiv) {
-                avatarDiv.textContent = data.avatarEmoji;
-                avatarDiv.style.fontSize = '2.5rem';
-                avatarDiv.style.backgroundColor = '';
-                avatarDiv.classList.add('avatar-emoji');
-              }
-            }
             showToast('Сохранено', 'success');
           } catch (e) { showToast('Ошибка сохранения', 'error'); }
         });
