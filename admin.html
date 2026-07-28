@@ -197,14 +197,25 @@
             loadGames();
           });
 
+          // Экспорт CSV с пагинацией
           document.getElementById('export-csv-btn').addEventListener('click', async () => {
+            if (!confirm('Экспорт всех пользователей может занять время и потратить квоту Firebase (до 50 000 чтений). Продолжить?')) return;
             try {
-              const snap = await db.collection('users').get();
               const rows = [['UID','Имя','Email','Отдел','Баллы','Локоины','Роль','Заблокирован']];
-              snap.forEach(doc => {
-                const u = doc.data();
-                rows.push([doc.id, u.username||'', u.email||'', u.department||'', u.points||0, u.lokoin_balance||0, u.role||'user', u.disabled?'Да':'Нет']);
-              });
+              let lastDoc = null;
+              let hasMore = true;
+              while (hasMore) {
+                let query = db.collection('users').orderBy('email').limit(500);
+                if (lastDoc) query = query.startAfter(lastDoc);
+                const snap = await query.get();
+                if (snap.empty) break;
+                snap.forEach(doc => {
+                  const u = doc.data();
+                  rows.push([doc.id, u.username||'', u.email||'', u.department||'', u.points||0, u.lokoin_balance||0, u.role||'user', u.disabled?'Да':'Нет']);
+                });
+                lastDoc = snap.docs[snap.docs.length-1];
+                if (snap.size < 500) hasMore = false;
+              }
               let csv = '\uFEFF' + rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
               const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
               const url = URL.createObjectURL(blob);
@@ -253,8 +264,9 @@
             }
           });
 
-          // НОВАЯ КНОПКА: сброс кеша всех пользователей
+          // Сброс кеша с подтверждением
           document.getElementById('reset-cache-btn').addEventListener('click', async () => {
+            if (!confirm('Вы уверены, что хотите сбросить кэш у ВСЕХ пользователей? Их данные (профиль, рейтинг, игры) будут перезагружены при следующем заходе.')) return;
             try {
               await db.collection('settings').doc('cacheVersion').set({
                 version: Date.now()
