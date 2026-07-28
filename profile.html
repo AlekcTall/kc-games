@@ -84,7 +84,6 @@
     .login-prompt { text-align: center; padding: 3rem 1rem; }
     .login-prompt h3 { margin-bottom: 0.5rem; color: var(--color-header); }
     .login-prompt p { margin-bottom: 1.5rem; color: #666; }
-    /* Скелетоны */
     .skeleton-block { animation: shimmer 1.5s infinite; }
     .skeleton-inline { display: inline-block; background: #e0e0e0; border-radius: 4px; height: 1rem; }
     .skeleton-avatar { width: 80px; height: 80px; border-radius: 50%; background: #e0e0e0; }
@@ -122,7 +121,7 @@
   <script>
     (function() {
       const CACHE_KEY = 'krugames_profile_cache';
-      const CACHE_TTL = 2 * 60 * 1000; // 2 минуты
+      const CACHE_TTL = 2 * 60 * 1000;
       let departmentsList = [];
 
       async function loadDepartments() {
@@ -223,7 +222,6 @@
         } catch (e) { return []; }
       }
 
-      // Рендер скелетонов для всей страницы
       function renderFullSkeleton(container) {
         container.innerHTML = `<div class="profile-box skeleton-block">
           <div class="profile-header" style="display:flex; align-items:center; gap:1rem;">
@@ -247,7 +245,6 @@
         </div>`;
       }
 
-      // Основная функция отрисовки данных
       async function renderProfile(user, awards, isCached = false) {
         const container = document.getElementById('profile-container');
         if (!container) return;
@@ -269,7 +266,8 @@
         else if (hasGoldFrame && showGoldFrame) avatarClass = 'gold-frame';
         else if (hasAnimatedAvatar && showAnimatedAvatar) avatarClass = 'animated-avatar';
         const customStatus = user.customStatus || '';
-        const avatarHtml = typeof renderAvatarDiv === 'function' ? renderAvatarDiv({ username: user.username, uid: user.uid }, avatarClass) : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
+        // ИСПРАВЛЕНО: передаём весь объект user
+        const avatarHtml = typeof renderAvatarDiv === 'function' ? renderAvatarDiv(user, avatarClass) : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
 
         let html = `<div class="profile-box">
           <div class="profile-header">${avatarHtml}<div><h2>${user.username}</h2><span class="badge badge-${user.role}">${user.role}</span>${hasCustomStatus && customStatus ? `<div class="custom-status-text">«${customStatus}»</div>` : ''}${user.department ? `<p class="profile-department"><strong>Отдел:</strong> ${user.department}</p>` : ''}<p><small>${user.email}</small></p></div></div>
@@ -298,7 +296,6 @@
 
         container.innerHTML = html;
 
-        // Привязка событий после рендера
         if (awards && awards.length) {
           document.querySelectorAll('.award-card').forEach(c => {
             c.addEventListener('click', () => {
@@ -397,7 +394,6 @@
         }
       }
 
-      // Модальные окна (без изменений, но вынесены для использования)
       const achModal = document.getElementById('ach-modal'),
             achModalClose = document.getElementById('ach-modal-close'),
             achModalIcon = document.getElementById('ach-modal-icon'),
@@ -444,7 +440,6 @@
         dailyRewardModal.style.display = 'flex';
       }
 
-      // Инициализация после аутентификации
       document.addEventListener('DOMContentLoaded', async () => {
         await loadDepartments();
         const container = document.getElementById('profile-container');
@@ -455,15 +450,11 @@
             return;
           }
 
-          // Проверяем кеш
           const cached = getCachedProfile();
           if (cached) {
-            // Показываем закешированные данные
             renderProfile(cached.user, cached.awards, true);
-            // В фоне обновляем
             loadFreshProfile(firebaseUser, container, true);
           } else {
-            // Показываем скелетоны
             renderFullSkeleton(container);
             loadFreshProfile(firebaseUser, container, false);
           }
@@ -486,8 +477,7 @@
             if (user.activeTheme === 'dark') document.body.classList.add('dark-theme');
             else document.body.classList.remove('dark-theme');
 
-            // Загружаем награды в фоне
-            let awards = undefined; // undefined значит "загрузка", null - ошибка, [] - нет
+            let awards = undefined;
             loadUserAwards(user.uid).then(a => {
               const awardsContainer = document.getElementById('awards-container');
               if (awardsContainer) {
@@ -511,23 +501,18 @@
               awards = null;
             });
 
-            // Показываем профиль (награды покажутся позже)
             renderProfile(user, awards, false);
 
-            // Если есть дневная награда, показываем модалку
             if (loginResult) {
               setTimeout(() => showDailyRewardModal(loginResult), 500);
             }
 
-            // Сохраняем в кеш после загрузки наград (если не было кеша, то сохраним позже)
             if (!isCached) {
-              // Ждём немного, чтобы награды подгрузились
               setTimeout(async () => {
                 const freshAwards = await loadUserAwards(user.uid);
                 setCachedProfile({ user, awards: freshAwards });
               }, 1500);
             } else {
-              // Обновляем кеш с новыми данными
               const freshAwards = await loadUserAwards(user.uid);
               setCachedProfile({ user, awards: freshAwards });
             }
