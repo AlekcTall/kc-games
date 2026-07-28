@@ -50,7 +50,6 @@
     @keyframes avatarGlow { from { box-shadow: 0 0 5px #FBBF24; } to { box-shadow: 0 0 15px #FBBF24; } }
     @keyframes avatarGlowGold { from { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 5px #FBBF24; } to { box-shadow: 0 0 0 4px #FBBF24, 0 0 0 6px #F59E0B, 0 0 20px #FBBF24; } }
     @media (max-width:480px) { .public-profile-box { padding:1rem; } .stats-grid { grid-template-columns:1fr; } .award-card { max-width: 100%; } }
-    /* Скелетоны */
     .skeleton-block { animation: shimmer 1.5s infinite; }
     .skeleton-avatar { width: 80px; height: 80px; border-radius: 50%; background: #e0e0e0; }
     .skeleton-name { height: 1.5rem; width: 150px; background: #e0e0e0; border-radius: 4px; margin-bottom: 0.5rem; }
@@ -84,7 +83,7 @@
   <script>
     (function() {
       const CACHE_PREFIX = 'krugames_public_profile_';
-      const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+      const CACHE_TTL = 5 * 60 * 1000;
 
       function buildStatsHTML(history) {
         if (!history || !history.length) return '<p class="no-data">Нет данных для статистики.</p>';
@@ -146,7 +145,6 @@
         }));
       }
 
-      // Рендер скелетонов
       function renderSkeleton(container) {
         container.innerHTML = `<div class="public-profile-box skeleton-block">
           <div class="profile-header" style="display:flex; align-items:center; gap:1rem;">
@@ -171,7 +169,6 @@
         </div>`;
       }
 
-      // Основной рендер данных
       function renderProfile(userData, userAwards, skipAwardsLoad = false) {
         const container = document.getElementById('public-profile-container');
         if (!container) return;
@@ -191,6 +188,7 @@
         else if (hasAnimatedAvatar && showAnimatedAvatar) avatarClass = 'animated-avatar';
         const customStatus = userData.customStatus || '';
 
+        // ИСПРАВЛЕНО: передаём весь объект userData
         const avatarHtml = (typeof renderAvatarDiv === 'function')
           ? renderAvatarDiv(userData, avatarClass)
           : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(userData.uid)}">${getInitials(userData.username)}</div>`;
@@ -214,7 +212,6 @@
           <a href="leaderboard.html" class="back-link">← Вернуться к рейтингу</a>
         </div>`;
 
-        // Награды – обработчики
         if (userAwards && userAwards.length) {
           document.querySelectorAll('.award-card').forEach(card => {
             card.addEventListener('click', () => {
@@ -224,7 +221,6 @@
           });
         }
 
-        // Достижения – модалки
         document.querySelectorAll('.achievement-item').forEach(item => {
           item.addEventListener('click', async () => {
             const ach = achCfg.find(a => a.id === item.dataset.achId);
@@ -235,7 +231,6 @@
           });
         });
 
-        // История игр (пагинация)
         if (gameHistory.length > 0) {
           const sorted = [...gameHistory].reverse();
           const tbody = document.getElementById('history-body'),
@@ -268,7 +263,6 @@
         }
       }
 
-      // Модальные окна
       const achModal = document.getElementById('ach-modal'),
             achModalClose = document.getElementById('ach-modal-close'),
             achModalIcon = document.getElementById('ach-modal-icon'),
@@ -305,7 +299,6 @@
         awardDetailModal.style.display = 'flex';
       }
 
-      // Инициализация
       document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('public-profile-container');
 
@@ -319,11 +312,9 @@
           const userId = params.get('id');
           if (!userId) { container.innerHTML = '<p>Пользователь не указан.</p>'; return; }
 
-          // 1. Попытка взять из кеша
           const cachedProfile = getCachedProfile(userId);
           if (cachedProfile) {
             renderProfile(cachedProfile.userData, cachedProfile.userAwards, false);
-            // Фоновое обновление
             refreshProfile(userId, container, true);
           } else {
             renderSkeleton(container);
@@ -341,7 +332,6 @@
             const userData = doc.data();
             userData.uid = doc.id;
 
-            // Загружаем награды асинхронно
             let awards = undefined;
             loadUserAwards(userId).then(a => {
               const awardsContainer = document.getElementById('awards-container');
@@ -366,10 +356,8 @@
               awards = null;
             });
 
-            // Рендерим профиль (награды покажутся позже)
             renderProfile(userData, awards, false);
 
-            // Сохраняем в кеш (после загрузки наград)
             setTimeout(async () => {
               const freshAwards = await loadUserAwards(userId);
               setCachedProfile(userId, { userData, userAwards: freshAwards });
