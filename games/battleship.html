@@ -777,7 +777,6 @@
                     await db.collection('users').doc(currentUser.uid).update({
                         'battleshipStats.sunk4Deck': true
                     }).catch(console.error);
-                    // НЕМЕДЛЕННАЯ проверка достижений
                     if (typeof checkAndAwardAchievements === 'function') {
                         checkAndAwardAchievements();
                     }
@@ -905,7 +904,6 @@
 
             if (typeof checkAndAwardAchievements === 'function') await checkAndAwardAchievements();
 
-            // Завершаем подписку и таймер, обнуляем gameId
             clearSetupTimer();
             if (unsubscribeGame) {
                 unsubscribeGame();
@@ -955,10 +953,31 @@
             await handleGameEnd(opponentUid);
         }
 
+        // Обработчик закрытия вкладки с попыткой сохранить статистику
         window.addEventListener('beforeunload', () => {
             if (unsubscribeGame) unsubscribeGame();
             if (unsubscribeOpenGames) unsubscribeOpenGames();
             clearSetupTimer();
+            // Если игра активна и не завершена, пытаемся сохранить поражение
+            if (gameId && gameData && gameData.status === 'active' && auth.currentUser) {
+                const opponentUid = getOpponentUid();
+                // Помечаем игру как завершённую из-за выхода
+                db.collection('battles').doc(gameId).update({
+                    status: 'finished',
+                    winner: opponentUid,
+                    abandoned: true,
+                    abandonedBy: auth.currentUser.uid
+                }).catch(() => {});
+                // Записываем поражение в статистику (без очков)
+                const mode = isAI ? 'pve' : 'pvp';
+                db.collection('users').doc(auth.currentUser.uid).update({
+                    [`battleshipStats.${mode}Losses`]: firebase.firestore.FieldValue.increment(1)
+                }).catch(() => {});
+                // Сбрасываем стрик побед
+                db.collection('users').doc(auth.currentUser.uid).update({
+                    'battleshipStats.currentWinStreak': 0
+                }).catch(() => {});
+            }
         });
     })();
 </script>
