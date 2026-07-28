@@ -1929,7 +1929,23 @@ body.dark-theme .online {
 body.dark-theme .offline {
   background: #555;
 }
-
+/* Новая секция сброса кеша в тёмной теме */
+body.dark-theme .maintenance-section {
+  background: #2c2c3e;
+  border-color: #555;
+  color: #eee;
+}
+body.dark-theme .maintenance-section h3,
+body.dark-theme .maintenance-section h4 {
+  color: #fff;
+}
+body.dark-theme .maintenance-section p {
+  color: #ccc;
+}
+body.dark-theme .maintenance-section .btn {
+  background: var(--color-primary);
+  color: #fff;
+}
 /* Адаптивные правки */
 @media (max-width: 768px) {
   .notification-dropdown {
