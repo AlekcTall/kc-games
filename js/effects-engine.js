@@ -33,6 +33,15 @@ const EFFECT_HANDLERS = {
     return true;
   },
 
+  // Кастомный аватар (эмодзи/стикер)
+  custom_avatar: async (userId, params) => {
+    const emoji = params.avatar || '🐱'; // эмодзи по умолчанию
+    await db.collection('users').doc(userId).update({
+      avatarEmoji: emoji
+    });
+    return true;
+  },
+
   // Двойной опыт (временный)
   double_xp: async (userId, params) => {
     const durationHours = params.duration || 1;
@@ -88,11 +97,9 @@ const EFFECT_HANDLERS = {
   // Товары с уведомлением админа – просто отмечаем, что нужна обработка,
   // и ничего не делаем с самим пользователем (админ обработает вручную)
   coffee_boss: async (userId, params) => {
-    // Никаких автоматических действий, только уведомление админу (уже реализовано в shop.html)
     return true;
   },
   gift_certificate: async (userId, params) => {
-    // Аналогично coffee_boss
     return true;
   },
   extra_break: async (userId, params) => {
@@ -111,7 +118,6 @@ const EFFECT_HANDLERS = {
 
 // Универсальная функция применения эффекта товара
 async function applyItemEffect(userId, item) {
-  // Поддержка как нового поля effectType, так и старого effect (для обратной совместимости)
   const effectType = item.effectType || item.effect;
   if (!effectType) return false;
 
@@ -122,12 +128,10 @@ async function applyItemEffect(userId, item) {
   }
 
   try {
-    // Параметры из товара + длительность, если указана
     const params = {
       ...(item.effectParams || {}),
       duration: item.duration || 0
     };
-
     await handler(userId, params);
     return true;
   } catch (e) {
@@ -140,6 +144,6 @@ async function applyItemEffect(userId, item) {
 function getAvailableEffectTypes() {
   return Object.keys(EFFECT_HANDLERS).map(key => ({
     id: key,
-    name: EFFECT_HANDLERS[key].displayName || key
+    name: key // или можно задать человекочитаемые названия
   }));
 }
