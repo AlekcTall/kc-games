@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="css/style.css">
   <style>
     .star-rating-name { color: #FBBF24; font-weight: 700; text-shadow: 0 0 5px rgba(251,191,36,0.5); }
-    /* Скелетоны */
     .skeleton-row { animation: shimmer 1.5s infinite; }
     .skeleton-row td { padding: 0.8rem 0.75rem; }
     .skeleton-cell { height: 1rem; background: #e0e0e0; border-radius: 4px; }
@@ -49,7 +48,6 @@
   </main>
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -65,18 +63,16 @@
   <script>
     (function() {
       const CACHE_KEY = 'krugames_leaderboard';
-      const CACHE_TTL = 2 * 60 * 1000; // 2 минуты
+      const CACHE_TTL = 2 * 60 * 1000;
       const FILTERS_KEY = 'krugames_leaderboard_filters';
 
       let departmentsList = [];
-      let allUsers = [];          // отфильтрованный (без админов) массив для отображения
+      let allUsers = [];
       let currentUid = null;
 
-      // DOM-элементы (заполнятся после renderUI)
       let filterName, filterPointsMin, filterPointsMax, filterDept, filterAch;
       let tableContainer;
 
-      // Загрузка отделов
       async function loadDepartments() {
         try {
           const snap = await db.collection('departments').orderBy('name').get();
@@ -90,7 +86,6 @@
         }
       }
 
-      // Скелетоны
       function renderSkeletons() {
         let html = '<table class="leaderboard-table"><thead><tr><th>Место</th><th>Игрок</th><th>Баллы</th><th>Отдел</th><th>🏆</th></tr></thead><tbody>';
         for (let i = 0; i < 10; i++) {
@@ -106,9 +101,7 @@
         tableContainer.innerHTML = html;
       }
 
-      // Загрузка пользователей с кешированием
       async function loadUsers() {
-        // 1. Пробуем взять из кеша
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           try {
@@ -124,7 +117,6 @@
           renderSkeletons();
         }
 
-        // 2. Загружаем свежие данные из Firestore
         try {
           const snap = await db.collection('users').get();
           const users = [];
@@ -138,7 +130,8 @@
               department: d.department || '',
               points: d.points || 0,
               achievements: d.achievements || [],
-              purchasedItems: d.purchasedItems || []
+              purchasedItems: d.purchasedItems || [],
+              avatarEmoji: d.avatarEmoji || null
             });
           });
 
@@ -157,9 +150,7 @@
         }
       }
 
-      // Отрисовка таблицы с учётом фильтров
       function renderTable() {
-        // Применяем фильтры
         let filtered = [...allUsers];
 
         const deptVal = filterDept.value;
@@ -179,7 +170,6 @@
 
         filtered.sort((a, b) => b.points - a.points);
 
-        // Сохраняем фильтры в sessionStorage
         saveFilters();
 
         if (!filtered.length) {
@@ -190,11 +180,12 @@
         let html = '<table class="leaderboard-table"><thead><tr><th>Место</th><th>Игрок</th><th>Баллы</th><th>Отдел</th><th>🏆</th></tr></thead><tbody>';
         filtered.forEach((u, i) => {
           let cls = i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : '';
+          const hasStar = u.purchasedItems.includes('star_rating');
+          const nameClass = hasStar ? 'player-name-link star-rating-name' : 'player-name-link';
+          // renderAvatarDiv теперь принимает весь объект пользователя (с avatarEmoji)
           const av = typeof renderAvatarDiv === 'function'
             ? renderAvatarDiv(u)
             : `<div class="avatar-circle avatar-small" style="background:${getColorFromUid(u.uid)}">${getInitials(u.username)}</div>`;
-          const hasStar = u.purchasedItems.includes('star_rating');
-          const nameClass = hasStar ? 'player-name-link star-rating-name' : 'player-name-link';
           html += `<tr class="${cls}">
             <td class="place-cell">#${i + 1}</td>
             <td class="player-cell">${av}<a href="public-profile.html?id=${u.id}" class="${nameClass}">${u.username}</a></td>
@@ -207,7 +198,6 @@
         tableContainer.innerHTML = html;
       }
 
-      // Сохранение / восстановление фильтров
       function saveFilters() {
         const filters = {
           name: filterName.value,
@@ -232,7 +222,6 @@
         } catch (e) {}
       }
 
-      // Построение UI
       function buildUI() {
         const container = document.getElementById('leaderboard-container');
         container.innerHTML = `
@@ -249,7 +238,6 @@
           <div id="leaderboard-table-container"></div>
         `;
 
-        // Кешируем DOM-элементы
         filterName = document.getElementById('filter-name');
         filterPointsMin = document.getElementById('filter-points-min');
         filterPointsMax = document.getElementById('filter-points-max');
@@ -257,13 +245,10 @@
         filterAch = document.getElementById('filter-achievements');
         tableContainer = document.getElementById('leaderboard-table-container');
 
-        // Заполняем отделы
         departmentsList.forEach(d => filterDept.add(new Option(d, d)));
 
-        // Восстанавливаем фильтры
         restoreFilters();
 
-        // Навешиваем обработчики
         [filterName, filterPointsMin, filterPointsMax].forEach(el => {
           el.addEventListener('input', renderTable);
         });
@@ -280,7 +265,6 @@
           renderTable();
         });
 
-        // Мобильная кнопка фильтров
         const filtersBlock = document.getElementById('filters-block');
         const filtersToggle = document.getElementById('filters-toggle');
         function checkMobile() {
@@ -296,11 +280,9 @@
         window.addEventListener('resize', checkMobile);
         checkMobile();
 
-        // Загружаем данные
         loadUsers();
       }
 
-      // Старт
       document.addEventListener('DOMContentLoaded', async () => {
         await loadDepartments();
 
