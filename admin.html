@@ -173,6 +173,12 @@
               </div>
               <button class="btn" id="maintenance-save-btn">Сохранить</button>
               <p id="maintenance-status" class="auth-message"></p>
+              <div style="margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid #f0c040;">
+                <h4>🗑️ Сброс кеша всех пользователей</h4>
+                <p style="font-size:0.9rem; color:#666; margin-bottom:0.5rem;">Принудительно очистить кеш (sessionStorage, localStorage) у всех посетителей. Полезно после обновлений сайта.</p>
+                <button class="btn" id="reset-cache-btn">Сбросить кэш всем</button>
+                <p id="cache-reset-status" class="auth-message"></p>
+              </div>
             </div>
           `;
 
@@ -244,6 +250,19 @@
               showToast('Режим обслуживания обновлён', 'success');
             } catch (err) {
               document.getElementById('maintenance-status').textContent = 'Ошибка: ' + err.message;
+            }
+          });
+
+          // НОВАЯ КНОПКА: сброс кеша всех пользователей
+          document.getElementById('reset-cache-btn').addEventListener('click', async () => {
+            try {
+              await db.collection('settings').doc('cacheVersion').set({
+                version: Date.now()
+              }, { merge: true });
+              document.getElementById('cache-reset-status').textContent = '✅ Версия кеша обновлена. Кэш всех пользователей будет сброшен при следующем заходе.';
+              showToast('Кэш сброшен для всех пользователей', 'success');
+            } catch (err) {
+              document.getElementById('cache-reset-status').textContent = 'Ошибка: ' + err.message;
             }
           });
         }
