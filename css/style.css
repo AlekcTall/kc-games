@@ -1946,6 +1946,9 @@ body.dark-theme .maintenance-section .btn {
   background: var(--color-primary);
   color: #fff;
 }
+body.dark-theme #cache-reset-status {
+  color: #ccc;
+}
 /* Адаптивные правки */
 @media (max-width: 768px) {
   .notification-dropdown {
