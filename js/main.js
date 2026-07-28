@@ -41,7 +41,7 @@ function getColorFromUid(uid) {
   return `hsl(${h}, 60%, 70%)`;
 }
 
-// ИСПРАВЛЕНО: поддержка extraClass для эффектов (золотая рамка, анимация)
+// Поддержка extraClass для эффектов (золотая рамка, анимация)
 function renderAvatarDiv(user, extraClass = '') {
   const initials = getInitials(user.username);
   const bgColor = getColorFromUid(user.uid || user.id);
@@ -164,9 +164,34 @@ async function checkMaintenanceMode() {
   }
 }
 
+// НОВОЕ: проверка версии кеша
+async function checkCacheVersion() {
+  try {
+    const doc = await db.collection('settings').doc('cacheVersion').get();
+    if (!doc.exists) return;
+    const serverVersion = doc.data().version;
+    const localVersion = localStorage.getItem('krugames_cache_version');
+    if (!localVersion || String(serverVersion) !== String(localVersion)) {
+      // Очищаем все наши ключи в sessionStorage
+      const sessionKeys = Object.keys(sessionStorage).filter(k => k.startsWith('krugames_'));
+      sessionKeys.forEach(k => sessionStorage.removeItem(k));
+      // Очищаем все наши ключи в localStorage (кроме самой версии и, возможно, currentUser)
+      const localKeys = Object.keys(localStorage).filter(k => k.startsWith('krugames_') && k !== 'krugames_cache_version');
+      localKeys.forEach(k => localStorage.removeItem(k));
+      // Сохраняем новую версию
+      localStorage.setItem('krugames_cache_version', serverVersion);
+    }
+  } catch (e) {
+    console.error('Ошибка проверки версии кеша:', e);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const isMaintenance = await checkMaintenanceMode();
   if (isMaintenance) return;
+
+  // Проверяем версию кеша и очищаем при необходимости
+  await checkCacheVersion();
 
   // Добавляем favicon динамически, если его ещё нет
   if (!document.querySelector('link[rel="icon"]')) {
