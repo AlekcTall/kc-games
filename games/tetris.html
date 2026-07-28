@@ -434,7 +434,12 @@
             if (auth.currentUser && typeof addPointsToCurrentUser === 'function') {
                 const pointsEarned = Math.floor(score / 500);
                 if (pointsEarned > 0) {
-                    await addPointsToCurrentUser(pointsEarned, 'tetris');
+                    const result = await addPointsToCurrentUser(pointsEarned, 'tetris');
+                    if (result && result.success) {
+                        const earned = result.points;
+                        const hasDouble = earned > pointsEarned;
+                        showToast(`+${earned} баллов${hasDouble ? ' (x2 бонус)' : ''} за тетрис!`, 'success');
+                    }
                 }
             }
 
