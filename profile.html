@@ -25,7 +25,7 @@
     .accordion-arrow { font-size:0.8rem; transition:transform 0.3s; }
     .accordion-content { max-height:0; overflow:hidden; transition:max-height 0.4s ease; background:white; }
     .accordion-content > div { padding:1.2rem; }
-    .accordion.open .accordion-content { max-height:500px; }
+    .accordion.open .accordion-content { max-height:600px; }
     .accordion.open .accordion-arrow { transform:rotate(180deg); }
     .theme-btns { display:flex; gap:0.5rem; }
     .theme-btn { padding:0.5rem 1.2rem; border:1px solid #ccc; border-radius:6px; background:white; cursor:pointer; }
@@ -266,7 +266,7 @@
         else if (hasGoldFrame && showGoldFrame) avatarClass = 'gold-frame';
         else if (hasAnimatedAvatar && showAnimatedAvatar) avatarClass = 'animated-avatar';
         const customStatus = user.customStatus || '';
-        // ИСПРАВЛЕНО: передаём весь объект user
+        const ownedAvatars = user.ownedAvatars || [];
         const avatarHtml = typeof renderAvatarDiv === 'function' ? renderAvatarDiv(user, avatarClass) : `<div class="avatar-circle ${avatarClass}" style="background-color:${getColorFromUid(user.uid)}">${getInitials(user.username)}</div>`;
 
         let html = `<div class="profile-box">
@@ -289,7 +289,12 @@
           <h3 class="section-title">Статистика</h3><div id="stats-container">${buildStatsHTML(gameHistory)}</div>
           ${hasTheme ? `<div class="accordion"><button class="accordion-header"><span>🎨 Тема</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div><div class="theme-btns"><button class="theme-btn ${user.activeTheme !== 'dark' ? 'active' : ''}" data-theme="light">☀️ Светлая</button><button class="theme-btn ${user.activeTheme === 'dark' ? 'active' : ''}" data-theme="dark">🌙 Тёмная</button></div></div></div></div>` : ''}
           ${hasGoldFrame || hasAnimatedAvatar ? `<div class="accordion"><button class="accordion-header"><span>✨ Эффекты профиля</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div>${hasGoldFrame ? `<div class="effect-toggle"><label><input type="checkbox" id="toggle-gold-frame" ${showGoldFrame ? 'checked' : ''}> 🖼️ Золотая рамка</label></div>` : ''}${hasAnimatedAvatar ? `<div class="effect-toggle"><label><input type="checkbox" id="toggle-animated-avatar" ${showAnimatedAvatar ? 'checked' : ''}> ✨ Анимация аватара</label></div>` : ''}</div></div></div>` : ''}
-          <div class="accordion"><button class="accordion-header"><span>✏️ Редактировать профиль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-edit"><div class="form-group"><label for="desc">О себе</label><textarea id="desc" rows="3">${user.description || ''}</textarea></div>${hasCustomStatus ? `<div class="form-group"><label for="custom-status">Кастомный статус</label><input type="text" id="custom-status" value="${customStatus}"></div>` : ''}<button class="btn" id="save-profile-btn">Сохранить</button></div></div></div>
+          <div class="accordion"><button class="accordion-header"><span>✏️ Редактировать профиль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-edit">
+            <div class="form-group"><label for="desc">О себе</label><textarea id="desc" rows="3">${user.description || ''}</textarea></div>
+            ${hasCustomStatus ? `<div class="form-group"><label for="custom-status">Кастомный статус</label><input type="text" id="custom-status" value="${customStatus}"></div>` : ''}
+            ${ownedAvatars.length > 1 ? `<div class="form-group"><label for="avatar-select">Аватар</label><select id="avatar-select">${ownedAvatars.map(e => `<option value="${e}" ${user.avatarEmoji === e ? 'selected' : ''}>${e}</option>`).join('')}</select></div>` : ''}
+            <button class="btn" id="save-profile-btn">Сохранить</button>
+          </div></div></div>
           <div class="accordion"><button class="accordion-header"><span>🔒 Сменить пароль</span><span class="accordion-arrow">▼</span></button><div class="accordion-content"><div class="profile-password-change"><div class="form-group"><label for="old-password">Старый пароль</label><input type="password" id="old-password"></div><div class="form-group"><label for="new-password">Новый пароль</label><input type="password" id="new-password"></div><button class="btn" id="change-password-btn">Сменить</button></div></div></div>
           <button class="btn btn-logout" id="logout-btn">Выйти</button>
         </div>`;
@@ -363,7 +368,31 @@
           const desc = document.getElementById('desc').value.trim();
           const data = { description: desc };
           if (hasCustomStatus) data.customStatus = document.getElementById('custom-status').value.trim();
-          try { await firebaseUpdateProfile(user.uid, data); showToast('Сохранено', 'success'); } catch (e) { showToast('Ошибка сохранения', 'error'); }
+          // Обработка выбора аватара
+          const avatarSelect = document.getElementById('avatar-select');
+          if (avatarSelect) {
+            const newAvatarEmoji = avatarSelect.value;
+            if (newAvatarEmoji !== user.avatarEmoji) {
+              data.avatarEmoji = newAvatarEmoji;
+            }
+          }
+          try {
+            await firebaseUpdateProfile(user.uid, data);
+            // Сразу обновляем кеш, чтобы аватар отобразился
+            if (data.avatarEmoji) {
+              user.avatarEmoji = data.avatarEmoji;
+              setCurrentUser(user);
+              // Перерисовываем аватар в текущем DOM
+              const avatarDiv = document.querySelector('.avatar-circle');
+              if (avatarDiv) {
+                avatarDiv.textContent = data.avatarEmoji;
+                avatarDiv.style.fontSize = '2.5rem';
+                avatarDiv.style.backgroundColor = '';
+                avatarDiv.classList.add('avatar-emoji');
+              }
+            }
+            showToast('Сохранено', 'success');
+          } catch (e) { showToast('Ошибка сохранения', 'error'); }
         });
 
         document.getElementById('change-password-btn').addEventListener('click', async () => {
