@@ -42,7 +42,14 @@ function getColorFromUid(uid) {
 }
 
 // Поддержка extraClass для эффектов (золотая рамка, анимация)
+// и кастомных аватаров (эмодзи)
 function renderAvatarDiv(user, extraClass = '') {
+  // Если у пользователя есть кастомный аватар – показываем эмодзи
+  if (user.avatarEmoji) {
+    const cls = extraClass ? 'avatar-circle avatar-emoji ' + extraClass : 'avatar-circle avatar-emoji';
+    return `<div class="${cls}" title="${user.username}" style="font-size:2.5rem;">${user.avatarEmoji}</div>`;
+  }
+  // Стандартные инициалы
   const initials = getInitials(user.username);
   const bgColor = getColorFromUid(user.uid || user.id);
   const cls = extraClass ? 'avatar-circle ' + extraClass : 'avatar-circle';
@@ -164,7 +171,7 @@ async function checkMaintenanceMode() {
   }
 }
 
-// НОВОЕ: проверка версии кеша
+// Проверка версии кеша
 async function checkCacheVersion() {
   try {
     const doc = await db.collection('settings').doc('cacheVersion').get();
@@ -172,13 +179,10 @@ async function checkCacheVersion() {
     const serverVersion = doc.data().version;
     const localVersion = localStorage.getItem('krugames_cache_version');
     if (!localVersion || String(serverVersion) !== String(localVersion)) {
-      // Очищаем все наши ключи в sessionStorage
       const sessionKeys = Object.keys(sessionStorage).filter(k => k.startsWith('krugames_'));
       sessionKeys.forEach(k => sessionStorage.removeItem(k));
-      // Очищаем все наши ключи в localStorage (кроме самой версии и, возможно, currentUser)
       const localKeys = Object.keys(localStorage).filter(k => k.startsWith('krugames_') && k !== 'krugames_cache_version');
       localKeys.forEach(k => localStorage.removeItem(k));
-      // Сохраняем новую версию
       localStorage.setItem('krugames_cache_version', serverVersion);
     }
   } catch (e) {
@@ -190,10 +194,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const isMaintenance = await checkMaintenanceMode();
   if (isMaintenance) return;
 
-  // Проверяем версию кеша и очищаем при необходимости
   await checkCacheVersion();
 
-  // Добавляем favicon динамически, если его ещё нет
   if (!document.querySelector('link[rel="icon"]')) {
     const link = document.createElement('link');
     link.rel = 'icon';
@@ -202,7 +204,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.head.appendChild(link);
   }
 
-  // Бургер-меню
   const burgerBtn = document.getElementById('burger-btn');
   const mainNav = document.getElementById('main-nav');
   if (burgerBtn && mainNav) {
@@ -211,7 +212,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Добавляем ссылку "Помощь" в навигацию
   const navList = document.querySelector('.nav__list');
   if (navList && !navList.querySelector('a[href="faq.html"]')) {
     const helpLi = document.createElement('li');
@@ -219,7 +219,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     navList.appendChild(helpLi);
   }
 
-  // FAQ аккордеон
   document.querySelectorAll('.faq-item__question').forEach(btn => {
     btn.addEventListener('click', () => {
       const faqItem = btn.parentElement;
@@ -227,17 +226,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Обратная связь
   if (typeof initFeedback === 'function') {
     initFeedback();
   }
 
-  // Уведомления
   if (typeof initNotifications === 'function') {
     initNotifications();
   }
 
-  // Автоматическое обновление статуса авторизации, темы и пинг онлайна
   if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
       updateAuthUI(user);
