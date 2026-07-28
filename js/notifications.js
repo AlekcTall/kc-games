@@ -138,6 +138,10 @@ function initNotifications() {
     notificationsList = [];
     updateBadge();
     renderNotifications();
+    // Пасхалка "В тишине"
+    if (typeof checkSilence === 'function') {
+      checkSilence();
+    }
   });
 
   document.addEventListener('click', () => {
