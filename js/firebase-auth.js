@@ -116,7 +116,6 @@ function firebaseLogout() {
 
 // ================== ЭФФЕКТЫ ТОВАРОВ ==================
 
-// Проверка активного эффекта (универсальная, через effects-engine)
 function hasActiveEffect(effectCode) {
   const current = getCurrentUser();
   if (!current || !current.activeEffects) return false;
@@ -214,7 +213,6 @@ async function firebaseUpdateProfile(uid, data) {
 
 // ================== НАЧИСЛЕНИЕ БАЛЛОВ ==================
 
-// УЛУЧШЕНО: теперь возвращает объект { success: true, points: actualPoints }
 async function addPointsToCurrentUser(points, gameId = null) {
   const user = auth.currentUser;
   if (!user) return { success: false };
