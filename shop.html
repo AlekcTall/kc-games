@@ -311,12 +311,19 @@
           // Сбрасываем кеш профиля и рейтинга, чтобы изменения отобразились сразу
           sessionStorage.removeItem('krugames_profile_cache');
           sessionStorage.removeItem('krugames_leaderboard');
-          // Сбрасываем кеш публичных профилей (на случай, если кто-то смотрел)
           Object.keys(sessionStorage).forEach(key => {
             if (key.startsWith('krugames_public_profile_')) {
               sessionStorage.removeItem(key);
             }
           });
+
+          // Пасхалки
+          if (typeof checkFirstPurchase === 'function') {
+            await checkFirstPurchase();
+          }
+          if (item.effectType === 'dark_theme' && typeof checkDarkThemePurchase === 'function') {
+            await checkDarkThemePurchase();
+          }
 
           renderShop();
           itemModal.style.display = 'none';
