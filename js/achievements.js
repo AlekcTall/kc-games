@@ -68,7 +68,18 @@ function getAchievementsConfig() {
     { id: 'tetris_20lines', name: 'Строитель', description: 'Соберите 20 линий за одну игру (Тетрис)', icon: '🏗️', hidden: true },
     { id: 'tetris_5000score', name: 'Скоростной режим', description: 'Наберите 5000 очков в Тетрисе', icon: '⚡', hidden: false },
     { id: 'tetris_10000score', name: 'Ниндзя', description: 'Наберите 10000 очков в Тетрисе', icon: '🥷', hidden: true },
-    { id: 'tetris_level10', name: 'Неудержимый', description: 'Достигните 10-го уровня в Тетрисе', icon: '💪', hidden: true }
+    { id: 'tetris_level10', name: 'Неудержимый', description: 'Достигните 10-го уровня в Тетрисе', icon: '💪', hidden: true },
+
+    // НОВЫЕ ПАСХАЛКИ (скрытые)
+    { id: 'easter_dark_side', name: 'Тёмная сторона', description: 'Купите тёмную тему в магазине', icon: '🌑', hidden: true },
+    { id: 'easter_collector', name: 'Коллекционер', description: 'Соберите 10 разных достижений', icon: '🏅', hidden: true },
+    { id: 'easter_silence', name: 'В тишине', description: 'Очистите все уведомления', icon: '🔕', hidden: true },
+    { id: 'easter_night_guest', name: 'Ночной гость', description: 'Зайдите на сайт с 2:00 до 4:00', icon: '🦉', hidden: true },
+    { id: 'easter_conspirator', name: 'Конспиратор', description: 'Откройте консоль браузера', icon: '🕵️', hidden: true },
+    { id: 'easter_selfie', name: 'Селфи', description: 'Посмотрите на себя в публичном профиле', icon: '🤳', hidden: true },
+    { id: 'easter_meteorism', name: 'Метеоризм', description: 'Проиграйте в сапёра 5 раз подряд', icon: '☄️', hidden: true },
+    { id: 'easter_librarian', name: 'Библиотекарь', description: 'Доскролльте страницу помощи до конца', icon: '📚', hidden: true },
+    { id: 'easter_first_purchase', name: 'Первый покупатель', description: 'Совершите первую покупку в магазине', icon: '🛍️', hidden: true }
   ];
 }
 
@@ -195,7 +206,7 @@ async function checkAndAwardAchievements() {
       case 'tictactoe_beat_hard': earned = (tictactoeStats.beatHardAI || false) === true; break;
       case 'tictactoe_pvp_win': earned = (tictactoeStats.pvpWins || 0) >= 1; break;
 
-      // Камень-ножницы-бумага (исправлено)
+      // Камень-ножницы-бумага
       case 'rps_first_win': earned = ((rpsStats.pvpWins || 0) + (rpsStats.pveWins || 0)) >= 1; break;
       case 'rps_streak3': earned = (rpsStats.bestWinStreak || 0) >= 3; break;
       case 'rps_beat_hard': earned = (rpsStats.beatHardAI || false) === true; break;
@@ -209,6 +220,17 @@ async function checkAndAwardAchievements() {
       case 'tetris_5000score': earned = (gameStats.tetris?.maxScore || 0) >= 5000; break;
       case 'tetris_10000score': earned = (gameStats.tetris?.maxScore || 0) >= 10000; break;
       case 'tetris_level10': earned = (gameStats.tetris?.maxLevel || 0) >= 10; break;
+
+      // НОВЫЕ ПАСХАЛКИ
+      case 'easter_dark_side': earned = (easterEggs || []).includes('dark_side'); break;
+      case 'easter_collector': earned = (unlocked.length >= 10); break; // проверяем уже разблокированные достижения
+      case 'easter_silence': earned = (easterEggs || []).includes('silence'); break;
+      case 'easter_night_guest': earned = (easterEggs || []).includes('night_guest'); break;
+      case 'easter_conspirator': earned = (easterEggs || []).includes('conspirator'); break;
+      case 'easter_selfie': earned = (easterEggs || []).includes('selfie'); break;
+      case 'easter_meteorism': earned = (easterEggs || []).includes('meteorism'); break;
+      case 'easter_librarian': earned = (easterEggs || []).includes('librarian'); break;
+      case 'easter_first_purchase': earned = (easterEggs || []).includes('first_purchase'); break;
     }
 
     if (earned && !alreadyUnlocked) {
@@ -233,6 +255,14 @@ async function checkAndAwardAchievements() {
 
     for (const ach of newlyUnlocked) {
       await addNotification(user.uid, `Получено достижение: ${ach.icon} ${ach.name}`, 'achievement', 'profile.html');
+    }
+
+    // Дополнительно проверяем "Коллекционера" после обновления
+    if (unlocked.length >= 10 && !unlocked.includes('easter_collector')) {
+      // добавим позже через вызов checkCollector
+      if (typeof window.checkCollector === 'function') {
+        await window.checkCollector();
+      }
     }
   }
 }
