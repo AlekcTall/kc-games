@@ -6,22 +6,151 @@
   <title>Бинго – КЦ Игры</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
-    .bingo-page { max-width: 700px; margin: 2rem auto; background: white; padding: 2rem; border-radius: var(--border-radius); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .bingo-header { text-align: center; margin-bottom: 1.5rem; }
-    .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.5rem 0; }
-    .bingo-cell { aspect-ratio: 1; border: 2px solid #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0.3rem; font-size: 0.8rem; font-weight: 500; background: #fafafa; transition: all 0.2s; cursor: default; }
-    .bingo-cell.completed { background: #d4edda; border-color: #28a745; color: #155724; }
-    .bingo-cell .cell-icon { font-size: 1.2rem; display: block; }
-    .bingo-progress { text-align: center; margin-bottom: 1rem; }
-    .bingo-progress-bar { width: 100%; height: 20px; background: #eee; border-radius: 10px; overflow: hidden; }
-    .bingo-progress-fill { height: 100%; background: #28a745; transition: width 0.3s; }
-    .top-players { margin-top: 2rem; }
-    .top-players table { width: 100%; border-collapse: collapse; }
-    .top-players th, .top-players td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; }
-    .top-players th { background: #f5f5f5; }
-    .timer-bar { font-size: 0.9rem; color: #888; margin-bottom: 0.5rem; }
-    .bingo-back { display: inline-block; margin-top: 1rem; color: var(--color-primary); text-decoration: none; }
-    @media (max-width: 500px) { .bingo-grid { gap: 0.3rem; } .bingo-cell { font-size: 0.7rem; } }
+    .bingo-page {
+      max-width: 750px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background: linear-gradient(135deg, #fff9e6, #fff3cc);
+      border: 2px solid #f0c040;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(240,192,64,0.2);
+    }
+    .bingo-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .bingo-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.8rem;
+      margin: 1.5rem 0;
+    }
+    .bingo-cell {
+      aspect-ratio: 1;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      overflow: hidden;
+      position: relative;
+    }
+    .bingo-cell:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    }
+    .bingo-cell.completed {
+      background: #d4edda;
+      border: 2px solid #28a745;
+    }
+    .bingo-cell .cell-title {
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+      word-break: break-word;
+    }
+    .bingo-cell .cell-type {
+      font-size: 0.7rem;
+      color: #888;
+    }
+    .bingo-progress {
+      text-align: center;
+      margin: 1rem 0;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 24px;
+      background: #eee;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 12px;
+      transition: width 0.3s, background 0.3s;
+      background: #e74c3c; /* красный по умолчанию */
+    }
+    .progress-fill.medium {
+      background: #f39c12;
+    }
+    .progress-fill.high {
+      background: #27ae60;
+    }
+    .top-players {
+      margin-top: 2rem;
+    }
+    .top-players table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .top-players th {
+      background: #f5f5f5;
+      padding: 0.5rem 1rem;
+      text-align: left;
+    }
+    .top-players td {
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid #eee;
+    }
+    .timer-bar {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+    .bingo-back {
+      display: inline-block;
+      margin-top: 1.5rem;
+      color: var(--color-primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    /* Модальное окно задания */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 360px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .modal-close {
+      position: absolute;
+      top: 0.8rem;
+      right: 1rem;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #666;
+    }
+    @media (max-width: 500px) {
+      .bingo-grid {
+        gap: 0.4rem;
+      }
+      .bingo-cell {
+        font-size: 0.75rem;
+        padding: 0.3rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -51,7 +180,8 @@
 
     let eventData = null;
     let unsubscribeEvent = null;
-    let tasksCache = {}; // кеш заданий { taskId: { description, type, params } }
+    let tasksCache = {};
+    let topNamesCache = {}; // кеш имён для топа
 
     auth.onAuthStateChanged(async (user) => {
       if (!user) {
@@ -73,18 +203,15 @@
         return;
       }
 
-      // Загружаем задания один раз
       const tasksSnap = await db.collection('events').doc(eventId).collection('tasks').get();
       tasksCache = {};
       tasksSnap.forEach(doc => tasksCache[doc.id] = doc.data());
 
-      // Подписываемся на обновления ивента
       unsubscribeEvent = db.collection('events').doc(eventId).onSnapshot(snap => {
         eventData = { id: snap.id, ...snap.data() };
         renderBingoPage(user);
       });
 
-      // Генерируем карточку, если её ещё нет
       const participants = eventData.participants || {};
       if (!participants[user.uid] || !participants[user.uid].card) {
         const tasks = Object.keys(tasksCache).map(id => ({ id, ...tasksCache[id] }));
@@ -106,7 +233,7 @@
       renderBingoPage(user);
     }
 
-    function renderBingoPage(user) {
+    async function renderBingoPage(user) {
       const container = document.getElementById('bingo-container');
       const participants = eventData.participants || {};
       const playerData = participants[user.uid];
@@ -121,39 +248,59 @@
       const totalCells = card.length;
       const percent = Math.round((completedCount / totalCells) * 100);
 
+      // Определяем цвет прогресс-бара
+      let barClass = '';
+      if (percent < 40) barClass = '';
+      else if (percent < 75) barClass = 'medium';
+      else barClass = 'high';
+
+      // Загружаем имена для топа
+      const topHtml = await renderTopPlayers(participants);
+
       let html = `
         <div class="bingo-header">
           <h2>🎯 ${eventData.title || 'Бинго'}</h2>
           <div class="timer-bar" id="timer-bar"></div>
         </div>
         <div class="bingo-progress">
-          <p>Выполнено ${completedCount} из ${totalCells} заданий (${percent}%)</p>
-          <div class="bingo-progress-bar">
-            <div class="bingo-progress-fill" style="width: ${percent}%;"></div>
+          <p>Выполнено <strong>${completedCount}</strong> из <strong>${totalCells}</strong> заданий (${percent}%)</p>
+          <div class="progress-bar">
+            <div class="progress-fill ${barClass}" style="width: ${percent}%;"></div>
           </div>
-          ${playerData.cardCompleted ? '<p style="color:#28a745; font-weight:bold;">🎉 Карточка полностью заполнена!</p>' : ''}
+          ${playerData.cardCompleted ? '<p style="color:#28a745; font-weight:bold; margin-top:0.5rem;">🎉 Карточка полностью заполнена!</p>' : ''}
         </div>
         <div class="bingo-grid">
           ${card.map(cell => {
             const done = progress[cell.id] === true;
             const task = tasksCache[cell.id];
             const desc = task ? task.description : 'Задание не найдено';
-            const icon = done ? '✅' : '⬜';
-            return `<div class="bingo-cell ${done ? 'completed' : ''}" title="${desc}">
-              <span class="cell-icon">${icon}</span>
-              <span>${desc.length > 40 ? desc.substring(0, 40) + '…' : desc}</span>
+            const typeText = task ? task.type : '';
+            return `<div class="bingo-cell ${done ? 'completed' : ''}" data-task-id="${cell.id}">
+              <div class="cell-title">${desc.length > 50 ? desc.substring(0, 50) + '…' : desc}</div>
+              ${typeText ? `<div class="cell-type">${typeText}</div>` : ''}
+              <div style="position:absolute; top:0.3rem; right:0.3rem;">${done ? '✅' : '⬜'}</div>
             </div>`;
           }).join('')}
         </div>
-        ${renderTopPlayers(participants)}
+        ${topHtml}
         <a href="../index.html" class="bingo-back">← На главную</a>
       `;
 
       container.innerHTML = html;
       updateTimer();
+
+      // Обработчики кликов по ячейкам
+      document.querySelectorAll('.bingo-cell').forEach(cell => {
+        cell.addEventListener('click', () => {
+          const taskId = cell.dataset.taskId;
+          const task = tasksCache[taskId];
+          const done = progress[taskId] === true;
+          showTaskModal(task, done);
+        });
+      });
     }
 
-    function renderTopPlayers(participants) {
+    async function renderTopPlayers(participants) {
       const players = [];
       for (const [uid, data] of Object.entries(participants)) {
         const completed = Object.keys(data.progress || {}).length;
@@ -162,18 +309,56 @@
       players.sort((a, b) => b.completed - a.completed);
       const top5 = players.slice(0, 5);
 
+      // Загружаем имена, если их ещё нет в кеше
+      for (const p of top5) {
+        if (!topNamesCache[p.uid]) {
+          try {
+            const userDoc = await db.collection('users').doc(p.uid).get();
+            topNamesCache[p.uid] = userDoc.exists ? (userDoc.data().username || 'Аноним') : 'Аноним';
+          } catch (e) {
+            topNamesCache[p.uid] = '—';
+          }
+        }
+      }
+
       let html = '<div class="top-players"><h4>🏆 Топ участников</h4>';
       if (top5.length === 0) {
         html += '<p>Пока нет участников.</p>';
       } else {
         html += '<table><tr><th>#</th><th>Игрок</th><th>Заданий</th></tr>';
         top5.forEach((p, i) => {
-          html += `<tr><td>${i + 1}</td><td>${p.uid === auth.currentUser.uid ? 'Вы' : p.uid.substring(0, 8)}</td><td>${p.completed}</td></tr>`;
+          const name = p.uid === auth.currentUser.uid ? 'Вы' : (topNamesCache[p.uid] || p.uid.substring(0, 8));
+          html += `<tr><td>${i + 1}</td><td>${name}</td><td>${p.completed}</td></tr>`;
         });
         html += '</table>';
       }
       html += '</div>';
       return html;
+    }
+
+    function showTaskModal(task, completed) {
+      if (!task) return;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal">
+          <span class="modal-close">&times;</span>
+          <h3>${completed ? '✅' : '⬜'} Задание</h3>
+          <p style="margin:1rem 0; font-size:1rem;">${task.description}</p>
+          <p style="color:#888; font-size:0.85rem;">Тип: ${task.type}</p>
+          ${completed ? '<p style="color:#27ae60; font-weight:600;">Выполнено</p>' : '<p style="color:#e67e22;">Ещё не выполнено</p>'}
+          <button class="btn" id="modal-close-btn">Закрыть</button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const closeModal = () => overlay.remove();
+      overlay.querySelector('.modal-close').addEventListener('click', closeModal);
+      overlay.querySelector('#modal-close-btn').addEventListener('click', closeModal);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeModal();
+      });
     }
 
     function updateTimer() {
