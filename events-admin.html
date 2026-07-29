@@ -217,44 +217,6 @@
             topParticipants: ranked.slice(0, 10)
           };
         }
-      },
-      bingo: {
-        label: 'Бинго',
-        icon: '🎯',
-        defaultSettings: {
-          gridSize: 5,
-          rewardLokoin: 50,
-          lineRewardLokoin: 0
-        },
-        monitor: async (event) => {
-          const participants = event.participants || {};
-          const users = Object.keys(participants);
-          const completedCards = users.filter(u => participants[u].cardCompleted).length;
-          return `<div class="monitor-card"><div class="value">${users.length}</div><div class="label">Участников</div></div>
-                  <div class="monitor-card"><div class="value">${completedCards}</div><div class="label">Заполненных карточек</div></div>`;
-        },
-        finish: async (event) => {
-          const participants = event.participants || {};
-          const ranked = [];
-          for (const [uid, data] of Object.entries(participants)) {
-            const userDoc = await db.collection('users').doc(uid).get();
-            const u = userDoc.data() || {};
-            if (u.role === 'admin') continue;
-            ranked.push({
-              username: u.username || 'Аноним',
-              department: u.department || '—',
-              completedTasks: Object.keys(data.progress || {}).length,
-              cardCompleted: data.cardCompleted || false
-            });
-          }
-          ranked.sort((a, b) => b.completedTasks - a.completedTasks);
-          return {
-            uniqueParticipants: ranked.length,
-            completedCards: ranked.filter(p => p.cardCompleted).length,
-            topPlayer: ranked[0] || null,
-            topParticipants: ranked.slice(0, 10)
-          };
-        }
       }
     };
 
@@ -332,10 +294,9 @@
                     ${fs.totalActions !== undefined ? `<tr><td>Действий:</td><td><strong>${fs.totalActions}</strong></td></tr>` : ''}
                     ${fs.totalPixels !== undefined ? `<tr><td>Пикселей:</td><td><strong>${fs.totalPixels}</strong></td></tr>` : ''}
                     ${fs.totalPoints !== undefined ? `<tr><td>Баллов выдано:</td><td><strong>${fs.totalPoints}</strong></td></tr>` : ''}
-                    ${fs.completedCards !== undefined ? `<tr><td>Заполнено карточек:</td><td><strong>${fs.completedCards}</strong></td></tr>` : ''}
                     ${ev.health !== undefined ? `<tr><td>Финальное здоровье:</td><td><strong>${Math.round(ev.health)}</strong></td></tr>` : ''}
                   </table>
-                  ${fs.topPlayer ? `<p style="margin-top:0.5rem;"><strong>👑 Лучший игрок:</strong> ${fs.topPlayer.username} (${fs.topPlayer.department || '—'}) — ${fs.topPlayer.totalActions || fs.topPlayer.totalPixels || fs.topPlayer.score || fs.topPlayer.completedTasks || 0} очков</p>` : ''}
+                  ${fs.topPlayer ? `<p style="margin-top:0.5rem;"><strong>👑 Лучший игрок:</strong> ${fs.topPlayer.username} (${fs.topPlayer.department || '—'}) — ${fs.topPlayer.totalActions || fs.topPlayer.totalPixels || fs.topPlayer.score || 0} очков</p>` : ''}
                 </div>`;
               }
 
@@ -464,44 +425,10 @@
                 <div id="csv-import-status"></div>
               </div>
             </div>`;
-        } else if (eventType === 'bingo') {
-          questionsBlock = `
-            <div style="border:1px solid #ddd; border-radius:8px; padding:1rem; margin:1rem 0;">
-              <h4 style="margin-bottom:0.5rem;">🎯 Задания бинго</h4>
-              <div id="bingo-tasks-list"><p>Загрузка заданий...</p></div>
-              <div class="question-edit-form" id="add-bingo-task-form">
-                <div class="form-group">
-                  <label for="new-task-type">Тип задания</label>
-                  <select id="new-task-type">
-                    <option value="game_sessions">Сыграть N партий в игру</option>
-                    <option value="game_points">Набрать N очков за сессию</option>
-                    <option value="purchase_any">Купить любой товар</option>
-                    <option value="purchase_category">Купить товар из категории</option>
-                    <option value="daily_login_streak">Достичь серии входов N</option>
-                    <option value="achievement_any">Получить любое достижение</option>
-                    <option value="total_points">Накопить N баллов</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="new-task-desc">Описание задания</label>
-                  <input type="text" id="new-task-desc" placeholder="Например: Сыграйте 5 партий в кликер">
-                </div>
-                <div class="row" id="task-params-container">
-                </div>
-                <button class="btn btn-small" id="add-bingo-task-btn">➕ Добавить задание</button>
-              </div>
-              <div style="margin-top:1rem; border-top:1px solid #eee; padding-top:1rem;">
-                <p><strong>📋 Импорт заданий из CSV</strong></p>
-                <p style="font-size:0.8rem;color:#666;">Формат: type, description, param1, param2 (зависит от типа)</p>
-                <input type="file" id="bingo-csv-file-input" accept=".csv">
-                <button class="btn btn-small" id="import-bingo-csv-btn">Импортировать</button>
-                <div id="bingo-csv-import-status"></div>
-              </div>
-            </div>`;
         }
 
-        // Показывать стандартные награды только для типов, которые их используют
-        const showStandardRewards = !['bingo', 'quiz'].includes(eventType);
+        // Стандартные награды только для тех типов, где они нужны (не для квиза)
+        const showStandardRewards = !['quiz'].includes(eventType);
 
         content.innerHTML = `
           <h3>${isEdit ? 'Редактировать' : 'Создать'} ивент</h3>
@@ -520,7 +447,7 @@
             <label>Описание</label>
             <textarea id="event-desc" rows="2">${ev.description || ''}</textarea>
             <label>URL страницы ивента</label>
-            <input type="text" id="event-url" value="${ev.url || (eventType === 'pixel' ? 'events/pixel-board.html' : eventType === 'quiz' ? 'events/quiz.html' : eventType === 'bingo' ? 'events/bingo.html' : 'events/tree.html')}">
+            <input type="text" id="event-url" value="${ev.url || (eventType === 'pixel' ? 'events/pixel-board.html' : eventType === 'quiz' ? 'events/quiz.html' : 'events/tree.html')}">
             <div class="row">
               <div><label>Начало</label><input type="datetime-local" id="event-start" value="${ev.startTime ? toDatetimeLocal(ev.startTime.toDate()) : ''}"></div>
               <div><label>Окончание</label><input type="datetime-local" id="event-end" value="${ev.endTime ? toDatetimeLocal(ev.endTime.toDate()) : ''}"></div>
@@ -584,125 +511,100 @@
           }
         });
 
-        // Бинго
-        if (eventType === 'bingo') {
-          const taskTypeSelect = document.getElementById('new-task-type');
-          const paramsContainer = document.getElementById('task-params-container');
-
-          function updateTaskParams() {
-            const type = taskTypeSelect.value;
-            let paramsHtml = '';
-            if (type === 'game_sessions' || type === 'game_points') {
-              paramsHtml += `<div class="form-group"><label>Игра (gameId)</label><input type="text" id="task-param-gameId" placeholder="clicker"></div>`;
-            }
-            if (type === 'game_sessions') {
-              paramsHtml += `<div class="form-group"><label>Количество партий (count)</label><input type="number" id="task-param-count" min="1" value="1"></div>`;
-            }
-            if (type === 'game_points') {
-              paramsHtml += `<div class="form-group"><label>Количество очков (points)</label><input type="number" id="task-param-points" min="1" value="100"></div>`;
-            }
-            if (type === 'purchase_category') {
-              paramsHtml += `<div class="form-group"><label>Категория (category)</label><input type="text" id="task-param-category" placeholder="Игровые бонусы"></div>`;
-            }
-            if (type === 'daily_login_streak') {
-              paramsHtml += `<div class="form-group"><label>Серия дней (streak)</label><input type="number" id="task-param-streak" min="1" value="7"></div>`;
-            }
-            if (type === 'total_points') {
-              paramsHtml += `<div class="form-group"><label>Количество баллов (points)</label><input type="number" id="task-param-points-total" min="1" value="500"></div>`;
-            }
-            paramsContainer.innerHTML = paramsHtml;
-          }
-
-          taskTypeSelect.addEventListener('change', updateTaskParams);
-          updateTaskParams();
-
-          const tasksListContainer = document.getElementById('bingo-tasks-list');
+        // Квиз
+        if (eventType === 'quiz') {
+          const tasksListContainer = document.getElementById('questions-list-container');
           const currentEventId = isEdit ? ev.id : document.getElementById('event-id').value.trim();
 
-          async function renderBingoTasks() {
+          async function renderQuizQuestions() {
             const eid = currentEventId || document.getElementById('event-id').value.trim();
             if (!eid) {
-              tasksListContainer.innerHTML = '<p style="color:#888;">Сохраните ивент, чтобы добавлять задания.</p>';
+              tasksListContainer.innerHTML = '<p style="color:#888;">Сохраните ивент, чтобы добавлять вопросы.</p>';
               return;
             }
             try {
-              const snap = await db.collection('events').doc(eid).collection('tasks').get();
+              const snap = await db.collection('events').doc(eid).collection('questions').get();
               if (snap.empty) {
-                tasksListContainer.innerHTML = '<p style="color:#888;">Нет заданий. Добавьте хотя бы 25 для запуска бинго.</p>';
+                tasksListContainer.innerHTML = '<p style="color:#888;">Нет вопросов. Добавьте вопросы вручную или импортируйте CSV.</p>';
                 return;
               }
               let html = '<ul class="questions-list">';
               snap.forEach(doc => {
-                const t = doc.data();
+                const q = doc.data();
                 html += `<li>
-                  <span><strong>[${t.type}]</strong> ${t.description}</span>
-                  <button class="btn btn-small btn-danger delete-bingo-task-btn" data-task-id="${doc.id}">🗑️</button>
+                  <span><strong>${q.text}</strong> (прав: ${q.correct + 1})</span>
+                  <button class="btn btn-small btn-danger delete-question-btn" data-qid="${doc.id}">🗑️</button>
                 </li>`;
               });
               html += '</ul>';
               tasksListContainer.innerHTML = html;
 
-              document.querySelectorAll('.delete-bingo-task-btn').forEach(btn => {
+              document.querySelectorAll('.delete-question-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                  if (confirm('Удалить задание?')) {
-                    await db.collection('events').doc(eid).collection('tasks').doc(btn.dataset.taskId).delete();
-                    renderBingoTasks();
+                  if (confirm('Удалить вопрос?')) {
+                    await db.collection('events').doc(eid).collection('questions').doc(btn.dataset.qid).delete();
+                    renderQuizQuestions();
                   }
                 });
               });
             } catch (e) {
-              tasksListContainer.innerHTML = '<p style="color:red;">Ошибка загрузки заданий.</p>';
+              tasksListContainer.innerHTML = '<p style="color:red;">Ошибка загрузки вопросов.</p>';
             }
           }
 
-          renderBingoTasks();
+          renderQuizQuestions();
 
-          document.getElementById('add-bingo-task-btn').addEventListener('click', async () => {
+          document.getElementById('add-question-btn').addEventListener('click', async () => {
             const eid = document.getElementById('event-id').value.trim();
             if (!eid) {
-              showToast('Сначала укажите ID ивента.', 'error');
+              showToast('Сначала сохраните ивент или укажите ID.', 'error');
               return;
             }
-            const type = document.getElementById('new-task-type').value;
-            const desc = document.getElementById('new-task-desc').value.trim();
-            if (!desc) {
-              showToast('Введите описание задания.', 'error');
-              return;
-            }
+            const text = document.getElementById('new-question-text').value.trim();
+            const opts = [
+              document.getElementById('new-option-1').value.trim(),
+              document.getElementById('new-option-2').value.trim(),
+              document.getElementById('new-option-3').value.trim(),
+              document.getElementById('new-option-4').value.trim()
+            ];
+            const correct = parseInt(document.getElementById('new-correct').value) - 1;
+            const timeLimit = parseInt(document.getElementById('new-time-limit').value) || 0;
 
-            const params = {};
-            if (type === 'game_sessions') {
-              params.gameId = document.getElementById('task-param-gameId')?.value.trim();
-              params.count = parseInt(document.getElementById('task-param-count')?.value) || 1;
-            } else if (type === 'game_points') {
-              params.gameId = document.getElementById('task-param-gameId')?.value.trim();
-              params.points = parseInt(document.getElementById('task-param-points')?.value) || 100;
-            } else if (type === 'purchase_category') {
-              params.category = document.getElementById('task-param-category')?.value.trim();
-            } else if (type === 'daily_login_streak') {
-              params.streak = parseInt(document.getElementById('task-param-streak')?.value) || 7;
-            } else if (type === 'total_points') {
-              params.points = parseInt(document.getElementById('task-param-points-total')?.value) || 500;
+            if (!text || opts.some(o => !o)) {
+              showToast('Заполните вопрос и все 4 варианта', 'error');
+              return;
+            }
+            if (isNaN(correct) || correct < 0 || correct > 3) {
+              showToast('Правильный ответ должен быть от 1 до 4', 'error');
+              return;
             }
 
             try {
-              await db.collection('events').doc(eid).collection('tasks').add({ type, description: desc, params });
-              document.getElementById('new-task-desc').value = '';
-              showToast('Задание добавлено', 'success');
-              renderBingoTasks();
+              await db.collection('events').doc(eid).collection('questions').add({
+                text, options: opts, correct, timeLimit: timeLimit || null
+              });
+              document.getElementById('new-question-text').value = '';
+              document.getElementById('new-option-1').value = '';
+              document.getElementById('new-option-2').value = '';
+              document.getElementById('new-option-3').value = '';
+              document.getElementById('new-option-4').value = '';
+              document.getElementById('new-correct').value = '1';
+              document.getElementById('new-time-limit').value = '0';
+              showToast('Вопрос добавлен', 'success');
+              renderQuizQuestions();
             } catch (err) {
               showToast('Ошибка: ' + err.message, 'error');
             }
           });
 
-          document.getElementById('import-bingo-csv-btn').addEventListener('click', async () => {
+          document.getElementById('import-csv-btn').addEventListener('click', async () => {
             const eid = document.getElementById('event-id').value.trim();
             if (!eid) {
-              document.getElementById('bingo-csv-import-status').innerHTML = '<span style="color:red;">Сначала укажите ID ивента.</span>';
+              document.getElementById('csv-import-status').innerHTML = '<span style="color:red;">Сначала укажите ID ивента.</span>';
               return;
             }
-            const fileInput = document.getElementById('bingo-csv-file-input');
-            const statusEl = document.getElementById('bingo-csv-import-status');
+            const fileInput = document.getElementById('csv-file-input');
+            const statusEl = document.getElementById('csv-import-status');
             if (!fileInput.files.length) {
               statusEl.innerHTML = '<span style="color:red;">Выберите CSV-файл.</span>';
               return;
@@ -722,34 +624,32 @@
               const dataLines = lines.slice(1);
 
               const batch = db.batch();
-              const tasksRef = db.collection('events').doc(eid).collection('tasks');
+              const questionsRef = db.collection('events').doc(eid).collection('questions');
               let imported = 0;
               for (const line of dataLines) {
-                const cols = line.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-                if (cols.length < 2) continue;
-                const type = cols[0];
-                const description = cols[1];
-                const params = {};
-                if (type === 'game_sessions' && cols.length >= 4) {
-                  params.gameId = cols[2];
-                  params.count = parseInt(cols[3]) || 1;
-                } else if (type === 'game_points' && cols.length >= 4) {
-                  params.gameId = cols[2];
-                  params.points = parseInt(cols[3]) || 100;
-                } else if (type === 'purchase_category' && cols.length >= 3) {
-                  params.category = cols[2];
-                } else if (type === 'daily_login_streak' && cols.length >= 3) {
-                  params.streak = parseInt(cols[2]) || 7;
-                } else if (type === 'total_points' && cols.length >= 3) {
-                  params.points = parseInt(cols[2]) || 500;
+                const cols = [];
+                let current = '';
+                let insideQuotes = false;
+                for (const ch of line) {
+                  if (ch === '"') insideQuotes = !insideQuotes;
+                  else if (ch === delimiter && !insideQuotes) { cols.push(current.trim()); current = ''; }
+                  else current += ch;
                 }
-                batch.set(tasksRef.doc(), { type, description, params });
+                cols.push(current.trim());
+                const cleanCols = cols.map(c => c.replace(/^"|"$/g, ''));
+                if (cleanCols.length < 6) continue;
+                const question = cleanCols[0];
+                const options = [cleanCols[1], cleanCols[2], cleanCols[3], cleanCols[4]];
+                const correct = parseInt(cleanCols[5]) - 1;
+                const timeLimit = cleanCols[6] ? parseInt(cleanCols[6]) : (mergedSettings.defaultTimeLimit || 30);
+                if (isNaN(correct) || correct < 0 || correct > 3) continue;
+                batch.set(questionsRef.doc(), { text: question, options, correct, timeLimit });
                 imported++;
               }
               if (imported > 0) {
                 await batch.commit();
-                statusEl.innerHTML = `<span style="color:green;">✅ Импортировано ${imported} заданий.</span>`;
-                renderBingoTasks();
+                statusEl.innerHTML = `<span style="color:green;">✅ Импортировано ${imported} вопросов.</span>`;
+                renderQuizQuestions();
               } else {
                 statusEl.innerHTML = '<span style="color:red;">Не найдено корректных строк.</span>';
               }
@@ -792,7 +692,7 @@
           };
 
           // Стандартные награды только если они видны
-          if (!['bingo', 'quiz'].includes(type)) {
+          if (!['quiz'].includes(type)) {
             data.rewards = {
               participation: { points: parseInt(document.getElementById('reward-participation').value) || 0, lokoin: parseInt(document.getElementById('reward-participation-lokoin').value) || 0 },
               win: { points: parseInt(document.getElementById('reward-win').value) || 0, lokoin: parseInt(document.getElementById('reward-win-lokoin').value) || 0 }
