@@ -66,7 +66,6 @@
 
   <footer class="footer"><div class="container"><p>© 2026 ваши амбассадоры</p></div></footer>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
@@ -219,7 +218,6 @@
           };
         }
       },
-      // НОВЫЙ ТИП: Бинго
       bingo: {
         label: 'Бинго',
         icon: '🎯',
@@ -390,7 +388,7 @@
             btn.addEventListener('click', async (e) => {
               if (confirm('Перезапустить ивент?')) {
                 const eventId = e.target.dataset.eventId;
-                await db.collection('events').doc(eventId).update({ status: 'active', statistics: { totalActions: 0, uniqueParticipants: 0 }, finalStats: null, participants: { _lastDecay: Date.now() }, boardData: {}, painterStats: {} });
+                await db.collection('events').doc(eventId).update({ status: 'active', statistics: { totalActions: 0, uniqueParticipants: 0 }, finalStats: null, participants: {}, boardData: {}, painterStats: {} });
                 showToast('Ивент перезапущен', 'success');
                 renderEventsList();
               }
@@ -467,7 +465,6 @@
               </div>
             </div>`;
         } else if (eventType === 'bingo') {
-          // Блок управления заданиями для бинго
           questionsBlock = `
             <div style="border:1px solid #ddd; border-radius:8px; padding:1rem; margin:1rem 0;">
               <h4 style="margin-bottom:0.5rem;">🎯 Задания бинго</h4>
@@ -490,7 +487,6 @@
                   <input type="text" id="new-task-desc" placeholder="Например: Сыграйте 5 партий в кликер">
                 </div>
                 <div class="row" id="task-params-container">
-                  <!-- Динамические поля в зависимости от типа -->
                 </div>
                 <button class="btn btn-small" id="add-bingo-task-btn">➕ Добавить задание</button>
               </div>
@@ -503,6 +499,9 @@
               </div>
             </div>`;
         }
+
+        // Показывать стандартные награды только для типов, которые их используют
+        const showStandardRewards = !['bingo', 'quiz'].includes(eventType);
 
         content.innerHTML = `
           <h3>${isEdit ? 'Редактировать' : 'Создать'} ивент</h3>
@@ -529,21 +528,25 @@
             <h4>Настройки (${typeCfg.label})</h4>
             <div id="settings-fields">${settingsFieldsHtml}</div>
             ${questionsBlock}
-            <h4>Награды</h4>
-            <div class="row">
-              <div><label>За участие (баллы)</label><input type="number" id="reward-participation" value="${(ev.rewards?.participation?.points) || 10}"></div>
-              <div><label>За участие (локоины)</label><input type="number" id="reward-participation-lokoin" value="${(ev.rewards?.participation?.lokoin) || 2}"></div>
+            ${showStandardRewards ? `
+            <div id="rewards-block">
+              <h4>Награды</h4>
+              <div class="row">
+                <div><label>За участие (баллы)</label><input type="number" id="reward-participation" value="${(ev.rewards?.participation?.points) || 10}"></div>
+                <div><label>За участие (локоины)</label><input type="number" id="reward-participation-lokoin" value="${(ev.rewards?.participation?.lokoin) || 2}"></div>
+              </div>
+              <div class="row">
+                <div><label>За победу (баллы)</label><input type="number" id="reward-win" value="${(ev.rewards?.win?.points) || 50}"></div>
+                <div><label>За победу (локоины)</label><input type="number" id="reward-win-lokoin" value="${(ev.rewards?.win?.lokoin) || 10}"></div>
+              </div>
             </div>
-            <div class="row">
-              <div><label>За победу (баллы)</label><input type="number" id="reward-win" value="${(ev.rewards?.win?.points) || 50}"></div>
-              <div><label>За победу (локоины)</label><input type="number" id="reward-win-lokoin" value="${(ev.rewards?.win?.lokoin) || 10}"></div>
-            </div>
+            ` : ''}
             <button class="btn" id="save-event-btn">Сохранить</button>
             <p id="event-form-message" class="auth-message"></p>
           </div>
         `;
 
-        // Обработчик смены типа ивента (перерисовываем форму)
+        // Обработчик смены типа ивента
         document.getElementById('event-type').addEventListener('change', function() {
           const newType = this.value;
           const currentId = document.getElementById('event-id').value.trim();
@@ -553,10 +556,10 @@
           const currentUrl = document.getElementById('event-url').value.trim();
           const currentStart = document.getElementById('event-start').value;
           const currentEnd = document.getElementById('event-end').value;
-          const currentPartPoints = document.getElementById('reward-participation').value;
-          const currentPartLokoin = document.getElementById('reward-participation-lokoin').value;
-          const currentWinPoints = document.getElementById('reward-win').value;
-          const currentWinLokoin = document.getElementById('reward-win-lokoin').value;
+          const currentPartPoints = document.getElementById('reward-participation')?.value || 10;
+          const currentPartLokoin = document.getElementById('reward-participation-lokoin')?.value || 2;
+          const currentWinPoints = document.getElementById('reward-win')?.value || 50;
+          const currentWinLokoin = document.getElementById('reward-win-lokoin')?.value || 10;
 
           const updated = {
             id: isEdit ? ev.id : currentId,
@@ -581,7 +584,7 @@
           }
         });
 
-        // Обработчик для показа/скрытия параметров в зависимости от типа задания (бинго)
+        // Бинго
         if (eventType === 'bingo') {
           const taskTypeSelect = document.getElementById('new-task-type');
           const paramsContainer = document.getElementById('task-params-container');
@@ -611,9 +614,8 @@
           }
 
           taskTypeSelect.addEventListener('change', updateTaskParams);
-          updateTaskParams(); // начальная установка
+          updateTaskParams();
 
-          // Загружаем список заданий
           const tasksListContainer = document.getElementById('bingo-tasks-list');
           const currentEventId = isEdit ? ev.id : document.getElementById('event-id').value.trim();
 
@@ -655,7 +657,6 @@
 
           renderBingoTasks();
 
-          // Добавление нового задания
           document.getElementById('add-bingo-task-btn').addEventListener('click', async () => {
             const eid = document.getElementById('event-id').value.trim();
             if (!eid) {
@@ -694,7 +695,6 @@
             }
           });
 
-          // Импорт CSV для бинго
           document.getElementById('import-bingo-csv-btn').addEventListener('click', async () => {
             const eid = document.getElementById('event-id').value.trim();
             if (!eid) {
@@ -787,13 +787,17 @@
             startTime: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('event-start').value)),
             endTime: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('event-end').value)),
             settings,
-            rewards: {
-              participation: { points: parseInt(document.getElementById('reward-participation').value) || 0, lokoin: parseInt(document.getElementById('reward-participation-lokoin').value) || 0 },
-              win: { points: parseInt(document.getElementById('reward-win').value) || 0, lokoin: parseInt(document.getElementById('reward-win-lokoin').value) || 0 }
-            },
             status: isEdit ? ev.status : 'draft',
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           };
+
+          // Стандартные награды только если они видны
+          if (!['bingo', 'quiz'].includes(type)) {
+            data.rewards = {
+              participation: { points: parseInt(document.getElementById('reward-participation').value) || 0, lokoin: parseInt(document.getElementById('reward-participation-lokoin').value) || 0 },
+              win: { points: parseInt(document.getElementById('reward-win').value) || 0, lokoin: parseInt(document.getElementById('reward-win-lokoin').value) || 0 }
+            };
+          }
 
           try {
             if (!isEdit) {
