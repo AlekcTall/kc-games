@@ -195,12 +195,20 @@
             }
         });
 
-        const canvas = document.getElementById('gameCanvas'),
-            ctx = canvas.getContext('2d'),
-            scoreEl = document.getElementById('score'),
-            msgEl = document.getElementById('message');
-        const GRID = 20, CELL = canvas.width / GRID;
+        // === ИНИЦИАЛИЗАЦИЯ CANVAS С УЧЁТОМ DPR ===
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const LOGICAL_SIZE = 500;
+        const CELL = LOGICAL_SIZE / 20; // 20 клеток, логическая клетка 25px
+        const GRID = 20;
         const STEP_INTERVAL = 130;
+
+        canvas.width = LOGICAL_SIZE * dpr;
+        canvas.height = LOGICAL_SIZE * dpr;
+        canvas.style.width = LOGICAL_SIZE + 'px';
+        canvas.style.height = LOGICAL_SIZE + 'px';
+        ctx.scale(dpr, dpr);
 
         let snakeCells = [];
         let prevSnakeCells = [];
@@ -215,6 +223,9 @@
         let applePulsePhase = 0;
 
         let bgCanvas = null;
+
+        const scoreEl = document.getElementById('score');
+        const msgEl = document.getElementById('message');
 
         auth.onAuthStateChanged(user => {
             if (user) { loadBestAndTop(); } else { updateTopVisibility(); }
@@ -269,24 +280,25 @@
         function createBackground() {
             if (!bgCanvas) {
                 bgCanvas = document.createElement('canvas');
-                bgCanvas.width = canvas.width;
-                bgCanvas.height = canvas.height;
+                bgCanvas.width = LOGICAL_SIZE * dpr;
+                bgCanvas.height = LOGICAL_SIZE * dpr;
             }
             const bgCtx = bgCanvas.getContext('2d');
+            bgCtx.scale(dpr, dpr);
             const gradient = bgCtx.createRadialGradient(
-                bgCanvas.width/2, bgCanvas.height/2, CELL*2,
-                bgCanvas.width/2, bgCanvas.height/2, bgCanvas.width*0.8
+                LOGICAL_SIZE / 2, LOGICAL_SIZE / 2, CELL * 2,
+                LOGICAL_SIZE / 2, LOGICAL_SIZE / 2, LOGICAL_SIZE * 0.8
             );
             gradient.addColorStop(0, '#fdfdfd');
             gradient.addColorStop(1, '#e8e8e8');
             bgCtx.fillStyle = gradient;
-            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgCtx.fillRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
             bgCtx.strokeStyle = '#dcdcdc';
             bgCtx.lineWidth = 0.5;
             for (let i = 0; i <= GRID; i++) {
                 bgCtx.beginPath();
-                bgCtx.moveTo(i*CELL, 0); bgCtx.lineTo(i*CELL, bgCanvas.height);
-                bgCtx.moveTo(0, i*CELL); bgCtx.lineTo(bgCanvas.width, i*CELL);
+                bgCtx.moveTo(i * CELL, 0); bgCtx.lineTo(i * CELL, LOGICAL_SIZE);
+                bgCtx.moveTo(0, i * CELL); bgCtx.lineTo(LOGICAL_SIZE, i * CELL);
                 bgCtx.stroke();
             }
         }
@@ -318,22 +330,20 @@
         }
 
         function drawFood(deltaTime) {
-            applePulsePhase += deltaTime * 0.005; // привязка ко времени, а не к FPS
+            applePulsePhase += deltaTime * 0.002; // медленная пульсация ~3 секунды
             const scale = 1 + Math.sin(applePulsePhase) * 0.06;
-            const cx = foodCell.col * CELL + CELL / 2;
-            const cy = foodCell.row * CELL + CELL / 2;
-            // Тень яблока
+            const cx = Math.round(foodCell.col * CELL + CELL / 2);
+            const cy = Math.round(foodCell.row * CELL + CELL / 2);
             ctx.save();
             ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
             ctx.beginPath();
-            ctx.arc(cx, cy, CELL * 0.5, 0, Math.PI * 2);
+            ctx.arc(cx, cy, Math.round(CELL * 0.5), 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-            // Само яблоко
             ctx.save();
             ctx.translate(cx, cy);
             ctx.scale(scale, scale);
-            ctx.font = `${CELL * 0.8}px serif`;
+            ctx.font = `${Math.round(CELL * 0.8)}px serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('🍎', 0, 0);
@@ -341,27 +351,27 @@
         }
 
         function drawSnake(progress) {
-            // Линейная интерполяция (без easing) для максимальной плавности
             const t = progress;
             for (let i = 0; i < snakeCells.length; i++) {
-                let fromCell, toCell;
+                let fromCell;
                 if (i < prevSnakeCells.length) {
                     fromCell = prevSnakeCells[i];
                 } else {
+                    // Новый сегмент: плавно появляется из позиции хвоста предыдущего состояния
                     fromCell = prevSnakeCells[prevSnakeCells.length - 1] || snakeCells[i];
                 }
-                toCell = snakeCells[i];
-                const x = (fromCell.col + (toCell.col - fromCell.col) * t) * CELL + CELL / 2;
-                const y = (fromCell.row + (toCell.row - fromCell.row) * t) * CELL + CELL / 2;
-                const r = CELL * 0.45;
-                // Тень сегмента
+                const toCell = snakeCells[i];
+                const x = Math.round((fromCell.col + (toCell.col - fromCell.col) * t) * CELL + CELL / 2);
+                const y = Math.round((fromCell.row + (toCell.row - fromCell.row) * t) * CELL + CELL / 2);
+                const r = Math.round(CELL * 0.45);
+
                 ctx.save();
                 ctx.fillStyle = 'rgba(0,0,0,0.1)';
                 ctx.beginPath();
                 ctx.arc(x, y, r, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
-                // Сегмент с градиентом
+
                 const gradient = ctx.createLinearGradient(x - CELL / 2, y - CELL / 2, x + CELL / 2, y + CELL / 2);
                 if (i === 0) {
                     gradient.addColorStop(0, '#2ecc71');
@@ -373,16 +383,17 @@
                 ctx.fillStyle = gradient;
                 roundRect(x - CELL / 2 + 2, y - CELL / 2 + 2, CELL - 4, CELL - 4, r);
                 ctx.fill();
+
                 if (i === 0) {
-                    const eyeX = x + dirX * CELL / 4;
-                    const eyeY = y + dirY * CELL / 4;
+                    const eyeX = Math.round(x + dirX * CELL / 4);
+                    const eyeY = Math.round(y + dirY * CELL / 4);
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
-                    ctx.arc(eyeX, eyeY, CELL * 0.13, 0, Math.PI * 2);
+                    ctx.arc(eyeX, eyeY, Math.round(CELL * 0.13), 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = 'black';
                     ctx.beginPath();
-                    ctx.arc(eyeX + dirX * 2, eyeY + dirY * 2, CELL * 0.06, 0, Math.PI * 2);
+                    ctx.arc(eyeX + Math.round(dirX * 2), eyeY + Math.round(dirY * 2), Math.round(CELL * 0.06), 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
@@ -390,15 +401,16 @@
 
         function drawParticles() {
             for (const p of particles) {
+                const x = Math.round(p.col * CELL + CELL / 2);
+                const y = Math.round(p.row * CELL + CELL / 2);
                 ctx.beginPath();
-                ctx.arc(p.col * CELL + CELL / 2, p.row * CELL + CELL / 2, CELL * 0.5 * (1 - p.life), 0, Math.PI * 2);
+                ctx.arc(x, y, Math.round(CELL * 0.5 * (1 - p.life)), 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(255,100,100,${p.life * 0.5})`;
                 ctx.fill();
             }
         }
 
         function roundRect(x, y, w, h, r) {
-            // ВАЖНЕЙШЕЕ ИСПРАВЛЕНИЕ: радиус не должен превышать половину ширины/высоты
             r = Math.min(r, w / 2, h / 2);
             ctx.beginPath();
             ctx.moveTo(x + r, y);
@@ -413,12 +425,10 @@
             ctx.closePath();
         }
 
-        function spawnParticle(col, row) {
-            particles.push({ col, row, life: 1.0 });
-        }
+        function spawnParticle(col, row) { particles.push({ col, row, life: 1.0 }); }
 
         function updateParticles(deltaTime) {
-            const decay = deltaTime / 1000 * 2; // время-зависимое затухание
+            const decay = deltaTime / 1000 * 2;
             for (const p of particles) p.life -= decay;
             particles = particles.filter(p => p.life > 0);
         }
@@ -444,17 +454,9 @@
 
         function endGame() {
             gameRunning = false;
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-                animationFrameId = null;
-            }
-            if (score > bestScore) {
-                bestScore = score;
-                msgEl.textContent = 'Новый рекорд! ';
-            }
-            let reason = '';
-            if (isSelf) reason = 'Вы съели себя!';
-            else if (isWall) reason = 'Вы врезались в стену!';
+            if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+            if (score > bestScore) { bestScore = score; msgEl.textContent = 'Новый рекорд! '; }
+            let reason = ''; if (isSelf) reason = 'Вы съели себя!'; else if (isWall) reason = 'Вы врезались в стену!';
             showGameOverOverlay(score, reason);
             if (auth.currentUser) {
                 syncGameStats('snake', { maxScore: score, selfEaten: isSelf, wallCrash: isWall })
@@ -465,10 +467,8 @@
         function showGameOverOverlay(finalScore, reason) {
             const wrapper = document.querySelector('#gameContainer div[style*="position: relative"]');
             if (!wrapper) return;
-            const old = wrapper.querySelector('.game-over-overlay');
-            if (old) old.remove();
-            const overlay = document.createElement('div');
-            overlay.className = 'game-over-overlay';
+            const old = wrapper.querySelector('.game-over-overlay'); if (old) old.remove();
+            const overlay = document.createElement('div'); overlay.className = 'game-over-overlay';
             overlay.innerHTML = `
                 <div class="game-over-text">Игра окончена</div>
                 <div class="game-over-reason">${reason}</div>
@@ -476,47 +476,31 @@
                 <button class="btn" id="restartFromOverlay">Играть снова</button>`;
             wrapper.appendChild(overlay);
             document.getElementById('restartFromOverlay').addEventListener('click', () => {
-                overlay.remove();
-                initGame();
-                animationFrameId = requestAnimationFrame(gameLoop);
+                overlay.remove(); initGame(); animationFrameId = requestAnimationFrame(gameLoop);
             });
         }
 
         function stepSnake() {
             prevSnakeCells = snakeCells.map(c => ({ ...c }));
             if (!(nextDirX === -dirX && nextDirY === -dirY)) {
-                dirX = nextDirX;
-                dirY = nextDirY;
+                dirX = nextDirX; dirY = nextDirY;
             }
-
             const head = snakeCells[0];
             const newHead = { col: head.col + dirX, row: head.row + dirY };
-
             if (newHead.col < 0 || newHead.col >= GRID || newHead.row < 0 || newHead.row >= GRID) {
-                isWall = true;
-                endGame();
-                return;
+                isWall = true; endGame(); return;
             }
-
             const bodyWithoutTail = snakeCells.slice(0, -1);
             if (bodyWithoutTail.some(c => c.col === newHead.col && c.row === newHead.row)) {
-                isSelf = true;
-                endGame();
-                return;
+                isSelf = true; endGame(); return;
             }
-
             snakeCells.unshift(newHead);
-
             if (newHead.col === foodCell.col && newHead.row === foodCell.row) {
-                score++;
-                if (score > maxScore) maxScore = score;
+                score++; if (score > maxScore) maxScore = score;
                 scoreEl.textContent = score;
                 spawnParticle(foodCell.col, foodCell.row);
                 foodCell = randomFood();
-                if (score % 5 === 0) {
-                    awardedLevel++;
-                    award();
-                }
+                if (score % 5 === 0) { awardedLevel++; award(); }
             } else {
                 snakeCells.pop();
             }
@@ -524,25 +508,19 @@
 
         function gameLoop(timestamp) {
             if (!gameRunning) return;
-
             if (!lastStepTime) lastStepTime = timestamp;
             let elapsed = timestamp - lastStepTime;
-
-            // Защита от больших скачков (потеря фокуса)
             if (elapsed > 500) elapsed = STEP_INTERVAL;
-
             if (elapsed >= STEP_INTERVAL) {
                 stepSnake();
                 lastStepTime = timestamp - (elapsed % STEP_INTERVAL);
             }
-
             const progress = Math.min(1, elapsed / STEP_INTERVAL);
-
-            if (bgCanvas) ctx.drawImage(bgCanvas, 0, 0);
-            drawFood(elapsed);       // передаём deltaTime для время-зависимой анимации
+            ctx.clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+            if (bgCanvas) ctx.drawImage(bgCanvas, 0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+            drawFood(elapsed);
             drawSnake(progress);
             drawParticles();
-
             updateParticles(elapsed);
             animationFrameId = requestAnimationFrame(gameLoop);
         }
@@ -550,10 +528,7 @@
         document.addEventListener('keydown', e => {
             if (e.code === 'Space') {
                 e.preventDefault();
-                if (!gameRunning) {
-                    initGame();
-                    animationFrameId = requestAnimationFrame(gameLoop);
-                }
+                if (!gameRunning) { initGame(); animationFrameId = requestAnimationFrame(gameLoop); }
                 return;
             }
             if (!gameRunning) return;
@@ -565,8 +540,7 @@
                 case 'ArrowRight': ndx = 1; ndy = 0; e.preventDefault(); break;
                 default: return;
             }
-            nextDirX = ndx;
-            nextDirY = ndy;
+            nextDirX = ndx; nextDirY = ndy;
         });
 
         document.querySelectorAll('.mobile-controls button').forEach(b => {
@@ -577,8 +551,7 @@
                 else if (b.classList.contains('down')) { ndx = 0; ndy = 1; }
                 else if (b.classList.contains('left')) { ndx = -1; ndy = 0; }
                 else if (b.classList.contains('right')) { ndx = 1; ndy = 0; }
-                nextDirX = ndx;
-                nextDirY = ndy;
+                nextDirX = ndx; nextDirY = ndy;
             });
         });
     </script>
