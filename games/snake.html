@@ -279,8 +279,10 @@
             CELL = canvas.width / GRID; // 25px
         let snake, dir, food, score, awardedLevel, gameRunning, isSelf, isWall,
             maxScore = 0, bestScore = 0, currentUid = null, particles = [];
+        let prevSnake = [];        // состояние до последнего шага
+        let prevLength = 0;       // длина до шага
         let lastStepTime = 0;
-        const STEP_INTERVAL = 90; // Быстрее – плавнее
+        const STEP_INTERVAL = 100; // миллисекунды между шагами
         let animationFrameId = null;
         let applePulsePhase = 0;
 
@@ -353,6 +355,8 @@
             msgEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} яблок` : '';
             particles = [];
             lastStepTime = performance.now();
+            prevSnake = snake.map(s => ({...s}));
+            prevLength = snake.length;
             const overlay = document.querySelector('.game-over-overlay');
             if (overlay) overlay.remove();
         }
@@ -369,7 +373,6 @@
         }
 
         function drawBackground() {
-            // Мягкий радиальный градиент
             const gradient = ctx.createRadialGradient(
                 canvas.width / 2, canvas.height / 2, CELL * 2,
                 canvas.width / 2, canvas.height / 2, canvas.width * 0.8
@@ -378,7 +381,6 @@
             gradient.addColorStop(1, '#e8e8e8');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            // Тонкая сетка
             ctx.strokeStyle = '#dcdcdc';
             ctx.lineWidth = 0.5;
             for (let i = 0; i <= GRID; i++) {
@@ -408,11 +410,27 @@
             ctx.restore();
         }
 
-        function drawSnake() {
+        function drawSnake(progress) {
             for (let i = 0; i < snake.length; i++) {
-                const seg = snake[i];
-                const x = seg.x * CELL;
-                const y = seg.y * CELL;
+                let seg, x, y;
+                if (i === 0 && snake.length > prevLength) {
+                    // Новая голова при поедании: не интерполируем, мгновенно на позиции
+                    seg = snake[0];
+                    x = seg.x * CELL;
+                    y = seg.y * CELL;
+                } else {
+                    // Для остальных сегментов: интерполяция
+                    let fromIdx = i;
+                    if (snake.length > prevLength) {
+                        // Поедание: смещение на один индекс назад
+                        fromIdx = i - 1;
+                    }
+                    const from = prevSnake[fromIdx] || snake[i];
+                    const to = snake[i];
+                    x = (from.x + (to.x - from.x) * progress) * CELL;
+                    y = (from.y + (to.y - from.y) * progress) * CELL;
+                }
+
                 const r = CELL * 0.45;
                 const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
                 if (i === 0) {
@@ -539,6 +557,8 @@
 
         function stepSnake() {
             if (!gameRunning) return;
+            prevSnake = snake.map(s => ({...s}));
+            prevLength = snake.length;
             const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
             if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
                 isWall = true;
@@ -561,6 +581,7 @@
                     awardedLevel++;
                     setTimeout(() => award(), 0);
                 }
+                // Длина увеличилась (prevLength < snake.length) – интерполяция будет со смещением
             } else {
                 snake.pop();
             }
@@ -574,10 +595,12 @@
                 stepSnake();
                 lastStepTime = timestamp - (elapsed % STEP_INTERVAL);
             }
+            // Прогресс интерполяции (0..1)
+            const progress = Math.min(1, elapsed / STEP_INTERVAL);
             updateParticles();
             drawBackground();
             drawFood(timestamp);
-            drawSnake();
+            drawSnake(progress);
             drawParticles();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
