@@ -38,39 +38,41 @@ function generateCard(userId, tasks) {
 
 /**
  * Проверить, соответствует ли действие конкретному заданию
+ * gameCounts - объект счётчиков партий по gameId для текущего игрока
  */
-async function checkBingoTask(taskDef, actionType, actionData, userId) {
+async function checkBingoTask(taskDef, actionType, actionData, userId, gameCounts) {
   switch (taskDef.type) {
     case 'game_sessions':
       // actionType === 'game_played', actionData = { gameId, points }
-      return actionType === 'game_played' && actionData.gameId === taskDef.params.gameId;
-      
+      if (actionType === 'game_played' && actionData.gameId === taskDef.params.gameId) {
+        // Учитываем текущую игру в счётчике
+        const currentCount = (gameCounts[taskDef.params.gameId] || 0) + 1;
+        // Сразу обновляем счётчик в gameCounts (он будет сохранён в Firestore позже)
+        gameCounts[taskDef.params.gameId] = currentCount;
+        return currentCount >= (taskDef.params.count || 1);
+      }
+      return false;
+
     case 'game_points':
-      // actionType === 'game_played', actionData = { gameId, points }
       return actionType === 'game_played' && 
              actionData.gameId === taskDef.params.gameId && 
              actionData.points >= taskDef.params.points;
-      
+
     case 'purchase_any':
-      // actionType === 'purchase', actionData = { itemId, category }
       return actionType === 'purchase';
-      
+
     case 'purchase_category':
-      // actionType === 'purchase', actionData = { itemId, category }
       return actionType === 'purchase' && actionData.category === taskDef.params.category;
-      
+
     case 'daily_login_streak':
-      // actionType === 'daily_login', actionData = { streak }
       return actionType === 'daily_login' && actionData.streak >= taskDef.params.streak;
-      
+
     case 'achievement_any':
-      // actionType === 'achievement', actionData = { achievementId }
       return actionType === 'achievement';
-      
+
     case 'total_points':
-      // actionType === 'points_changed', actionData = { totalPoints }
       return actionType === 'points_changed' && actionData.totalPoints >= taskDef.params.points;
-      
+
     default:
       return false;
   }
@@ -82,75 +84,78 @@ async function checkBingoTask(taskDef, actionType, actionData, userId) {
  */
 async function updateBingoProgress(userId, actionType, actionData) {
   if (!userId || !auth.currentUser) return;
-  
+
   try {
     const events = await getActiveBingoEvents();
     if (!events.length) return;
-    
+
     for (const event of events) {
-      // Получаем данные участника
       const participants = event.participants || {};
       let playerData = participants[userId];
-      
+
       // Если у игрока ещё нет карточки — генерируем
       if (!playerData || !playerData.card || playerData.card.length === 0) {
         const tasksSnap = await db.collection('events').doc(event.id).collection('tasks').get();
         const tasks = [];
         tasksSnap.forEach(doc => tasks.push({ id: doc.id, ...doc.data() }));
-        
+
         if (tasks.length < 25) {
           console.warn(`Недостаточно заданий для бинго ${event.id}`);
           continue;
         }
-        
+
         const card = generateCard(userId, tasks);
         playerData = {
           card,
           progress: {},
+          gameCounts: {}, // счётчики партий для game_sessions
           cardCompleted: false,
           completedLines: 0
         };
       }
-      
+
       // Если карточка уже заполнена — пропускаем
       if (playerData.cardCompleted) continue;
-      
+
+      // Инициализируем счётчики, если их нет
+      const gameCounts = playerData.gameCounts || {};
+
       // Проверяем каждую невыполненную ячейку
       let changed = false;
       const progress = playerData.progress || {};
       const card = playerData.card;
-      
+
       for (const cell of card) {
         if (progress[cell.id]) continue; // уже выполнено
-        
-        // Получаем определение задания из подколлекции tasks
-        // (можно закешировать, но для простоты будем читать каждый раз)
+
         const taskDoc = await db.collection('events').doc(event.id).collection('tasks').doc(cell.id).get();
         if (!taskDoc.exists) continue;
-        
+
         const taskDef = taskDoc.data();
-        const completed = await checkBingoTask(taskDef, actionType, actionData, userId);
-        
+        const completed = await checkBingoTask(taskDef, actionType, actionData, userId, gameCounts);
+
         if (completed) {
           progress[cell.id] = true;
           changed = true;
         }
       }
-      
-      if (!changed) continue;
-      
+
+      // Если ничего не изменилось — не пишем в Firestore
+      if (!changed && gameCounts === playerData.gameCounts) continue;
+
       // Проверяем, заполнена ли вся карточка
       const completedCount = Object.keys(progress).length;
       const totalCells = card.length;
       const cardCompleted = completedCount >= totalCells;
-      
+
       const updateData = {
         [`participants.${userId}.progress`]: progress,
+        [`participants.${userId}.gameCounts`]: gameCounts,
         [`participants.${userId}.cardCompleted`]: cardCompleted
       };
-      
+
       await db.collection('events').doc(event.id).update(updateData);
-      
+
       // Отправляем уведомление о прогрессе
       if (typeof addNotification === 'function') {
         await addNotification(
@@ -160,7 +165,7 @@ async function updateBingoProgress(userId, actionType, actionData) {
           `events/bingo.html?id=${event.id}`
         );
       }
-      
+
       // Если карточка заполнена — выдаём награду
       if (cardCompleted) {
         const rewardLokoin = event.settings?.rewardLokoin || 50;
@@ -168,14 +173,13 @@ async function updateBingoProgress(userId, actionType, actionData) {
           await db.collection('users').doc(userId).update({
             lokoin_balance: firebase.firestore.FieldValue.increment(rewardLokoin)
           });
-          // Обновляем кеш
           const current = getCurrentUser();
           if (current) {
             current.lokoin_balance = (current.lokoin_balance || 0) + rewardLokoin;
             setCurrentUser(current);
           }
         }
-        
+
         if (typeof addNotification === 'function') {
           await addNotification(
             userId,
@@ -184,7 +188,7 @@ async function updateBingoProgress(userId, actionType, actionData) {
             `events/bingo.html?id=${event.id}`
           );
         }
-        
+
         if (typeof showToast === 'function') {
           showToast(`🎉 Бинго! +${rewardLokoin} локоинов`, 'success');
         }
