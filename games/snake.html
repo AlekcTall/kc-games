@@ -28,7 +28,7 @@
             margin: 0 auto 1rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             background: #f5f5f5;
-            will-change: transform; /* аппаратное ускорение */
+            will-change: transform;
         }
         .snake-controls {
             margin-bottom: 1rem;
@@ -212,7 +212,9 @@
         let animationFrameId = null;
         let applePulsePhase = 0;
 
-        // Easing-функция для плавного старта и остановки
+        // Кеширующий canvas для фона
+        let bgCanvas = null;
+
         function easeInOutQuad(t) {
             return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         }
@@ -267,6 +269,32 @@
             } catch (e) { console.error(e); }
         }
 
+        // Генерация фона один раз (или при изменении размеров)
+        function createBackground() {
+            if (!bgCanvas) {
+                bgCanvas = document.createElement('canvas');
+                bgCanvas.width = canvas.width;
+                bgCanvas.height = canvas.height;
+            }
+            const bgCtx = bgCanvas.getContext('2d');
+            const gradient = bgCtx.createRadialGradient(
+                bgCanvas.width/2, bgCanvas.height/2, CELL*2,
+                bgCanvas.width/2, bgCanvas.height/2, bgCanvas.width*0.8
+            );
+            gradient.addColorStop(0, '#fdfdfd');
+            gradient.addColorStop(1, '#e8e8e8');
+            bgCtx.fillStyle = gradient;
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgCtx.strokeStyle = '#dcdcdc';
+            bgCtx.lineWidth = 0.5;
+            for (let i = 0; i <= GRID; i++) {
+                bgCtx.beginPath();
+                bgCtx.moveTo(i*CELL, 0); bgCtx.lineTo(i*CELL, bgCanvas.height);
+                bgCtx.moveTo(0, i*CELL); bgCtx.lineTo(bgCanvas.width, i*CELL);
+                bgCtx.stroke();
+            }
+        }
+
         function initGame() {
             snakeCells = [{ col: 10, row: 10 }];
             prevSnakeCells = [{ col: 10, row: 10 }];
@@ -281,6 +309,7 @@
             lastStepTime = performance.now();
             const overlay = document.querySelector('.game-over-overlay');
             if (overlay) overlay.remove();
+            createBackground(); // создаём фон при старте
         }
 
         function randomFood() {
@@ -292,36 +321,18 @@
             return f;
         }
 
-        function drawBackground() {
-            const gradient = ctx.createRadialGradient(
-                canvas.width/2, canvas.height/2, CELL*2,
-                canvas.width/2, canvas.height/2, canvas.width*0.8
-            );
-            gradient.addColorStop(0, '#fdfdfd');
-            gradient.addColorStop(1, '#e8e8e8');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#dcdcdc'; ctx.lineWidth = 0.5;
-            for (let i = 0; i <= GRID; i++) {
-                ctx.beginPath();
-                ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, canvas.height);
-                ctx.moveTo(0, i*CELL); ctx.lineTo(canvas.width, i*CELL);
-                ctx.stroke();
-            }
-        }
-
         function drawFood(timestamp) {
             applePulsePhase += 0.03;
             const scale = 1 + Math.sin(applePulsePhase)*0.06;
             const cx = foodCell.col*CELL + CELL/2, cy = foodCell.row*CELL + CELL/2;
-            // Тень яблока – дешёвый круг
+            // Тень яблока
             ctx.save();
             ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
             ctx.beginPath();
             ctx.arc(cx, cy, CELL*0.5, 0, Math.PI*2);
             ctx.fill();
             ctx.restore();
-
+            // Само яблоко
             ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
             ctx.font = `${CELL*0.8}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
             ctx.fillText('🍎', 0, 0);
@@ -341,20 +352,20 @@
                 const x = (fromCell.col + (toCell.col - fromCell.col)*eased) * CELL + CELL/2;
                 const y = (fromCell.row + (toCell.row - fromCell.row)*eased) * CELL + CELL/2;
                 const r = CELL*0.45;
-                const gradient = ctx.createLinearGradient(x-CELL/2, y-CELL/2, x+CELL/2, y+CELL/2);
-                if (i === 0) {
-                    gradient.addColorStop(0, '#2ecc71'); gradient.addColorStop(1, '#1abc9c');
-                } else {
-                    gradient.addColorStop(0, '#27ae60'); gradient.addColorStop(1, '#2ecc71');
-                }
-                // Тень сегмента – дешёвый круг
+                // Тень сегмента
                 ctx.save();
                 ctx.fillStyle = 'rgba(0,0,0,0.1)';
                 ctx.beginPath();
                 ctx.arc(x, y, r, 0, Math.PI*2);
                 ctx.fill();
                 ctx.restore();
-
+                // Сегмент с градиентом
+                const gradient = ctx.createLinearGradient(x-CELL/2, y-CELL/2, x+CELL/2, y+CELL/2);
+                if (i === 0) {
+                    gradient.addColorStop(0, '#2ecc71'); gradient.addColorStop(1, '#1abc9c');
+                } else {
+                    gradient.addColorStop(0, '#27ae60'); gradient.addColorStop(1, '#2ecc71');
+                }
                 ctx.fillStyle = gradient;
                 roundRect(x-CELL/2+2, y-CELL/2+2, CELL-4, CELL-4, r);
                 ctx.fill();
@@ -475,11 +486,17 @@
             }
 
             const progress = Math.min(1, elapsed / STEP_INTERVAL);
-            updateParticles();
-            drawBackground();
+
+            // 1. Рисуем фон из кеша (мгновенно, без пересоздания градиента)
+            if (bgCanvas) ctx.drawImage(bgCanvas, 0, 0);
+            // 2. Еда
             drawFood(timestamp);
+            // 3. Змея
             drawSnake(progress);
+            // 4. Частицы
             drawParticles();
+
+            updateParticles();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
