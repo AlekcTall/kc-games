@@ -43,7 +43,6 @@
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
   <script src="js/effects-engine.js"></script>
-  <script src="js/bingo-engine.js"></script>
 
   <script>
     (function() {
@@ -165,7 +164,6 @@
           const stockText = item.stock !== null && item.stock !== undefined ? `Осталось: ${item.stock} шт.` : '';
           const durationText = item.duration > 0 ? `Действует: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
 
-          // Проверяем, активен ли временный эффект, связанный с этим товаром
           let timerHtml = '';
           if (item.effectType && (item.effectType === 'double_xp' || item.effectType === 'fast_cooldown')) {
             const activeEffect = activeEffectsInfo.find(e => e.id === item.effectType);
@@ -206,7 +204,6 @@
 
         const purchasedItems = currentUserDoc?.purchasedItems || getCurrentUser()?.purchasedItems || [];
         const isOwned = item.unique && purchasedItems.includes(item.id);
-        // Проверка активности временного эффекта
         let timerText = '';
         if (item.effectType && (item.effectType === 'double_xp' || item.effectType === 'fast_cooldown')) {
           const activeInfo = typeof getActiveEffectsInfo === 'function' ? getActiveEffectsInfo(currentUserDoc || getCurrentUser()) : [];
@@ -219,7 +216,6 @@
         } else if (item.stock !== null && item.stock !== undefined && item.stock <= 0) {
           itemDetailActions.innerHTML = '<span class="item-detail-owned" style="background:#e74c3c;">Раскуплено</span>';
         } else if (timerText && !item.unique) {
-          // Товар с временным эффектом, эффект уже активен — кнопка покупки неактивна
           itemDetailActions.innerHTML = timerText;
         } else {
           itemDetailActions.innerHTML = `<button class="btn btn-buy" id="btn-buy">Купить за ${item.price} локоин${pluralizeLokoin(item.price)}</button>`;
@@ -337,20 +333,11 @@
             }
           });
 
-          // Пасхалки
           if (typeof checkFirstPurchase === 'function') {
             await checkFirstPurchase();
           }
           if (item.effectType === 'dark_theme' && typeof checkDarkThemePurchase === 'function') {
             await checkDarkThemePurchase();
-          }
-
-          // Проверка прогресса бинго (покупка)
-          if (typeof updateBingoProgress === 'function') {
-            updateBingoProgress(auth.currentUser.uid, 'purchase', { 
-              itemId: item.id, 
-              category: item.category || '' 
-            }).catch(e => console.error(e));
           }
 
           renderShop();
