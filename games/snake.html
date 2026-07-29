@@ -65,41 +65,17 @@
             text-align: center;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
-        .modal h3 {
-            margin-bottom: 1rem;
-            font-size: 1.4rem;
-        }
-        .modal p {
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
+        .modal h3 { margin-bottom: 1rem; font-size: 1.4rem; }
+        .modal p { margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.5; }
         .modal button {
-            margin: 0.3rem;
-            padding: 0.5rem 1.2rem;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.2s;
+            margin: 0.3rem; padding: 0.5rem 1.2rem; border: none;
+            border-radius: 6px; cursor: pointer; font-size: 1rem; transition: background 0.2s;
         }
-        .btn-play {
-            background: #27ae60;
-            color: white;
-        }
-        .btn-play:hover {
-            background: #219a52;
-        }
-        .btn-back {
-            background: #ccc;
-        }
-        .btn-back:hover {
-            background: #b3b3b3;
-        }
-        .mobile-controls {
-            display: none;
-            margin-top: 1rem;
-        }
+        .btn-play { background: #27ae60; color: white; }
+        .btn-play:hover { background: #219a52; }
+        .btn-back { background: #ccc; }
+        .btn-back:hover { background: #b3b3b3; }
+        .mobile-controls { display: none; margin-top: 1rem; }
         @media (max-width: 600px) {
             .mobile-controls {
                 display: grid;
@@ -111,84 +87,32 @@
                 justify-content: center;
             }
             .mobile-controls button {
-                width: 50px;
-                height: 50px;
-                font-size: 1.5rem;
-                background: #eee;
-                border: 1px solid #ccc;
-                border-radius: 8px;
+                width: 50px; height: 50px; font-size: 1.5rem;
+                background: #eee; border: 1px solid #ccc; border-radius: 8px;
             }
-            .up { grid-area: up; }
-            .down { grid-area: down; }
-            .left { grid-area: left; }
-            .right { grid-area: right; }
+            .up { grid-area: up; } .down { grid-area: down; } .left { grid-area: left; } .right { grid-area: right; }
         }
-        .leaderboard-snake {
-            margin-top: 1.5rem;
-            text-align: left;
-        }
-        .leaderboard-snake h3 {
-            text-align: center;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-        .leaderboard-snake table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        .leaderboard-snake th,
-        .leaderboard-snake td {
-            padding: 0.4rem 0.5rem;
-            border-bottom: 1px solid #eee;
-        }
-        .leaderboard-snake th {
-            background: #f5f5f5;
-            font-weight: 600;
-        }
-        .leaderboard-snake .me {
-            background: #e6f7ff;
-            font-weight: 600;
-        }
+        .leaderboard-snake { margin-top: 1.5rem; text-align: left; }
+        .leaderboard-snake h3 { text-align: center; margin-bottom: 0.5rem; font-size: 1.1rem; }
+        .leaderboard-snake table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .leaderboard-snake th, .leaderboard-snake td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; }
+        .leaderboard-snake th { background: #f5f5f5; font-weight: 600; }
+        .leaderboard-snake .me { background: #e6f7ff; font-weight: 600; }
         .game-over-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            animation: fadeIn 0.4s ease;
-            z-index: 10;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; border-radius: 8px;
+            animation: fadeIn 0.4s ease; z-index: 10;
         }
         .game-over-overlay .game-over-text {
-            color: white;
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
+            color: white; font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
-        .game-over-overlay .game-over-reason {
-            color: #ddd;
-            font-size: 1rem;
-            margin-bottom: 1rem;
-        }
-        .game-over-overlay .game-over-score {
-            color: #f1c40f;
-            font-size: 1.2rem;
-            margin-bottom: 1.5rem;
-        }
+        .game-over-overlay .game-over-reason { color: #ddd; font-size: 1rem; margin-bottom: 1rem; }
+        .game-over-overlay .game-over-score { color: #f1c40f; font-size: 1.2rem; margin-bottom: 1.5rem; }
         .game-over-overlay .btn {
-            background: white;
-            color: #333;
-            font-weight: 600;
-            padding: 0.6rem 2rem;
-            border-radius: 20px;
-            cursor: pointer;
+            background: white; color: #333; font-weight: 600; padding: 0.6rem 2rem;
+            border-radius: 20px; cursor: pointer;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -218,10 +142,8 @@
             <canvas id="gameCanvas" width="500" height="500"></canvas>
         </div>
         <div class="mobile-controls">
-            <button class="up">▲</button>
-            <button class="left">◀</button>
-            <button class="right">▶</button>
-            <button class="down">▼</button>
+            <button class="up">▲</button><button class="left">◀</button>
+            <button class="right">▶</button><button class="down">▼</button>
         </div>
         <div class="snake-controls">Управление: стрелки ←↑↓→</div>
         <p class="snake-message" id="message"></p>
@@ -274,27 +196,23 @@
             ctx = canvas.getContext('2d'),
             scoreEl = document.getElementById('score'),
             msgEl = document.getElementById('message');
-        const GRID = 20,
-            CELL = canvas.width / GRID; // 25px
-        const SPEED = 120; // пикселей в секунду
-        const MIN_DIST = CELL * 0.7;
+        const GRID = 20, CELL = canvas.width / GRID; // 25px
+        const STEP_INTERVAL = 130; // мс между шагами
 
-        let headX, headY;
-        let dirX = 1, dirY = 0;
-        let snakePath = [];
-        let tailLength = 0;
-        let food, score, awardedLevel, gameRunning, isSelf, isWall,
-            maxScore = 0, bestScore = 0, currentUid = null, particles = [];
-        let lastTime = 0;
+        let snakeCells = [];          // текущие клетки змеи [{col, row}]
+        let prevSnakeCells = [];     // предыдущие клетки (для интерполяции)
+        let dirX = 1, dirY = 0;      // текущее направление
+        let nextDirX = 1, nextDirY = 0; // желаемое направление (устанавливается клавишами)
+        let foodCell = null;         // {col, row}
+        let score = 0, awardedLevel = 0, gameRunning = false, isSelf = false, isWall = false;
+        let maxScore = 0, bestScore = 0, currentUid = null;
+        let particles = [];
+        let lastStepTime = 0;
         let animationFrameId = null;
         let applePulsePhase = 0;
 
         auth.onAuthStateChanged(user => {
-            if (user) {
-                loadBestAndTop();
-            } else {
-                updateTopVisibility();
-            }
+            if (user) { loadBestAndTop(); } else { updateTopVisibility(); }
         });
 
         async function loadBestAndTop() {
@@ -307,13 +225,11 @@
                     if (d.exists && d.data().gameStats?.snake?.maxScore) bestScore = d.data().gameStats.snake.maxScore;
                 } catch (e) {}
             }
-            updateTopVisibility();
-            updateTop();
+            updateTopVisibility(); updateTop();
         }
 
         function updateTopVisibility() {
-            const table = document.getElementById('top-table');
-            const warning = document.getElementById('auth-warning');
+            const table = document.getElementById('top-table'), warning = document.getElementById('auth-warning');
             if (!auth.currentUser) {
                 if (table) table.style.display = 'none';
                 if (warning) warning.style.display = 'block';
@@ -328,8 +244,7 @@
             if (!tbody) return;
             if (!auth.currentUser) return;
             try {
-                const snap = await db.collection('users').get(),
-                    players = [];
+                const snap = await db.collection('users').get(), players = [];
                 snap.forEach(doc => {
                     const d = doc.data();
                     if (d.role === 'admin') return;
@@ -347,163 +262,108 @@
         }
 
         function initGame() {
-            headX = 10 * CELL + CELL / 2;
-            headY = 10 * CELL + CELL / 2;
+            snakeCells = [{ col: 10, row: 10 }];
+            prevSnakeCells = [{ col: 10, row: 10 }];
             dirX = 1; dirY = 0;
-            snakePath = [{ x: headX, y: headY }];
-            tailLength = 0;
-            food = randomFood();
-            score = 0;
-            awardedLevel = 0;
-            gameRunning = true;
-            isSelf = isWall = false;
+            nextDirX = 1; nextDirY = 0;
+            foodCell = randomFood();
+            score = 0; awardedLevel = 0;
+            gameRunning = true; isSelf = false; isWall = false;
             scoreEl.textContent = '0';
             msgEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} яблок` : '';
             particles = [];
-            lastTime = performance.now();
+            lastStepTime = performance.now();
             const overlay = document.querySelector('.game-over-overlay');
             if (overlay) overlay.remove();
         }
 
         function randomFood() {
-            const occupied = new Set(snakePath.map(p => `${Math.floor(p.x / CELL)},${Math.floor(p.y / CELL)}`));
-            occupied.add(`${Math.floor(headX / CELL)},${Math.floor(headY / CELL)}`);
+            const occupied = new Set(snakeCells.map(c => `${c.col},${c.row}`));
             let f;
             do {
-                f = {
-                    x: Math.floor(Math.random() * GRID),
-                    y: Math.floor(Math.random() * GRID)
-                };
-            } while (occupied.has(`${f.x},${f.y}`));
+                f = { col: Math.floor(Math.random() * GRID), row: Math.floor(Math.random() * GRID) };
+            } while (occupied.has(`${f.col},${f.row}`));
             return f;
         }
 
         function drawBackground() {
             const gradient = ctx.createRadialGradient(
-                canvas.width / 2, canvas.height / 2, CELL * 2,
-                canvas.width / 2, canvas.height / 2, canvas.width * 0.8
+                canvas.width/2, canvas.height/2, CELL*2,
+                canvas.width/2, canvas.height/2, canvas.width*0.8
             );
             gradient.addColorStop(0, '#fdfdfd');
             gradient.addColorStop(1, '#e8e8e8');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#dcdcdc';
-            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = '#dcdcdc'; ctx.lineWidth = 0.5;
             for (let i = 0; i <= GRID; i++) {
                 ctx.beginPath();
-                ctx.moveTo(i * CELL, 0);
-                ctx.lineTo(i * CELL, canvas.height);
-                ctx.moveTo(0, i * CELL);
-                ctx.lineTo(canvas.width, i * CELL);
+                ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, canvas.height);
+                ctx.moveTo(0, i*CELL); ctx.lineTo(canvas.width, i*CELL);
                 ctx.stroke();
             }
         }
 
         function drawFood(timestamp) {
             applePulsePhase += 0.03;
-            const scale = 1 + Math.sin(applePulsePhase) * 0.06;
-            const cx = food.x * CELL + CELL / 2;
-            const cy = food.y * CELL + CELL / 2;
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.scale(scale, scale);
-            ctx.font = `${CELL * 0.8}px serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(255, 0, 0, 0.3)';
-            ctx.shadowBlur = 8;
+            const scale = 1 + Math.sin(applePulsePhase)*0.06;
+            const cx = foodCell.col*CELL + CELL/2, cy = foodCell.row*CELL + CELL/2;
+            ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
+            ctx.font = `${CELL*0.8}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.shadowColor='rgba(255,0,0,0.3)'; ctx.shadowBlur=8;
             ctx.fillText('🍎', 0, 0);
             ctx.restore();
         }
 
-        function drawSnake() {
-            // Голова
-            drawSegment(headX, headY, true);
-            // Тело (ровно tailLength сегментов)
-            if (tailLength > 0 && snakePath.length > 1) {
-                for (let i = 0; i < tailLength; i++) {
-                    let targetDist = CELL * (i + 1);
-                    let remaining = targetDist;
-                    let px = headX, py = headY;
-                    for (let j = 1; j < snakePath.length; j++) {
-                        const a = snakePath[j - 1];
-                        const b = snakePath[j];
-                        const dx = b.x - a.x;
-                        const dy = b.y - a.y;
-                        const len = Math.sqrt(dx * dx + dy * dy);
-                        if (remaining <= len) {
-                            const t = remaining / len;
-                            px = a.x + dx * t;
-                            py = a.y + dy * t;
-                            break;
-                        }
-                        remaining -= len;
-                        px = b.x;
-                        py = b.y;
-                    }
-                    drawSegment(px, py, false);
+        function drawSnake(progress) {
+            for (let i = 0; i < snakeCells.length; i++) {
+                let fromCell, toCell;
+                // Если prevSnakeCells короче (после поедания), новый сегмент вытягивается из последней позиции prev
+                if (i < prevSnakeCells.length) {
+                    fromCell = prevSnakeCells[i];
+                } else {
+                    // Новый сегмент — начинаем из хвоста предыдущего состояния
+                    fromCell = prevSnakeCells[prevSnakeCells.length-1] || snakeCells[i];
                 }
-            }
-        }
-
-        function drawSegment(x, y, isHead) {
-            const r = CELL * 0.45;
-            const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
-            if (isHead) {
-                gradient.addColorStop(0, '#2ecc71');
-                gradient.addColorStop(1, '#1abc9c');
-            } else {
-                gradient.addColorStop(0, '#27ae60');
-                gradient.addColorStop(1, '#2ecc71');
-            }
-            ctx.fillStyle = gradient;
-            ctx.shadowColor = 'rgba(0,0,0,0.15)';
-            ctx.shadowBlur = 4;
-            roundRect(x - CELL/2 + 2, y - CELL/2 + 2, CELL - 4, CELL - 4, r);
-            ctx.fill();
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-            if (isHead) {
-                const eyeX = x + dirX * CELL / 4;
-                const eyeY = y + dirY * CELL / 4;
-                ctx.fillStyle = 'white';
-                ctx.beginPath();
-                ctx.arc(eyeX, eyeY, CELL * 0.13, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = 'black';
-                ctx.beginPath();
-                ctx.arc(eyeX + dirX * 2, eyeY + dirY * 2, CELL * 0.06, 0, Math.PI * 2);
-                ctx.fill();
+                toCell = snakeCells[i];
+                const x = (fromCell.col + (toCell.col - fromCell.col)*progress) * CELL + CELL/2;
+                const y = (fromCell.row + (toCell.row - fromCell.row)*progress) * CELL + CELL/2;
+                const r = CELL*0.45;
+                const gradient = ctx.createLinearGradient(x-CELL/2, y-CELL/2, x+CELL/2, y+CELL/2);
+                if (i === 0) {
+                    gradient.addColorStop(0, '#2ecc71'); gradient.addColorStop(1, '#1abc9c');
+                } else {
+                    gradient.addColorStop(0, '#27ae60'); gradient.addColorStop(1, '#2ecc71');
+                }
+                ctx.fillStyle = gradient;
+                ctx.shadowColor='rgba(0,0,0,0.15)'; ctx.shadowBlur=4;
+                roundRect(x-CELL/2+2, y-CELL/2+2, CELL-4, CELL-4, r);
+                ctx.fill(); ctx.shadowColor='transparent'; ctx.shadowBlur=0;
+                if (i === 0) {
+                    const eyeX = x + dirX*CELL/4, eyeY = y + dirY*CELL/4;
+                    ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(eyeX, eyeY, CELL*0.13, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle='black'; ctx.beginPath(); ctx.arc(eyeX+dirX*2, eyeY+dirY*2, CELL*0.06, 0, Math.PI*2); ctx.fill();
+                }
             }
         }
 
         function drawParticles() {
             for (const p of particles) {
                 ctx.beginPath();
-                ctx.arc(p.x * CELL + CELL / 2, p.y * CELL + CELL / 2, CELL * 0.5 * (1 - p.life), 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 100, 100, ${p.life * 0.5})`;
-                ctx.fill();
+                ctx.arc(p.col*CELL+CELL/2, p.row*CELL+CELL/2, CELL*0.5*(1-p.life), 0, Math.PI*2);
+                ctx.fillStyle = `rgba(255,100,100,${p.life*0.5})`; ctx.fill();
             }
         }
 
-        function roundRect(x, y, w, h, r) {
-            ctx.beginPath();
-            ctx.moveTo(x + r, y);
-            ctx.lineTo(x + w - r, y);
-            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-            ctx.lineTo(x + w, y + h - r);
-            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-            ctx.lineTo(x + r, y + h);
-            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-            ctx.lineTo(x, y + r);
-            ctx.quadraticCurveTo(x, y, x + r, y);
-            ctx.closePath();
+        function roundRect(x,y,w,h,r) {
+            ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+            ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+            ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+            ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+            ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
         }
 
-        function spawnParticle(x, y) {
-            particles.push({ x, y, life: 1.0 });
-        }
-
+        function spawnParticle(col, row) { particles.push({ col, row, life:1.0 }); }
         function updateParticles() {
             for (const p of particles) p.life -= 0.04;
             particles = particles.filter(p => p.life > 0);
@@ -515,15 +375,12 @@
                 try {
                     const result = await addPointsToCurrentUser(1, 'snake');
                     if (result && result.success) {
-                        const earned = result.points;
-                        const hasDouble = earned > 1;
+                        const earned = result.points, hasDouble = earned > 1;
                         const msg = `+${earned} балл(ов)${hasDouble ? ' (x2 бонус)' : ''}! Личный рекорд: ${Math.max(score, bestScore)} яблок`;
                         msgEl.textContent = msg;
                         showToast(`+${earned} балл(ов) за змейку!${hasDouble ? ' (x2 бонус)' : ''}`, 'success');
                         await syncGameStats('snake', { maxScore: Math.max(score, bestScore) });
-                        checkAndAwardAchievements();
-                        if (score > bestScore) bestScore = score;
-                        updateTop();
+                        checkAndAwardAchievements(); if (score > bestScore) bestScore = score; updateTop();
                     }
                 } catch (e) { console.error(e); }
             }
@@ -531,17 +388,9 @@
 
         function endGame() {
             gameRunning = false;
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-                animationFrameId = null;
-            }
-            if (score > bestScore) {
-                bestScore = score;
-                msgEl.textContent = 'Новый рекорд! ';
-            }
-            let reason = '';
-            if (isSelf) reason = 'Вы съели себя!';
-            else if (isWall) reason = 'Вы врезались в стену!';
+            if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+            if (score > bestScore) { bestScore = score; msgEl.textContent = 'Новый рекорд! '; }
+            let reason = ''; if (isSelf) reason = 'Вы съели себя!'; else if (isWall) reason = 'Вы врезались в стену!';
             showGameOverOverlay(score, reason);
             if (auth.currentUser) {
                 syncGameStats('snake', { maxScore: score, selfEaten: isSelf, wallCrash: isWall })
@@ -552,96 +401,73 @@
         function showGameOverOverlay(finalScore, reason) {
             const wrapper = document.querySelector('#gameContainer div[style*="position: relative"]');
             if (!wrapper) return;
-            const old = wrapper.querySelector('.game-over-overlay');
-            if (old) old.remove();
-            const overlay = document.createElement('div');
-            overlay.className = 'game-over-overlay';
+            const old = wrapper.querySelector('.game-over-overlay'); if (old) old.remove();
+            const overlay = document.createElement('div'); overlay.className = 'game-over-overlay';
             overlay.innerHTML = `
                 <div class="game-over-text">Игра окончена</div>
                 <div class="game-over-reason">${reason}</div>
                 <div class="game-over-score">Ваш счёт: ${finalScore} яблок</div>
-                <button class="btn" id="restartFromOverlay">Играть снова</button>
-            `;
+                <button class="btn" id="restartFromOverlay">Играть снова</button>`;
             wrapper.appendChild(overlay);
             document.getElementById('restartFromOverlay').addEventListener('click', () => {
-                overlay.remove();
-                initGame();
-                animationFrameId = requestAnimationFrame(gameLoop);
+                overlay.remove(); initGame(); animationFrameId = requestAnimationFrame(gameLoop);
             });
         }
 
-        // Проверка столкновения ТОЛЬКО с реальными сегментами тела (tailLength штук)
-        function checkCollision(px, py) {
-            if (tailLength === 0) return false;
-            // Берём последние tailLength точек из snakePath, исключая голову (индекс 0)
-            const bodyPoints = snakePath.slice(1, tailLength + 1);
-            for (const p of bodyPoints) {
-                const dx = px - p.x;
-                const dy = py - p.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < MIN_DIST) return true;
+        function stepSnake() {
+            // Сохраняем предыдущее состояние для интерполяции
+            prevSnakeCells = snakeCells.map(c => ({...c}));
+
+            // Применяем запланированное направление, если оно не противоположное
+            if (!(nextDirX === -dirX && nextDirY === -dirY)) {
+                dirX = nextDirX; dirY = nextDirY;
             }
-            return false;
+
+            const head = snakeCells[0];
+            const newHead = { col: head.col + dirX, row: head.row + dirY };
+
+            // Проверка стены
+            if (newHead.col < 0 || newHead.col >= GRID || newHead.row < 0 || newHead.row >= GRID) {
+                isWall = true; endGame(); return;
+            }
+
+            // Проверка столкновения с телом (все клетки, кроме хвоста, который сейчас исчезнет)
+            const bodyWithoutTail = snakeCells.slice(0, -1);
+            if (bodyWithoutTail.some(c => c.col === newHead.col && c.row === newHead.row)) {
+                isSelf = true; endGame(); return;
+            }
+
+            // Двигаем змею
+            snakeCells.unshift(newHead);
+
+            // Проверка еды
+            if (newHead.col === foodCell.col && newHead.row === foodCell.row) {
+                score++; if (score > maxScore) maxScore = score;
+                scoreEl.textContent = score;
+                spawnParticle(foodCell.col, foodCell.row);
+                foodCell = randomFood();
+                if (score % 5 === 0) { awardedLevel++; award(); }
+                // Не удаляем хвост – змея растёт
+            } else {
+                snakeCells.pop(); // удаляем хвост
+            }
         }
 
         function gameLoop(timestamp) {
             if (!gameRunning) return;
-            if (!lastTime) lastTime = timestamp;
-            const dt = Math.min(100, timestamp - lastTime);
-            lastTime = timestamp;
+            if (!lastStepTime) lastStepTime = timestamp;
+            const elapsed = timestamp - lastStepTime;
 
-            const moveAmount = (SPEED / 1000) * dt;
-            headX += dirX * moveAmount;
-            headY += dirY * moveAmount;
-
-            if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height) {
-                isWall = true;
-                endGame();
-                return;
+            if (elapsed >= STEP_INTERVAL) {
+                stepSnake();
+                lastStepTime = timestamp - (elapsed % STEP_INTERVAL);
             }
 
-            // Проверка столкновения с телом каждый кадр
-            if (checkCollision(headX, headY)) {
-                isSelf = true;
-                endGame();
-                return;
-            }
-
-            const currentCellX = Math.floor(headX / CELL);
-            const currentCellY = Math.floor(headY / CELL);
-            const prevPath = snakePath[0];
-            const prevCellX = Math.floor(prevPath.x / CELL);
-            const prevCellY = Math.floor(prevPath.y / CELL);
-
-            if (currentCellX !== prevCellX || currentCellY !== prevCellY) {
-                // Перешли на новую клетку
-                if (currentCellX === food.x && currentCellY === food.y) {
-                    score++;
-                    if (score > maxScore) maxScore = score;
-                    scoreEl.textContent = score;
-                    spawnParticle(food.x, food.y);
-                    tailLength++;
-                    food = randomFood();
-                    if (score % 5 === 0) {
-                        awardedLevel++;
-                        award();
-                    }
-                }
-
-                // Добавляем точку пути (центр новой клетки)
-                const cellCenterX = currentCellX * CELL + CELL / 2;
-                const cellCenterY = currentCellY * CELL + CELL / 2;
-                snakePath.unshift({ x: cellCenterX, y: cellCenterY });
-                // Ограничиваем длину пути
-                if (snakePath.length > tailLength + 5) {
-                    snakePath.length = tailLength + 5;
-                }
-            }
-
+            const progress = Math.min(1, elapsed / STEP_INTERVAL);
             updateParticles();
             drawBackground();
             drawFood(timestamp);
-            drawSnake();
+            drawSnake(progress);
             drawParticles();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
@@ -649,38 +475,31 @@
         document.addEventListener('keydown', e => {
             if (e.code === 'Space') {
                 e.preventDefault();
-                if (!gameRunning) {
-                    initGame();
-                    animationFrameId = requestAnimationFrame(gameLoop);
-                }
+                if (!gameRunning) { initGame(); animationFrameId = requestAnimationFrame(gameLoop); }
                 return;
             }
             if (!gameRunning) return;
-
-            let newDx = 0, newDy = 0;
+            let ndx = 0, ndy = 0;
             switch (e.key) {
-                case 'ArrowUp': newDx = 0; newDy = -1; e.preventDefault(); break;
-                case 'ArrowDown': newDx = 0; newDy = 1; e.preventDefault(); break;
-                case 'ArrowLeft': newDx = -1; newDy = 0; e.preventDefault(); break;
-                case 'ArrowRight': newDx = 1; newDy = 0; e.preventDefault(); break;
+                case 'ArrowUp': ndx = 0; ndy = -1; e.preventDefault(); break;
+                case 'ArrowDown': ndx = 0; ndy = 1; e.preventDefault(); break;
+                case 'ArrowLeft': ndx = -1; ndy = 0; e.preventDefault(); break;
+                case 'ArrowRight': ndx = 1; ndy = 0; e.preventDefault(); break;
                 default: return;
             }
-            if (newDx === -dirX && newDy === -dirY) return;
-            dirX = newDx;
-            dirY = newDy;
+            // Мгновенно запоминаем желаемое направление (разворот заблокируется в stepSnake)
+            nextDirX = ndx; nextDirY = ndy;
         });
 
         document.querySelectorAll('.mobile-controls button').forEach(b => {
             b.addEventListener('click', () => {
                 if (!gameRunning) return;
-                let newDx = 0, newDy = 0;
-                if (b.classList.contains('up')) { newDx = 0; newDy = -1; }
-                else if (b.classList.contains('down')) { newDx = 0; newDy = 1; }
-                else if (b.classList.contains('left')) { newDx = -1; newDy = 0; }
-                else if (b.classList.contains('right')) { newDx = 1; newDy = 0; }
-                if (newDx === -dirX && newDy === -dirY) return;
-                dirX = newDx;
-                dirY = newDy;
+                let ndx = 0, ndy = 0;
+                if (b.classList.contains('up')) { ndx = 0; ndy = -1; }
+                else if (b.classList.contains('down')) { ndx = 0; ndy = 1; }
+                else if (b.classList.contains('left')) { ndx = -1; ndy = 0; }
+                else if (b.classList.contains('right')) { ndx = 1; ndy = 0; }
+                nextDirX = ndx; nextDirY = ndy;
             });
         });
     </script>
