@@ -219,6 +219,7 @@
         let maxScore = 0, bestScore = 0, currentUid = null;
         let particles = [];
         let lastStepTime = 0;
+        let lastFrameTime = 0;
         let animationFrameId = null;
         let applePulsePhase = 0;
 
@@ -315,6 +316,7 @@
             msgEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} яблок` : '';
             particles = [];
             lastStepTime = performance.now();
+            lastFrameTime = 0;
             const overlay = document.querySelector('.game-over-overlay');
             if (overlay) overlay.remove();
             createBackground();
@@ -330,16 +332,19 @@
         }
 
         function drawFood(deltaTime) {
-            applePulsePhase += deltaTime * 0.002; // медленная пульсация ~3 секунды
-            const scale = 1 + Math.sin(applePulsePhase) * 0.06;
+            applePulsePhase += deltaTime * 0.003; // плавная медленная пульсация
+            const scale = 1 + Math.sin(applePulsePhase) * 0.05;
             const cx = Math.round(foodCell.col * CELL + CELL / 2);
             const cy = Math.round(foodCell.row * CELL + CELL / 2);
+            const radius = Math.round(CELL * 0.45);
+
             ctx.save();
             ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
             ctx.beginPath();
-            ctx.arc(cx, cy, Math.round(CELL * 0.5), 0, Math.PI * 2);
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+
             ctx.save();
             ctx.translate(cx, cy);
             ctx.scale(scale, scale);
@@ -351,42 +356,41 @@
         }
 
         function drawSnake(progress) {
-            const t = progress;
             for (let i = 0; i < snakeCells.length; i++) {
-                let fromCell;
-                if (i < prevSnakeCells.length) {
-                    fromCell = prevSnakeCells[i];
-                } else {
-                    // Новый сегмент: плавно появляется из позиции хвоста предыдущего состояния
-                    fromCell = prevSnakeCells[prevSnakeCells.length - 1] || snakeCells[i];
-                }
+                let fromCell = (i < prevSnakeCells.length) ? prevSnakeCells[i] : snakeCells[i];
                 const toCell = snakeCells[i];
-                const x = Math.round((fromCell.col + (toCell.col - fromCell.col) * t) * CELL + CELL / 2);
-                const y = Math.round((fromCell.row + (toCell.row - fromCell.row) * t) * CELL + CELL / 2);
-                const r = Math.round(CELL * 0.45);
+                const rawX = (fromCell.col + (toCell.col - fromCell.col) * progress) * CELL;
+                const rawY = (fromCell.row + (toCell.row - fromCell.row) * progress) * CELL;
+                const x = Math.round(rawX);
+                const y = Math.round(rawY);
+                const size = Math.round(CELL) - 4;
+                const offset = Math.round((CELL - size) / 2);
+                const drawX = x + offset;
+                const drawY = y + offset;
+                const r = Math.round(CELL * 0.4);
 
                 ctx.save();
                 ctx.fillStyle = 'rgba(0,0,0,0.1)';
                 ctx.beginPath();
-                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.arc(x + Math.round(CELL / 2), y + Math.round(CELL / 2), r, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
 
-                const gradient = ctx.createLinearGradient(x - CELL / 2, y - CELL / 2, x + CELL / 2, y + CELL / 2);
+                const gradient = ctx.createLinearGradient(drawX, drawY, drawX + size, drawY + size);
                 if (i === 0) {
-                    gradient.addColorStop(0, '#2ecc71');
-                    gradient.addColorStop(1, '#1abc9c');
+                    gradient.addColorStop(0, '#2ecc71'); gradient.addColorStop(1, '#1abc9c');
                 } else {
-                    gradient.addColorStop(0, '#27ae60');
-                    gradient.addColorStop(1, '#2ecc71');
+                    gradient.addColorStop(0, '#27ae60'); gradient.addColorStop(1, '#2ecc71');
                 }
                 ctx.fillStyle = gradient;
-                roundRect(x - CELL / 2 + 2, y - CELL / 2 + 2, CELL - 4, CELL - 4, r);
+                roundRect(drawX, drawY, size, size, r);
                 ctx.fill();
 
                 if (i === 0) {
-                    const eyeX = Math.round(x + dirX * CELL / 4);
-                    const eyeY = Math.round(y + dirY * CELL / 4);
+                    const centerX = x + Math.round(CELL / 2);
+                    const centerY = y + Math.round(CELL / 2);
+                    const eyeX = centerX + Math.round(dirX * CELL / 4);
+                    const eyeY = centerY + Math.round(dirY * CELL / 4);
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
                     ctx.arc(eyeX, eyeY, Math.round(CELL * 0.13), 0, Math.PI * 2);
@@ -428,7 +432,7 @@
         function spawnParticle(col, row) { particles.push({ col, row, life: 1.0 }); }
 
         function updateParticles(deltaTime) {
-            const decay = deltaTime / 1000 * 2;
+            const decay = deltaTime / 800; // время жизни ~0.8 секунды
             for (const p of particles) p.life -= decay;
             particles = particles.filter(p => p.life > 0);
         }
@@ -508,20 +512,34 @@
 
         function gameLoop(timestamp) {
             if (!gameRunning) return;
+
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const deltaTime = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+
             if (!lastStepTime) lastStepTime = timestamp;
             let elapsed = timestamp - lastStepTime;
-            if (elapsed > 500) elapsed = STEP_INTERVAL;
+
+            if (elapsed > 500) {
+                lastStepTime = timestamp;
+                elapsed = 0;
+            }
+
             if (elapsed >= STEP_INTERVAL) {
                 stepSnake();
                 lastStepTime = timestamp - (elapsed % STEP_INTERVAL);
+                elapsed = elapsed % STEP_INTERVAL;
             }
+
             const progress = Math.min(1, elapsed / STEP_INTERVAL);
+
             ctx.clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
-            if (bgCanvas) ctx.drawImage(bgCanvas, 0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
-            drawFood(elapsed);
+            if (bgCanvas) ctx.drawImage(bgCanvas, 0, 0);
+            drawFood(deltaTime);
             drawSnake(progress);
             drawParticles();
-            updateParticles(elapsed);
+            updateParticles(deltaTime);
+
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
