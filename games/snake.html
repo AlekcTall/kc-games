@@ -277,12 +277,16 @@
             msgEl = document.getElementById('message');
         const GRID = 20,
             CELL = canvas.width / GRID; // 25px
-        let snake, dir, food, score, awardedLevel, gameRunning, isSelf, isWall,
+        const SPEED = 150; // пикселей в секунду (150/25 = 6 клеток/с)
+
+        let headX, headY;           // непрерывные координаты головы (px)
+        let dirX = 1, dirY = 0;    // текущее направление (изменяется только при шаге)
+        let nextDirX = 1, nextDirY = 0; // желаемое направление (устанавливается клавишами)
+        let snakePath = [];         // история позиций головы [{x, y}, ...] с интервалом CELL
+        let tailLength = 0;        // количество сегментов после головы (без учёта головы)
+        let food, score, awardedLevel, gameRunning, isSelf, isWall,
             maxScore = 0, bestScore = 0, currentUid = null, particles = [];
-        let prevSnake = [];
-        let prevLength = 0;
-        let lastStepTime = 0;
-        const STEP_INTERVAL = 100;
+        let lastTime = 0;
         let animationFrameId = null;
         let applePulsePhase = 0;
 
@@ -344,8 +348,13 @@
         }
 
         function initGame() {
-            snake = [{ x: 10, y: 10 }];
-            dir = { x: 1, y: 0 };
+            // Начальная позиция головы – центр клетки (10,10)
+            headX = 10 * CELL + CELL / 2;
+            headY = 10 * CELL + CELL / 2;
+            dirX = 1; dirY = 0;
+            nextDirX = 1; nextDirY = 0;
+            snakePath = [{ x: headX, y: headY }];
+            tailLength = 0;
             food = randomFood();
             score = 0;
             awardedLevel = 0;
@@ -354,21 +363,21 @@
             scoreEl.textContent = '0';
             msgEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} яблок` : '';
             particles = [];
-            lastStepTime = performance.now();
-            prevSnake = snake.map(s => ({...s}));
-            prevLength = snake.length;
+            lastTime = performance.now();
             const overlay = document.querySelector('.game-over-overlay');
             if (overlay) overlay.remove();
         }
 
         function randomFood() {
+            const occupied = new Set(snakePath.map(p => `${Math.floor(p.x / CELL)},${Math.floor(p.y / CELL)}`));
+            occupied.add(`${Math.floor(headX / CELL)},${Math.floor(headY / CELL)}`);
             let f;
             do {
                 f = {
                     x: Math.floor(Math.random() * GRID),
                     y: Math.floor(Math.random() * GRID)
                 };
-            } while (snake.some(s => s.x === f.x && s.y === f.y));
+            } while (occupied.has(`${f.x},${f.y}`));
             return f;
         }
 
@@ -410,18 +419,43 @@
             ctx.restore();
         }
 
-        function drawSnake(progress) {
-            for (let i = 0; i < snake.length; i++) {
-                const to = snake[i];
-                // Для интерполяции без смещения всегда берём from из prevSnake[i]
-                // Если prevSnake[i] не существует (новая голова при поедании), используем саму to
-                const from = prevSnake[i] || to;
-                const x = (from.x + (to.x - from.x) * progress) * CELL;
-                const y = (from.y + (to.y - from.y) * progress) * CELL;
+        function drawSnake() {
+            // Рисуем голову
+            drawSegment(headX, headY, true);
+            // Рисуем тело из snakePath с учётом tailLength
+            if (tailLength > 0 && snakePath.length > 1) {
+                // Расстояние между сегментами – CELL
+                let dist = 0;
+                let segIdx = 1;
+                for (let i = 0; i < tailLength; i++) {
+                    // Находим позицию на расстоянии CELL*(i+1) от головы вдоль пути
+                    let targetDist = CELL * (i + 1);
+                    let remaining = targetDist;
+                    let px = headX, py = headY;
+                    for (let j = 1; j < snakePath.length; j++) {
+                        const a = snakePath[j - 1];
+                        const b = snakePath[j];
+                        const dx = b.x - a.x;
+                        const dy = b.y - a.y;
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        if (remaining <= len) {
+                            const t = remaining / len;
+                            px = a.x + dx * t;
+                            py = a.y + dy * t;
+                            break;
+                        }
+                        remaining -= len;
+                        px = b.x;
+                        py = b.y;
+                    }
+                    drawSegment(px, py, false);
+                }
+            }
 
+            function drawSegment(x, y, isHead) {
                 const r = CELL * 0.45;
                 const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
-                if (i === 0) {
+                if (isHead) {
                     gradient.addColorStop(0, '#2ecc71');
                     gradient.addColorStop(1, '#1abc9c');
                 } else {
@@ -431,20 +465,20 @@
                 ctx.fillStyle = gradient;
                 ctx.shadowColor = 'rgba(0,0,0,0.15)';
                 ctx.shadowBlur = 4;
-                roundRect(x + 2, y + 2, CELL - 4, CELL - 4, r);
+                roundRect(x - CELL/2 + 2, y - CELL/2 + 2, CELL - 4, CELL - 4, r);
                 ctx.fill();
                 ctx.shadowColor = 'transparent';
                 ctx.shadowBlur = 0;
-                if (i === 0) {
-                    const eyeX = x + CELL / 2 + dir.x * CELL / 4;
-                    const eyeY = y + CELL / 2 + dir.y * CELL / 4;
+                if (isHead) {
+                    const eyeX = x + dirX * CELL / 4;
+                    const eyeY = y + dirY * CELL / 4;
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
                     ctx.arc(eyeX, eyeY, CELL * 0.13, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = 'black';
                     ctx.beginPath();
-                    ctx.arc(eyeX + dir.x * 2, eyeY + dir.y * 2, CELL * 0.06, 0, Math.PI * 2);
+                    ctx.arc(eyeX + dirX * 2, eyeY + dirY * 2, CELL * 0.06, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
@@ -543,51 +577,105 @@
             });
         }
 
-        function stepSnake() {
-            if (!gameRunning) return;
-            prevSnake = snake.map(s => ({...s}));
-            prevLength = snake.length;
-            const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
-            if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
-                isWall = true;
-                endGame();
-                return;
+        function checkCollision(px, py) {
+            // Проверка столкновения головы с телом (по клеткам)
+            const headCell = `${Math.floor(px / CELL)},${Math.floor(py / CELL)}`;
+            // Пропускаем первые несколько сегментов (голова и ближайшие)
+            const startCheck = 4; // начинаем проверку с 4-го сегмента, чтобы не ложно срабатывать
+            const cells = snakePath.map(p => `${Math.floor(p.x / CELL)},${Math.floor(p.y / CELL)}`);
+            for (let i = startCheck; i < cells.length; i++) {
+                if (cells[i] === headCell) return true;
             }
-            if (snake.some(s => s.x === head.x && s.y === head.y)) {
-                isSelf = true;
-                endGame();
-                return;
-            }
-            snake.unshift(head);
-            if (head.x === food.x && head.y === food.y) {
-                score++;
-                if (score > maxScore) maxScore = score;
-                scoreEl.textContent = score;
-                spawnParticle(food.x, food.y);
-                food = randomFood();
-                if (score % 5 === 0) {
-                    awardedLevel++;
-                    award(); // асинхронно, не блокирует
-                }
-                // хвост не удаляем – длина растёт
-            } else {
-                snake.pop();
-            }
+            return false;
         }
 
         function gameLoop(timestamp) {
             if (!gameRunning) return;
-            if (!lastStepTime) lastStepTime = timestamp;
-            const elapsed = timestamp - lastStepTime;
-            if (elapsed >= STEP_INTERVAL) {
-                stepSnake();
-                lastStepTime = timestamp; // сброс, чтобы прогресс начался с 0
+            if (!lastTime) lastTime = timestamp;
+            const dt = Math.min(100, timestamp - lastTime); // ограничение сверху 100мс
+            lastTime = timestamp;
+
+            // Движение головы
+            const moveAmount = (SPEED / 1000) * dt;
+            headX += dirX * moveAmount;
+            headY += dirY * moveAmount;
+
+            // Проверка выхода за границы
+            if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height) {
+                isWall = true;
+                endGame();
+                return;
             }
-            const progress = Math.min(1, elapsed / STEP_INTERVAL);
+
+            // Проверка на шаг (пересечение границы клетки)
+            const currentCellX = Math.floor(headX / CELL);
+            const currentCellY = Math.floor(headY / CELL);
+            const prevPath = snakePath[0];
+            const prevCellX = Math.floor(prevPath.x / CELL);
+            const prevCellY = Math.floor(prevPath.y / CELL);
+
+            if (currentCellX !== prevCellX || currentCellY !== prevCellY) {
+                // Произошёл шаг на новую клетку
+                // Применяем запланированное направление
+                if (nextDirX !== dirX || nextDirY !== dirY) {
+                    // Проверка, что новое направление не противоположное текущему
+                    if (nextDirX !== -dirX || nextDirY !== -dirY) {
+                        dirX = nextDirX;
+                        dirY = nextDirY;
+                    }
+                }
+
+                // Запоминаем точную позицию, где голова оказалась при входе в новую клетку (центр клетки?)
+                // Лучше сохранять фактическую позицию с учётом избыточного смещения
+                // Корректируем headX, headY так, чтобы они не улетали далеко за границу клетки из-за большого dt
+                const cellCenterX = currentCellX * CELL + CELL / 2;
+                const cellCenterY = currentCellY * CELL + CELL / 2;
+                // Перемещаем голову ровно на оставшееся расстояние в новом направлении
+                const overshoot = Math.sqrt((headX - prevPath.x) ** 2 + (headY - prevPath.y) ** 2) - CELL;
+                if (overshoot > 0) {
+                    headX = cellCenterX + dirX * overshoot;
+                    headY = cellCenterY + dirY * overshoot;
+                } else {
+                    headX = cellCenterX;
+                    headY = cellCenterY;
+                }
+
+                // Проверка столкновения с телом
+                if (checkCollision(headX, headY)) {
+                    isSelf = true;
+                    endGame();
+                    return;
+                }
+
+                // Проверка поедания яблока
+                const foodCellX = food.x;
+                const foodCellY = food.y;
+                if (currentCellX === foodCellX && currentCellY === foodCellY) {
+                    // Съели яблоко
+                    score++;
+                    if (score > maxScore) maxScore = score;
+                    scoreEl.textContent = score;
+                    spawnParticle(food.x, food.y);
+                    tailLength++;
+                    food = randomFood();
+                    if (score % 5 === 0) {
+                        awardedLevel++;
+                        award();
+                    }
+                }
+
+                // Добавляем новую точку в путь (голова на новом месте)
+                snakePath.unshift({ x: headX, y: headY });
+                // Ограничиваем длину пути: максимум tailLength+2 точек, чтобы не копить бесконечно
+                if (snakePath.length > tailLength + 10) {
+                    snakePath.length = tailLength + 10;
+                }
+            }
+
             updateParticles();
             drawBackground();
             drawFood(timestamp);
-            drawSnake(progress);
+            drawSnake();
             drawParticles();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
@@ -603,20 +691,20 @@
             }
             if (!gameRunning) return;
             switch (e.key) {
-                case 'ArrowUp': if (dir.y === 0) dir = { x: 0, y: -1 }; e.preventDefault(); break;
-                case 'ArrowDown': if (dir.y === 0) dir = { x: 0, y: 1 }; e.preventDefault(); break;
-                case 'ArrowLeft': if (dir.x === 0) dir = { x: -1, y: 0 }; e.preventDefault(); break;
-                case 'ArrowRight': if (dir.x === 0) dir = { x: 1, y: 0 }; e.preventDefault(); break;
+                case 'ArrowUp': if (dirY !== 1) { nextDirX = 0; nextDirY = -1; } e.preventDefault(); break;
+                case 'ArrowDown': if (dirY !== -1) { nextDirX = 0; nextDirY = 1; } e.preventDefault(); break;
+                case 'ArrowLeft': if (dirX !== 1) { nextDirX = -1; nextDirY = 0; } e.preventDefault(); break;
+                case 'ArrowRight': if (dirX !== -1) { nextDirX = 1; nextDirY = 0; } e.preventDefault(); break;
             }
         });
 
         document.querySelectorAll('.mobile-controls button').forEach(b => {
             b.addEventListener('click', () => {
                 if (!gameRunning) return;
-                if (b.classList.contains('up') && dir.y === 0) dir = { x: 0, y: -1 };
-                if (b.classList.contains('down') && dir.y === 0) dir = { x: 0, y: 1 };
-                if (b.classList.contains('left') && dir.x === 0) dir = { x: -1, y: 0 };
-                if (b.classList.contains('right') && dir.x === 0) dir = { x: 1, y: 0 };
+                if (b.classList.contains('up') && dirY !== 1) { nextDirX = 0; nextDirY = -1; }
+                if (b.classList.contains('down') && dirY !== -1) { nextDirX = 0; nextDirY = 1; }
+                if (b.classList.contains('left') && dirX !== 1) { nextDirX = -1; nextDirY = 0; }
+                if (b.classList.contains('right') && dirX !== -1) { nextDirX = 1; nextDirY = 0; }
             });
         });
     </script>
