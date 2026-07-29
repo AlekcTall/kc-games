@@ -28,6 +28,7 @@
             margin: 0 auto 1rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             background: #f5f5f5;
+            will-change: transform; /* аппаратное ускорение */
         }
         .snake-controls {
             margin-bottom: 1rem;
@@ -196,20 +197,25 @@
             ctx = canvas.getContext('2d'),
             scoreEl = document.getElementById('score'),
             msgEl = document.getElementById('message');
-        const GRID = 20, CELL = canvas.width / GRID; // 25px
-        const STEP_INTERVAL = 130; // мс между шагами
+        const GRID = 20, CELL = canvas.width / GRID;
+        const STEP_INTERVAL = 130;
 
-        let snakeCells = [];          // текущие клетки змеи [{col, row}]
-        let prevSnakeCells = [];     // предыдущие клетки (для интерполяции)
-        let dirX = 1, dirY = 0;      // текущее направление
-        let nextDirX = 1, nextDirY = 0; // желаемое направление (устанавливается клавишами)
-        let foodCell = null;         // {col, row}
+        let snakeCells = [];
+        let prevSnakeCells = [];
+        let dirX = 1, dirY = 0;
+        let nextDirX = 1, nextDirY = 0;
+        let foodCell = null;
         let score = 0, awardedLevel = 0, gameRunning = false, isSelf = false, isWall = false;
         let maxScore = 0, bestScore = 0, currentUid = null;
         let particles = [];
         let lastStepTime = 0;
         let animationFrameId = null;
         let applePulsePhase = 0;
+
+        // Easing-функция для плавного старта и остановки
+        function easeInOutQuad(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
 
         auth.onAuthStateChanged(user => {
             if (user) { loadBestAndTop(); } else { updateTopVisibility(); }
@@ -308,26 +314,32 @@
             applePulsePhase += 0.03;
             const scale = 1 + Math.sin(applePulsePhase)*0.06;
             const cx = foodCell.col*CELL + CELL/2, cy = foodCell.row*CELL + CELL/2;
+            // Тень яблока – дешёвый круг
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, CELL*0.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+
             ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
             ctx.font = `${CELL*0.8}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.shadowColor='rgba(255,0,0,0.3)'; ctx.shadowBlur=8;
             ctx.fillText('🍎', 0, 0);
             ctx.restore();
         }
 
         function drawSnake(progress) {
+            const eased = easeInOutQuad(progress);
             for (let i = 0; i < snakeCells.length; i++) {
                 let fromCell, toCell;
-                // Если prevSnakeCells короче (после поедания), новый сегмент вытягивается из последней позиции prev
                 if (i < prevSnakeCells.length) {
                     fromCell = prevSnakeCells[i];
                 } else {
-                    // Новый сегмент — начинаем из хвоста предыдущего состояния
                     fromCell = prevSnakeCells[prevSnakeCells.length-1] || snakeCells[i];
                 }
                 toCell = snakeCells[i];
-                const x = (fromCell.col + (toCell.col - fromCell.col)*progress) * CELL + CELL/2;
-                const y = (fromCell.row + (toCell.row - fromCell.row)*progress) * CELL + CELL/2;
+                const x = (fromCell.col + (toCell.col - fromCell.col)*eased) * CELL + CELL/2;
+                const y = (fromCell.row + (toCell.row - fromCell.row)*eased) * CELL + CELL/2;
                 const r = CELL*0.45;
                 const gradient = ctx.createLinearGradient(x-CELL/2, y-CELL/2, x+CELL/2, y+CELL/2);
                 if (i === 0) {
@@ -335,10 +347,17 @@
                 } else {
                     gradient.addColorStop(0, '#27ae60'); gradient.addColorStop(1, '#2ecc71');
                 }
+                // Тень сегмента – дешёвый круг
+                ctx.save();
+                ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+
                 ctx.fillStyle = gradient;
-                ctx.shadowColor='rgba(0,0,0,0.15)'; ctx.shadowBlur=4;
                 roundRect(x-CELL/2+2, y-CELL/2+2, CELL-4, CELL-4, r);
-                ctx.fill(); ctx.shadowColor='transparent'; ctx.shadowBlur=0;
+                ctx.fill();
                 if (i === 0) {
                     const eyeX = x + dirX*CELL/4, eyeY = y + dirY*CELL/4;
                     ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(eyeX, eyeY, CELL*0.13, 0, Math.PI*2); ctx.fill();
@@ -415,10 +434,7 @@
         }
 
         function stepSnake() {
-            // Сохраняем предыдущее состояние для интерполяции
             prevSnakeCells = snakeCells.map(c => ({...c}));
-
-            // Применяем запланированное направление, если оно не противоположное
             if (!(nextDirX === -dirX && nextDirY === -dirY)) {
                 dirX = nextDirX; dirY = nextDirY;
             }
@@ -426,30 +442,25 @@
             const head = snakeCells[0];
             const newHead = { col: head.col + dirX, row: head.row + dirY };
 
-            // Проверка стены
             if (newHead.col < 0 || newHead.col >= GRID || newHead.row < 0 || newHead.row >= GRID) {
                 isWall = true; endGame(); return;
             }
 
-            // Проверка столкновения с телом (все клетки, кроме хвоста, который сейчас исчезнет)
             const bodyWithoutTail = snakeCells.slice(0, -1);
             if (bodyWithoutTail.some(c => c.col === newHead.col && c.row === newHead.row)) {
                 isSelf = true; endGame(); return;
             }
 
-            // Двигаем змею
             snakeCells.unshift(newHead);
 
-            // Проверка еды
             if (newHead.col === foodCell.col && newHead.row === foodCell.row) {
                 score++; if (score > maxScore) maxScore = score;
                 scoreEl.textContent = score;
                 spawnParticle(foodCell.col, foodCell.row);
                 foodCell = randomFood();
                 if (score % 5 === 0) { awardedLevel++; award(); }
-                // Не удаляем хвост – змея растёт
             } else {
-                snakeCells.pop(); // удаляем хвост
+                snakeCells.pop();
             }
         }
 
@@ -487,7 +498,6 @@
                 case 'ArrowRight': ndx = 1; ndy = 0; e.preventDefault(); break;
                 default: return;
             }
-            // Мгновенно запоминаем желаемое направление (разворот заблокируется в stepSnake)
             nextDirX = ndx; nextDirY = ndy;
         });
 
