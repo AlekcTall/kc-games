@@ -193,12 +193,6 @@ async function processDailyLogin(uid) {
       current.dailyLogin = newDailyLogin;
       setCurrentUser(current);
     }
-
-    // Проверка прогресса бинго (ежедневный вход)
-    if (typeof updateBingoProgress === 'function') {
-      updateBingoProgress(uid, 'daily_login', { streak: newStreak }).catch(e => console.error(e));
-    }
-
     return { streak: newStreak, points: reward.points, lokoin: reward.lokoin, label: reward.label };
   } catch (e) { console.error(e); return null; }
 }
@@ -263,15 +257,6 @@ async function addPointsToCurrentUser(points, gameId = null) {
       if (updateData.gameHistory) current.gameHistory = updateData.gameHistory;
       setCurrentUser(current);
     }
-
-    // Проверка прогресса бинго (игра сыграна, очки изменились)
-    if (typeof updateBingoProgress === 'function') {
-      if (gameId) {
-        updateBingoProgress(user.uid, 'game_played', { gameId: gameId, points: actualPoints }).catch(e => console.error(e));
-      }
-      updateBingoProgress(user.uid, 'points_changed', { totalPoints: newPoints }).catch(e => console.error(e));
-    }
-
     return { success: true, points: actualPoints };
   } catch (error) { console.error(error); return { success: false }; }
 }
