@@ -255,11 +255,6 @@ async function checkAndAwardAchievements() {
 
     for (const ach of newlyUnlocked) {
       await addNotification(user.uid, `Получено достижение: ${ach.icon} ${ach.name}`, 'achievement', 'profile.html');
-
-      // Проверка прогресса бинго (получение любого нового достижения)
-      if (typeof updateBingoProgress === 'function') {
-        updateBingoProgress(user.uid, 'achievement', { achievementId: ach.id }).catch(e => console.error(e));
-      }
     }
 
     // Дополнительно проверяем "Коллекционера" после обновления
