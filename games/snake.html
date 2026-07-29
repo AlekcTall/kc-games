@@ -279,11 +279,10 @@
         const SPEED = 120; // пикселей в секунду
         const MIN_DIST = CELL * 0.7; // минимальное расстояние для столкновения с телом
 
-        let headX, headY;
-        let dirX = 1, dirY = 0;
-        let nextDirX = 1, nextDirY = 0;
-        let snakePath = [];
-        let tailLength = 0;
+        let headX, headY;           // непрерывные координаты головы
+        let dirX = 1, dirY = 0;    // текущее направление (меняется мгновенно)
+        let snakePath = [];         // история позиций головы [{x, y}, ...]
+        let tailLength = 0;        // количество сегментов после головы (без головы)
         let food, score, awardedLevel, gameRunning, isSelf, isWall,
             maxScore = 0, bestScore = 0, currentUid = null, particles = [];
         let lastTime = 0;
@@ -351,7 +350,6 @@
             headX = 10 * CELL + CELL / 2;
             headY = 10 * CELL + CELL / 2;
             dirX = 1; dirY = 0;
-            nextDirX = 1; nextDirY = 0;
             snakePath = [{ x: headX, y: headY }];
             tailLength = 0;
             food = randomFood();
@@ -572,9 +570,8 @@
             });
         }
 
-        // Непрерывная проверка столкновения с телом
+        // Непрерывная проверка столкновения с телом (по расстоянию)
         function checkCollision(px, py) {
-            // Пропускаем первые несколько сегментов, чтобы голова не цеплялась сама за себя
             const skipCount = Math.min(4, tailLength + 1);
             const pts = snakePath.slice(skipCount);
             for (const p of pts) {
@@ -584,19 +581,6 @@
                 if (dist < MIN_DIST) return true;
             }
             return false;
-        }
-
-        // Проверка, безопасно ли повернуть в указанном направлении
-        function isSafeDirection(dx, dy) {
-            // Симулируем положение головы после поворота в следующей клетке
-            const nextCellX = Math.floor(headX / CELL) + dx;
-            const nextCellY = Math.floor(headY / CELL) + dy;
-            const simX = nextCellX * CELL + CELL / 2;
-            const simY = nextCellY * CELL + CELL / 2;
-            // Проверяем, не столкнется ли голова с телом (пропускаем хвост, который может уйти)
-            // Для простоты просто проверим, не занята ли клетка телом, исключая последний сегмент (хвост)
-            const occupied = snakePath.slice(0, -1).map(p => `${Math.floor(p.x / CELL)},${Math.floor(p.y / CELL)}`);
-            return !occupied.includes(`${nextCellX},${nextCellY}`);
         }
 
         function gameLoop(timestamp) {
@@ -609,12 +593,21 @@
             headX += dirX * moveAmount;
             headY += dirY * moveAmount;
 
+            // Проверка выхода за границы
             if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height) {
                 isWall = true;
                 endGame();
                 return;
             }
 
+            // Проверка столкновения с телом на каждом кадре
+            if (checkCollision(headX, headY)) {
+                isSelf = true;
+                endGame();
+                return;
+            }
+
+            // Определяем, перешли ли мы на новую клетку
             const currentCellX = Math.floor(headX / CELL);
             const currentCellY = Math.floor(headY / CELL);
             const prevPath = snakePath[0];
@@ -622,32 +615,8 @@
             const prevCellY = Math.floor(prevPath.y / CELL);
 
             if (currentCellX !== prevCellX || currentCellY !== prevCellY) {
-                // Применяем запланированное направление, если оно безопасно
-                if ((nextDirX !== dirX || nextDirY !== dirY) && isSafeDirection(nextDirX, nextDirY)) {
-                    dirX = nextDirX;
-                    dirY = nextDirY;
-                }
-
-                const cellCenterX = currentCellX * CELL + CELL / 2;
-                const cellCenterY = currentCellY * CELL + CELL / 2;
-                const overshoot = Math.sqrt((headX - prevPath.x) ** 2 + (headY - prevPath.y) ** 2) - CELL;
-                if (overshoot > 0) {
-                    headX = cellCenterX + dirX * overshoot;
-                    headY = cellCenterY + dirY * overshoot;
-                } else {
-                    headX = cellCenterX;
-                    headY = cellCenterY;
-                }
-
-                if (checkCollision(headX, headY)) {
-                    isSelf = true;
-                    endGame();
-                    return;
-                }
-
-                const foodCellX = food.x;
-                const foodCellY = food.y;
-                if (currentCellX === foodCellX && currentCellY === foodCellY) {
+                // Проверка поедания яблока
+                if (currentCellX === food.x && currentCellY === food.y) {
                     score++;
                     if (score > maxScore) maxScore = score;
                     scoreEl.textContent = score;
@@ -660,7 +629,9 @@
                     }
                 }
 
+                // Добавляем новую точку в путь (голова на новом месте)
                 snakePath.unshift({ x: headX, y: headY });
+                // Ограничиваем длину пути
                 if (snakePath.length > tailLength + 10) {
                     snakePath.length = tailLength + 10;
                 }
@@ -674,7 +645,7 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // Обработка клавиш – с защитой от поворота в тело
+        // Мгновенное изменение направления (без задержек)
         document.addEventListener('keydown', e => {
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -685,6 +656,7 @@
                 return;
             }
             if (!gameRunning) return;
+
             let newDx = 0, newDy = 0;
             switch (e.key) {
                 case 'ArrowUp': newDx = 0; newDy = -1; e.preventDefault(); break;
@@ -693,13 +665,11 @@
                 case 'ArrowRight': newDx = 1; newDy = 0; e.preventDefault(); break;
                 default: return;
             }
-            // Запрет поворота на 180°
+            // Запрет разворота на 180 градусов
             if (newDx === -dirX && newDy === -dirY) return;
-            // Проверка безопасности поворота (не в тело)
-            if (isSafeDirection(newDx, newDy)) {
-                nextDirX = newDx;
-                nextDirY = newDy;
-            }
+            // Мгновенно меняем направление
+            dirX = newDx;
+            dirY = newDy;
         });
 
         document.querySelectorAll('.mobile-controls button').forEach(b => {
@@ -711,10 +681,8 @@
                 else if (b.classList.contains('left')) { newDx = -1; newDy = 0; }
                 else if (b.classList.contains('right')) { newDx = 1; newDy = 0; }
                 if (newDx === -dirX && newDy === -dirY) return;
-                if (isSafeDirection(newDx, newDy)) {
-                    nextDirX = newDx;
-                    nextDirY = newDy;
-                }
+                dirX = newDx;
+                dirY = newDy;
             });
         });
     </script>
