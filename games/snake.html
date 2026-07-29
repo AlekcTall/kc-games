@@ -277,12 +277,12 @@
         const GRID = 20,
             CELL = canvas.width / GRID; // 25px
         const SPEED = 120; // пикселей в секунду
-        const MIN_DIST = CELL * 0.7; // минимальное расстояние для столкновения с телом
+        const MIN_DIST = CELL * 0.7;
 
-        let headX, headY;           // непрерывные координаты головы
-        let dirX = 1, dirY = 0;    // текущее направление (меняется мгновенно)
-        let snakePath = [];         // история позиций головы [{x, y}, ...]
-        let tailLength = 0;        // количество сегментов после головы (без головы)
+        let headX, headY;
+        let dirX = 1, dirY = 0;
+        let snakePath = [];
+        let tailLength = 0;
         let food, score, awardedLevel, gameRunning, isSelf, isWall,
             maxScore = 0, bestScore = 0, currentUid = null, particles = [];
         let lastTime = 0;
@@ -419,7 +419,7 @@
         function drawSnake() {
             // Голова
             drawSegment(headX, headY, true);
-            // Тело
+            // Тело (ровно tailLength сегментов)
             if (tailLength > 0 && snakePath.length > 1) {
                 for (let i = 0; i < tailLength; i++) {
                     let targetDist = CELL * (i + 1);
@@ -570,11 +570,12 @@
             });
         }
 
-        // Непрерывная проверка столкновения с телом (по расстоянию)
+        // Проверка столкновения ТОЛЬКО с реальными сегментами тела (tailLength штук)
         function checkCollision(px, py) {
-            const skipCount = Math.min(4, tailLength + 1);
-            const pts = snakePath.slice(skipCount);
-            for (const p of pts) {
+            if (tailLength === 0) return false;
+            // Берём последние tailLength точек из snakePath, исключая голову (индекс 0)
+            const bodyPoints = snakePath.slice(1, tailLength + 1);
+            for (const p of bodyPoints) {
                 const dx = px - p.x;
                 const dy = py - p.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
@@ -593,21 +594,19 @@
             headX += dirX * moveAmount;
             headY += dirY * moveAmount;
 
-            // Проверка выхода за границы
             if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height) {
                 isWall = true;
                 endGame();
                 return;
             }
 
-            // Проверка столкновения с телом на каждом кадре
+            // Проверка столкновения с телом каждый кадр
             if (checkCollision(headX, headY)) {
                 isSelf = true;
                 endGame();
                 return;
             }
 
-            // Определяем, перешли ли мы на новую клетку
             const currentCellX = Math.floor(headX / CELL);
             const currentCellY = Math.floor(headY / CELL);
             const prevPath = snakePath[0];
@@ -615,7 +614,7 @@
             const prevCellY = Math.floor(prevPath.y / CELL);
 
             if (currentCellX !== prevCellX || currentCellY !== prevCellY) {
-                // Проверка поедания яблока
+                // Перешли на новую клетку
                 if (currentCellX === food.x && currentCellY === food.y) {
                     score++;
                     if (score > maxScore) maxScore = score;
@@ -629,11 +628,13 @@
                     }
                 }
 
-                // Добавляем новую точку в путь (голова на новом месте)
-                snakePath.unshift({ x: headX, y: headY });
+                // Добавляем точку пути (центр новой клетки)
+                const cellCenterX = currentCellX * CELL + CELL / 2;
+                const cellCenterY = currentCellY * CELL + CELL / 2;
+                snakePath.unshift({ x: cellCenterX, y: cellCenterY });
                 // Ограничиваем длину пути
-                if (snakePath.length > tailLength + 10) {
-                    snakePath.length = tailLength + 10;
+                if (snakePath.length > tailLength + 5) {
+                    snakePath.length = tailLength + 5;
                 }
             }
 
@@ -645,7 +646,6 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // Мгновенное изменение направления (без задержек)
         document.addEventListener('keydown', e => {
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -665,9 +665,7 @@
                 case 'ArrowRight': newDx = 1; newDy = 0; e.preventDefault(); break;
                 default: return;
             }
-            // Запрет разворота на 180 градусов
             if (newDx === -dirX && newDy === -dirY) return;
-            // Мгновенно меняем направление
             dirX = newDx;
             dirY = newDy;
         });
