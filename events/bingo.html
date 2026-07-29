@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Бинго – КЦ Игры</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .bingo-page { max-width: 700px; margin: 2rem auto; background: white; padding: 2rem; border-radius: var(--border-radius); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .bingo-header { text-align: center; margin-bottom: 1.5rem; }
+    .bingo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1.5rem 0; }
+    .bingo-cell { aspect-ratio: 1; border: 2px solid #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0.3rem; font-size: 0.8rem; font-weight: 500; background: #fafafa; transition: all 0.2s; cursor: default; }
+    .bingo-cell.completed { background: #d4edda; border-color: #28a745; color: #155724; }
+    .bingo-cell .cell-icon { font-size: 1.2rem; display: block; }
+    .bingo-progress { text-align: center; margin-bottom: 1rem; }
+    .bingo-progress-bar { width: 100%; height: 20px; background: #eee; border-radius: 10px; overflow: hidden; }
+    .bingo-progress-fill { height: 100%; background: #28a745; transition: width 0.3s; }
+    .top-players { margin-top: 2rem; }
+    .top-players table { width: 100%; border-collapse: collapse; }
+    .top-players th, .top-players td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; }
+    .top-players th { background: #f5f5f5; }
+    .timer-bar { font-size: 0.9rem; color: #888; margin-bottom: 0.5rem; }
+    .bingo-back { display: inline-block; margin-top: 1rem; color: var(--color-primary); text-decoration: none; }
+    @media (max-width: 500px) { .bingo-grid { gap: 0.3rem; } .bingo-cell { font-size: 0.7rem; } }
+  </style>
+</head>
+<body>
+  <div class="bingo-page" id="bingo-container">
+    <p>Загрузка...</p>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/firebase-auth.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/achievements.js"></script>
+  <script src="../js/notifications.js"></script>
+  <script src="../js/easter-eggs.js"></script>
+  <script src="../js/main.js"></script>
+  <script src="../js/bingo-engine.js"></script>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get('id');
+    if (!eventId) {
+      document.getElementById('bingo-container').innerHTML = '<p>Ивент не указан.</p>';
+      throw new Error('eventId missing');
+    }
+
+    let eventData = null;
+    let unsubscribeEvent = null;
+    let tasksCache = {}; // кеш заданий { taskId: { description, type, params } }
+
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        document.getElementById('bingo-container').innerHTML = '<p>Войдите, чтобы участвовать.</p>';
+        return;
+      }
+      await loadEvent(user);
+    });
+
+    async function loadEvent(user) {
+      const doc = await db.collection('events').doc(eventId).get();
+      if (!doc.exists) {
+        document.getElementById('bingo-container').innerHTML = '<p>Ивент не найден.</p>';
+        return;
+      }
+      eventData = { id: doc.id, ...doc.data() };
+      if (eventData.status !== 'active') {
+        document.getElementById('bingo-container').innerHTML = '<p>Ивент не активен.</p>';
+        return;
+      }
+
+      // Загружаем задания один раз
+      const tasksSnap = await db.collection('events').doc(eventId).collection('tasks').get();
+      tasksCache = {};
+      tasksSnap.forEach(doc => tasksCache[doc.id] = doc.data());
+
+      // Подписываемся на обновления ивента
+      unsubscribeEvent = db.collection('events').doc(eventId).onSnapshot(snap => {
+        eventData = { id: snap.id, ...snap.data() };
+        renderBingoPage(user);
+      });
+
+      // Генерируем карточку, если её ещё нет
+      const participants = eventData.participants || {};
+      if (!participants[user.uid] || !participants[user.uid].card) {
+        const tasks = Object.keys(tasksCache).map(id => ({ id, ...tasksCache[id] }));
+        if (tasks.length >= 25) {
+          const card = generateCard(user.uid, tasks);
+          await db.collection('events').doc(eventId).update({
+            [`participants.${user.uid}`]: {
+              card,
+              progress: {},
+              cardCompleted: false
+            }
+          });
+        } else {
+          document.getElementById('bingo-container').innerHTML = '<p>Недостаточно заданий для бинго (нужно 25).</p>';
+          return;
+        }
+      }
+
+      renderBingoPage(user);
+    }
+
+    function renderBingoPage(user) {
+      const container = document.getElementById('bingo-container');
+      const participants = eventData.participants || {};
+      const playerData = participants[user.uid];
+      if (!playerData || !playerData.card) {
+        container.innerHTML = '<p>Ошибка загрузки карточки.</p>';
+        return;
+      }
+
+      const card = playerData.card;
+      const progress = playerData.progress || {};
+      const completedCount = Object.keys(progress).length;
+      const totalCells = card.length;
+      const percent = Math.round((completedCount / totalCells) * 100);
+
+      let html = `
+        <div class="bingo-header">
+          <h2>🎯 ${eventData.title || 'Бинго'}</h2>
+          <div class="timer-bar" id="timer-bar"></div>
+        </div>
+        <div class="bingo-progress">
+          <p>Выполнено ${completedCount} из ${totalCells} заданий (${percent}%)</p>
+          <div class="bingo-progress-bar">
+            <div class="bingo-progress-fill" style="width: ${percent}%;"></div>
+          </div>
+          ${playerData.cardCompleted ? '<p style="color:#28a745; font-weight:bold;">🎉 Карточка полностью заполнена!</p>' : ''}
+        </div>
+        <div class="bingo-grid">
+          ${card.map(cell => {
+            const done = progress[cell.id] === true;
+            const task = tasksCache[cell.id];
+            const desc = task ? task.description : 'Задание не найдено';
+            const icon = done ? '✅' : '⬜';
+            return `<div class="bingo-cell ${done ? 'completed' : ''}" title="${desc}">
+              <span class="cell-icon">${icon}</span>
+              <span>${desc.length > 40 ? desc.substring(0, 40) + '…' : desc}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        ${renderTopPlayers(participants)}
+        <a href="../index.html" class="bingo-back">← На главную</a>
+      `;
+
+      container.innerHTML = html;
+      updateTimer();
+    }
+
+    function renderTopPlayers(participants) {
+      const players = [];
+      for (const [uid, data] of Object.entries(participants)) {
+        const completed = Object.keys(data.progress || {}).length;
+        players.push({ uid, completed });
+      }
+      players.sort((a, b) => b.completed - a.completed);
+      const top5 = players.slice(0, 5);
+
+      let html = '<div class="top-players"><h4>🏆 Топ участников</h4>';
+      if (top5.length === 0) {
+        html += '<p>Пока нет участников.</p>';
+      } else {
+        html += '<table><tr><th>#</th><th>Игрок</th><th>Заданий</th></tr>';
+        top5.forEach((p, i) => {
+          html += `<tr><td>${i + 1}</td><td>${p.uid === auth.currentUser.uid ? 'Вы' : p.uid.substring(0, 8)}</td><td>${p.completed}</td></tr>`;
+        });
+        html += '</table>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function updateTimer() {
+      const timerBar = document.getElementById('timer-bar');
+      if (!timerBar) return;
+      if (eventData.endTime) {
+        const diff = eventData.endTime.seconds * 1000 - Date.now();
+        if (diff > 0) {
+          const days = Math.floor(diff / 86400000);
+          const hours = Math.floor((diff % 86400000) / 3600000);
+          const minutes = Math.floor((diff % 3600000) / 60000);
+          timerBar.textContent = `Осталось: ${days > 0 ? days + ' дн. ' : ''}${hours} ч. ${minutes} мин.`;
+        } else {
+          timerBar.textContent = 'Ивент завершён';
+        }
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (unsubscribeEvent) unsubscribeEvent();
+    });
+  </script>
+</body>
+</html>
