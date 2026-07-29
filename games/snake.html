@@ -279,10 +279,10 @@
             CELL = canvas.width / GRID; // 25px
         let snake, dir, food, score, awardedLevel, gameRunning, isSelf, isWall,
             maxScore = 0, bestScore = 0, currentUid = null, particles = [];
-        let prevSnake = [];        // состояние до последнего шага
-        let prevLength = 0;       // длина до шага
+        let prevSnake = [];
+        let prevLength = 0;
         let lastStepTime = 0;
-        const STEP_INTERVAL = 100; // миллисекунды между шагами
+        const STEP_INTERVAL = 100;
         let animationFrameId = null;
         let applePulsePhase = 0;
 
@@ -412,24 +412,12 @@
 
         function drawSnake(progress) {
             for (let i = 0; i < snake.length; i++) {
-                let seg, x, y;
-                if (i === 0 && snake.length > prevLength) {
-                    // Новая голова при поедании: не интерполируем, мгновенно на позиции
-                    seg = snake[0];
-                    x = seg.x * CELL;
-                    y = seg.y * CELL;
-                } else {
-                    // Для остальных сегментов: интерполяция
-                    let fromIdx = i;
-                    if (snake.length > prevLength) {
-                        // Поедание: смещение на один индекс назад
-                        fromIdx = i - 1;
-                    }
-                    const from = prevSnake[fromIdx] || snake[i];
-                    const to = snake[i];
-                    x = (from.x + (to.x - from.x) * progress) * CELL;
-                    y = (from.y + (to.y - from.y) * progress) * CELL;
-                }
+                const to = snake[i];
+                // Для интерполяции без смещения всегда берём from из prevSnake[i]
+                // Если prevSnake[i] не существует (новая голова при поедании), используем саму to
+                const from = prevSnake[i] || to;
+                const x = (from.x + (to.x - from.x) * progress) * CELL;
+                const y = (from.y + (to.y - from.y) * progress) * CELL;
 
                 const r = CELL * 0.45;
                 const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
@@ -579,9 +567,9 @@
                 food = randomFood();
                 if (score % 5 === 0) {
                     awardedLevel++;
-                    setTimeout(() => award(), 0);
+                    award(); // асинхронно, не блокирует
                 }
-                // Длина увеличилась (prevLength < snake.length) – интерполяция будет со смещением
+                // хвост не удаляем – длина растёт
             } else {
                 snake.pop();
             }
@@ -593,9 +581,8 @@
             const elapsed = timestamp - lastStepTime;
             if (elapsed >= STEP_INTERVAL) {
                 stepSnake();
-                lastStepTime = timestamp - (elapsed % STEP_INTERVAL);
+                lastStepTime = timestamp; // сброс, чтобы прогресс начался с 0
             }
-            // Прогресс интерполяции (0..1)
             const progress = Math.min(1, elapsed / STEP_INTERVAL);
             updateParticles();
             drawBackground();
