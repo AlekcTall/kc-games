@@ -223,7 +223,7 @@ async function checkAndAwardAchievements() {
 
       // НОВЫЕ ПАСХАЛКИ
       case 'easter_dark_side': earned = (easterEggs || []).includes('dark_side'); break;
-      case 'easter_collector': earned = (unlocked.length >= 10); break; // проверяем уже разблокированные достижения
+      case 'easter_collector': earned = (unlocked.length >= 10); break;
       case 'easter_silence': earned = (easterEggs || []).includes('silence'); break;
       case 'easter_night_guest': earned = (easterEggs || []).includes('night_guest'); break;
       case 'easter_conspirator': earned = (easterEggs || []).includes('conspirator'); break;
@@ -255,11 +255,15 @@ async function checkAndAwardAchievements() {
 
     for (const ach of newlyUnlocked) {
       await addNotification(user.uid, `Получено достижение: ${ach.icon} ${ach.name}`, 'achievement', 'profile.html');
+
+      // Проверка прогресса бинго (получение любого нового достижения)
+      if (typeof updateBingoProgress === 'function') {
+        updateBingoProgress(user.uid, 'achievement', { achievementId: ach.id }).catch(e => console.error(e));
+      }
     }
 
     // Дополнительно проверяем "Коллекционера" после обновления
     if (unlocked.length >= 10 && !unlocked.includes('easter_collector')) {
-      // добавим позже через вызов checkCollector
       if (typeof window.checkCollector === 'function') {
         await window.checkCollector();
       }
