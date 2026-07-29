@@ -27,7 +27,7 @@
             display: block;
             margin: 0 auto 1rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            background: #f5f5f5; /* базовый фон, будет перекрыт градиентом */
+            background: #f5f5f5;
         }
         .snake-controls {
             margin-bottom: 1rem;
@@ -118,18 +118,10 @@
                 border: 1px solid #ccc;
                 border-radius: 8px;
             }
-            .up {
-                grid-area: up;
-            }
-            .down {
-                grid-area: down;
-            }
-            .left {
-                grid-area: left;
-            }
-            .right {
-                grid-area: right;
-            }
+            .up { grid-area: up; }
+            .down { grid-area: down; }
+            .left { grid-area: left; }
+            .right { grid-area: right; }
         }
         .leaderboard-snake {
             margin-top: 1.5rem;
@@ -158,7 +150,6 @@
             background: #e6f7ff;
             font-weight: 600;
         }
-
         /* Экран окончания игры */
         .game-over-overlay {
             position: absolute;
@@ -226,7 +217,6 @@
         </div>
         <div style="position: relative; display: inline-block;">
             <canvas id="gameCanvas" width="500" height="500"></canvas>
-            <!-- Game Over overlay (будет добавляться динамически) -->
         </div>
         <div class="mobile-controls">
             <button class="up">▲</button>
@@ -286,14 +276,12 @@
             scoreEl = document.getElementById('score'),
             msgEl = document.getElementById('message');
         const GRID = 20,
-            CELL = canvas.width / GRID; // 500/20 = 25px на клетку
+            CELL = canvas.width / GRID; // 500/20 = 25px
         let snake, dir, food, score, awardedLevel, gameRunning, isSelf, isWall,
             maxScore = 0, bestScore = 0, currentUid = null, particles = [];
         let lastStepTime = 0;
-        const STEP_INTERVAL = 150; // мс между шагами змеи
+        const STEP_INTERVAL = 130; // чуть быстрее классических 150 мс для большей динамики
         let animationFrameId = null;
-
-        // Для пульсации яблока
         let applePulsePhase = 0;
 
         auth.onAuthStateChanged(user => {
@@ -365,7 +353,6 @@
             msgEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} яблок` : '';
             particles = [];
             lastStepTime = performance.now();
-            // Удаляем предыдущий game over overlay, если был
             const overlay = document.querySelector('.game-over-overlay');
             if (overlay) overlay.remove();
         }
@@ -382,7 +369,6 @@
         }
 
         function drawBackground() {
-            // Радиальный градиент фона
             const gradient = ctx.createRadialGradient(
                 canvas.width / 2, canvas.height / 2, CELL * 2,
                 canvas.width / 2, canvas.height / 2, canvas.width * 0.8
@@ -391,8 +377,6 @@
             gradient.addColorStop(1, '#e0e0e0');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Сетка (очень бледная)
             ctx.strokeStyle = '#ddd';
             ctx.lineWidth = 0.5;
             for (let i = 0; i <= GRID; i++) {
@@ -407,10 +391,9 @@
 
         function drawFood(timestamp) {
             applePulsePhase += 0.03;
-            const scale = 1 + Math.sin(applePulsePhase) * 0.05; // пульсация ±5%
+            const scale = 1 + Math.sin(applePulsePhase) * 0.05;
             const cx = food.x * CELL + CELL / 2;
             const cy = food.y * CELL + CELL / 2;
-
             ctx.save();
             ctx.translate(cx, cy);
             ctx.scale(scale, scale);
@@ -423,22 +406,11 @@
             ctx.restore();
         }
 
-        function drawSnake(progress) {
-            // progress – от 0 до 1, насколько змея смещена между предыдущим и текущим положением
-            for (let i = snake.length - 1; i >= 0; i--) {
-                let seg = snake[i];
-                let x, y;
-
-                // Если есть предыдущая позиция для интерполяции (плавное движение)
-                if (window.prevSnake && window.prevSnake[i]) {
-                    const prev = window.prevSnake[i];
-                    x = (prev.x + (seg.x - prev.x) * progress) * CELL;
-                    y = (prev.y + (seg.y - prev.y) * progress) * CELL;
-                } else {
-                    x = seg.x * CELL;
-                    y = seg.y * CELL;
-                }
-
+        function drawSnake() {
+            for (let i = 0; i < snake.length; i++) {
+                const seg = snake[i];
+                const x = seg.x * CELL;
+                const y = seg.y * CELL;
                 const r = CELL * 0.45;
                 const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
                 if (i === 0) {
@@ -455,9 +427,7 @@
                 ctx.fill();
                 ctx.shadowColor = 'transparent';
                 ctx.shadowBlur = 0;
-
                 if (i === 0) {
-                    // Глаза
                     const eyeX = x + CELL / 2 + dir.x * CELL / 4;
                     const eyeY = y + CELL / 2 + dir.y * CELL / 4;
                     ctx.fillStyle = 'white';
@@ -474,7 +444,7 @@
 
         function drawParticles() {
             for (const p of particles) {
-                const progress = 1 - p.life; // от 0 до 1
+                const progress = 1 - p.life;
                 const radius = CELL * 0.6 * (0.5 + progress * 0.8);
                 ctx.beginPath();
                 ctx.arc(p.x * CELL + CELL / 2, p.y * CELL + CELL / 2, radius, 0, Math.PI * 2);
@@ -502,9 +472,7 @@
         }
 
         function updateParticles() {
-            for (const p of particles) {
-                p.life -= 0.05;
-            }
+            for (const p of particles) p.life -= 0.05;
             particles = particles.filter(p => p.life > 0);
         }
 
@@ -551,10 +519,8 @@
         function showGameOverOverlay(finalScore, reason) {
             const wrapper = document.querySelector('#gameContainer div[style*="position: relative"]');
             if (!wrapper) return;
-            // Удалим старый если есть
             const old = wrapper.querySelector('.game-over-overlay');
             if (old) old.remove();
-
             const overlay = document.createElement('div');
             overlay.className = 'game-over-overlay';
             overlay.innerHTML = `
@@ -564,7 +530,6 @@
                 <button class="btn" id="restartFromOverlay">Играть снова</button>
             `;
             wrapper.appendChild(overlay);
-
             document.getElementById('restartFromOverlay').addEventListener('click', () => {
                 overlay.remove();
                 initGame();
@@ -574,10 +539,6 @@
 
         function stepSnake() {
             if (!gameRunning) return;
-
-            // Сохраняем предыдущие позиции для интерполяции
-            window.prevSnake = snake.map(seg => ({ x: seg.x, y: seg.y }));
-
             const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
             if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
                 isWall = true;
@@ -589,9 +550,7 @@
                 endGame();
                 return;
             }
-
             snake.unshift(head);
-
             if (head.x === food.x && head.y === food.y) {
                 score++;
                 if (score > maxScore) maxScore = score;
@@ -609,31 +568,20 @@
 
         function gameLoop(timestamp) {
             if (!gameRunning) return;
-
             if (!lastStepTime) lastStepTime = timestamp;
             const elapsed = timestamp - lastStepTime;
-
             if (elapsed >= STEP_INTERVAL) {
                 stepSnake();
                 lastStepTime = timestamp - (elapsed % STEP_INTERVAL);
             }
-
-            // Прогресс интерполяции для плавного движения
-            const progress = Math.min(1, elapsed / STEP_INTERVAL);
-
-            // Обновление частиц
             updateParticles();
-
-            // Отрисовка
             drawBackground();
             drawFood(timestamp);
-            drawSnake(progress);
+            drawSnake();
             drawParticles();
-
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // Управление
         document.addEventListener('keydown', e => {
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -645,22 +593,10 @@
             }
             if (!gameRunning) return;
             switch (e.key) {
-                case 'ArrowUp':
-                    if (dir.y === 0) dir = { x: 0, y: -1 };
-                    e.preventDefault();
-                    break;
-                case 'ArrowDown':
-                    if (dir.y === 0) dir = { x: 0, y: 1 };
-                    e.preventDefault();
-                    break;
-                case 'ArrowLeft':
-                    if (dir.x === 0) dir = { x: -1, y: 0 };
-                    e.preventDefault();
-                    break;
-                case 'ArrowRight':
-                    if (dir.x === 0) dir = { x: 1, y: 0 };
-                    e.preventDefault();
-                    break;
+                case 'ArrowUp': if (dir.y === 0) dir = { x: 0, y: -1 }; e.preventDefault(); break;
+                case 'ArrowDown': if (dir.y === 0) dir = { x: 0, y: 1 }; e.preventDefault(); break;
+                case 'ArrowLeft': if (dir.x === 0) dir = { x: -1, y: 0 }; e.preventDefault(); break;
+                case 'ArrowRight': if (dir.x === 0) dir = { x: 1, y: 0 }; e.preventDefault(); break;
             }
         });
 
