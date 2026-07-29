@@ -12,6 +12,7 @@
     .shop-card__duration { font-size: 0.8rem; color: #888; margin-bottom: 0.5rem; }
     .shop-card__stock { font-size: 0.8rem; color: #e74c3c; margin-bottom: 0.5rem; font-weight: 600; }
     .shop-card__effect { font-size: 0.75rem; color: #27ae60; margin-bottom: 0.3rem; font-weight: 500; }
+    .shop-card__timer { font-size: 0.8rem; color: #e67e22; font-weight: 600; margin-bottom: 0.5rem; }
     .modal { max-width: 450px; }
     .skeleton-card { background: var(--color-white); border-radius: var(--border-radius); padding: 1.5rem 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; animation: shimmer 1.5s infinite; display: flex; flex-direction: column; align-items: center; }
     .skeleton-icon { width: 3rem; height: 3rem; border-radius: 50%; background: #e0e0e0; margin-bottom: 0.5rem; }
@@ -42,6 +43,7 @@
   <script src="js/feedback.js"></script>
   <script src="js/main.js"></script>
   <script src="js/effects-engine.js"></script>
+  <script src="js/bingo-engine.js"></script>
 
   <script>
     (function() {
@@ -155,17 +157,29 @@
         }
 
         const purchasedItems = currentUserDoc?.purchasedItems || getCurrentUser()?.purchasedItems || [];
+        const activeEffectsInfo = typeof getActiveEffectsInfo === 'function' ? getActiveEffectsInfo(currentUserDoc || getCurrentUser()) : [];
 
         let html = '';
         filtered.forEach(item => {
           const isOwned = item.unique && purchasedItems.includes(item.id);
           const stockText = item.stock !== null && item.stock !== undefined ? `Осталось: ${item.stock} шт.` : '';
           const durationText = item.duration > 0 ? `Действует: ${item.duration} ч.` : (item.duration === 0 ? 'Навсегда' : '');
+
+          // Проверяем, активен ли временный эффект, связанный с этим товаром
+          let timerHtml = '';
+          if (item.effectType && (item.effectType === 'double_xp' || item.effectType === 'fast_cooldown')) {
+            const activeEffect = activeEffectsInfo.find(e => e.id === item.effectType);
+            if (activeEffect) {
+              timerHtml = `<p class="shop-card__timer">🕒 Активен ещё ${activeEffect.remainingText}</p>`;
+            }
+          }
+
           html += `<div class="shop-card" data-item-id="${item.id}">
             <div class="shop-card__icon">${item.icon || '🛒'}</div>
             <h3 class="shop-card__title">${item.title}</h3>
             ${item.effectType || item.effect ? `<p class="shop-card__effect">${item.effectType || item.effect}</p>` : ''}
             ${durationText ? `<p class="shop-card__duration">${durationText}</p>` : ''}
+            ${timerHtml}
             ${stockText ? `<p class="shop-card__stock">${stockText}</p>` : ''}
             <p class="shop-card__price">${item.price} локоин${pluralizeLokoin(item.price)}</p>
             ${isOwned ? '<span class="shop-card__badge">Куплено</span>' : ''}
@@ -192,11 +206,21 @@
 
         const purchasedItems = currentUserDoc?.purchasedItems || getCurrentUser()?.purchasedItems || [];
         const isOwned = item.unique && purchasedItems.includes(item.id);
+        // Проверка активности временного эффекта
+        let timerText = '';
+        if (item.effectType && (item.effectType === 'double_xp' || item.effectType === 'fast_cooldown')) {
+          const activeInfo = typeof getActiveEffectsInfo === 'function' ? getActiveEffectsInfo(currentUserDoc || getCurrentUser()) : [];
+          const eff = activeInfo.find(e => e.id === item.effectType);
+          if (eff) timerText = `<p style="color:#e67e22; font-weight:500;">🕒 Эффект активен ещё ${eff.remainingText}</p>`;
+        }
 
         if (isOwned) {
-          itemDetailActions.innerHTML = '<span class="item-detail-owned">Уже куплено</span>';
+          itemDetailActions.innerHTML = '<span class="item-detail-owned">Уже куплено</span>' + timerText;
         } else if (item.stock !== null && item.stock !== undefined && item.stock <= 0) {
           itemDetailActions.innerHTML = '<span class="item-detail-owned" style="background:#e74c3c;">Раскуплено</span>';
+        } else if (timerText && !item.unique) {
+          // Товар с временным эффектом, эффект уже активен — кнопка покупки неактивна
+          itemDetailActions.innerHTML = timerText;
         } else {
           itemDetailActions.innerHTML = `<button class="btn btn-buy" id="btn-buy">Купить за ${item.price} локоин${pluralizeLokoin(item.price)}</button>`;
         }
@@ -253,12 +277,10 @@
 
           await userRef.update(updateData);
 
-          // Применяем эффект товара через универсальную функцию
           if ((item.effectType || item.effect) && typeof applyItemEffect === 'function') {
             await applyItemEffect(auth.currentUser.uid, item);
           }
 
-          // Обратная совместимость для старой тёмной темы
           if (!item.effectType && item.effect === 'dark_theme' && item.duration === 0) {
             await userRef.update({ activeTheme: 'dark' });
             document.body.classList.add('dark-theme');
@@ -305,10 +327,8 @@
             setCurrentUser(cachedUser);
           }
 
-          // Обновляем кеш товаров
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(allItems));
 
-          // Сбрасываем кеш профиля и рейтинга, чтобы изменения отобразились сразу
           sessionStorage.removeItem('krugames_profile_cache');
           sessionStorage.removeItem('krugames_leaderboard');
           Object.keys(sessionStorage).forEach(key => {
@@ -323,6 +343,14 @@
           }
           if (item.effectType === 'dark_theme' && typeof checkDarkThemePurchase === 'function') {
             await checkDarkThemePurchase();
+          }
+
+          // Проверка прогресса бинго (покупка)
+          if (typeof updateBingoProgress === 'function') {
+            updateBingoProgress(auth.currentUser.uid, 'purchase', { 
+              itemId: item.id, 
+              category: item.category || '' 
+            }).catch(e => console.error(e));
           }
 
           renderShop();
