@@ -150,7 +150,6 @@
             background: #e6f7ff;
             font-weight: 600;
         }
-        /* Экран окончания игры */
         .game-over-overlay {
             position: absolute;
             top: 0;
@@ -277,13 +276,14 @@
             msgEl = document.getElementById('message');
         const GRID = 20,
             CELL = canvas.width / GRID; // 25px
-        const SPEED = 150; // пикселей в секунду (150/25 = 6 клеток/с)
+        const SPEED = 120; // пикселей в секунду
+        const MIN_DIST = CELL * 0.7; // минимальное расстояние для столкновения с телом
 
-        let headX, headY;           // непрерывные координаты головы (px)
-        let dirX = 1, dirY = 0;    // текущее направление (изменяется только при шаге)
-        let nextDirX = 1, nextDirY = 0; // желаемое направление (устанавливается клавишами)
-        let snakePath = [];         // история позиций головы [{x, y}, ...] с интервалом CELL
-        let tailLength = 0;        // количество сегментов после головы (без учёта головы)
+        let headX, headY;
+        let dirX = 1, dirY = 0;
+        let nextDirX = 1, nextDirY = 0;
+        let snakePath = [];
+        let tailLength = 0;
         let food, score, awardedLevel, gameRunning, isSelf, isWall,
             maxScore = 0, bestScore = 0, currentUid = null, particles = [];
         let lastTime = 0;
@@ -348,7 +348,6 @@
         }
 
         function initGame() {
-            // Начальная позиция головы – центр клетки (10,10)
             headX = 10 * CELL + CELL / 2;
             headY = 10 * CELL + CELL / 2;
             dirX = 1; dirY = 0;
@@ -420,15 +419,11 @@
         }
 
         function drawSnake() {
-            // Рисуем голову
+            // Голова
             drawSegment(headX, headY, true);
-            // Рисуем тело из snakePath с учётом tailLength
+            // Тело
             if (tailLength > 0 && snakePath.length > 1) {
-                // Расстояние между сегментами – CELL
-                let dist = 0;
-                let segIdx = 1;
                 for (let i = 0; i < tailLength; i++) {
-                    // Находим позицию на расстоянии CELL*(i+1) от головы вдоль пути
                     let targetDist = CELL * (i + 1);
                     let remaining = targetDist;
                     let px = headX, py = headY;
@@ -451,36 +446,36 @@
                     drawSegment(px, py, false);
                 }
             }
+        }
 
-            function drawSegment(x, y, isHead) {
-                const r = CELL * 0.45;
-                const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
-                if (isHead) {
-                    gradient.addColorStop(0, '#2ecc71');
-                    gradient.addColorStop(1, '#1abc9c');
-                } else {
-                    gradient.addColorStop(0, '#27ae60');
-                    gradient.addColorStop(1, '#2ecc71');
-                }
-                ctx.fillStyle = gradient;
-                ctx.shadowColor = 'rgba(0,0,0,0.15)';
-                ctx.shadowBlur = 4;
-                roundRect(x - CELL/2 + 2, y - CELL/2 + 2, CELL - 4, CELL - 4, r);
+        function drawSegment(x, y, isHead) {
+            const r = CELL * 0.45;
+            const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
+            if (isHead) {
+                gradient.addColorStop(0, '#2ecc71');
+                gradient.addColorStop(1, '#1abc9c');
+            } else {
+                gradient.addColorStop(0, '#27ae60');
+                gradient.addColorStop(1, '#2ecc71');
+            }
+            ctx.fillStyle = gradient;
+            ctx.shadowColor = 'rgba(0,0,0,0.15)';
+            ctx.shadowBlur = 4;
+            roundRect(x - CELL/2 + 2, y - CELL/2 + 2, CELL - 4, CELL - 4, r);
+            ctx.fill();
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            if (isHead) {
+                const eyeX = x + dirX * CELL / 4;
+                const eyeY = y + dirY * CELL / 4;
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(eyeX, eyeY, CELL * 0.13, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
-                if (isHead) {
-                    const eyeX = x + dirX * CELL / 4;
-                    const eyeY = y + dirY * CELL / 4;
-                    ctx.fillStyle = 'white';
-                    ctx.beginPath();
-                    ctx.arc(eyeX, eyeY, CELL * 0.13, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = 'black';
-                    ctx.beginPath();
-                    ctx.arc(eyeX + dirX * 2, eyeY + dirY * 2, CELL * 0.06, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(eyeX + dirX * 2, eyeY + dirY * 2, CELL * 0.06, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
 
@@ -577,37 +572,49 @@
             });
         }
 
+        // Непрерывная проверка столкновения с телом
         function checkCollision(px, py) {
-            // Проверка столкновения головы с телом (по клеткам)
-            const headCell = `${Math.floor(px / CELL)},${Math.floor(py / CELL)}`;
-            // Пропускаем первые несколько сегментов (голова и ближайшие)
-            const startCheck = 4; // начинаем проверку с 4-го сегмента, чтобы не ложно срабатывать
-            const cells = snakePath.map(p => `${Math.floor(p.x / CELL)},${Math.floor(p.y / CELL)}`);
-            for (let i = startCheck; i < cells.length; i++) {
-                if (cells[i] === headCell) return true;
+            // Пропускаем первые несколько сегментов, чтобы голова не цеплялась сама за себя
+            const skipCount = Math.min(4, tailLength + 1);
+            const pts = snakePath.slice(skipCount);
+            for (const p of pts) {
+                const dx = px - p.x;
+                const dy = py - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < MIN_DIST) return true;
             }
             return false;
+        }
+
+        // Проверка, безопасно ли повернуть в указанном направлении
+        function isSafeDirection(dx, dy) {
+            // Симулируем положение головы после поворота в следующей клетке
+            const nextCellX = Math.floor(headX / CELL) + dx;
+            const nextCellY = Math.floor(headY / CELL) + dy;
+            const simX = nextCellX * CELL + CELL / 2;
+            const simY = nextCellY * CELL + CELL / 2;
+            // Проверяем, не столкнется ли голова с телом (пропускаем хвост, который может уйти)
+            // Для простоты просто проверим, не занята ли клетка телом, исключая последний сегмент (хвост)
+            const occupied = snakePath.slice(0, -1).map(p => `${Math.floor(p.x / CELL)},${Math.floor(p.y / CELL)}`);
+            return !occupied.includes(`${nextCellX},${nextCellY}`);
         }
 
         function gameLoop(timestamp) {
             if (!gameRunning) return;
             if (!lastTime) lastTime = timestamp;
-            const dt = Math.min(100, timestamp - lastTime); // ограничение сверху 100мс
+            const dt = Math.min(100, timestamp - lastTime);
             lastTime = timestamp;
 
-            // Движение головы
             const moveAmount = (SPEED / 1000) * dt;
             headX += dirX * moveAmount;
             headY += dirY * moveAmount;
 
-            // Проверка выхода за границы
             if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height) {
                 isWall = true;
                 endGame();
                 return;
             }
 
-            // Проверка на шаг (пересечение границы клетки)
             const currentCellX = Math.floor(headX / CELL);
             const currentCellY = Math.floor(headY / CELL);
             const prevPath = snakePath[0];
@@ -615,22 +622,14 @@
             const prevCellY = Math.floor(prevPath.y / CELL);
 
             if (currentCellX !== prevCellX || currentCellY !== prevCellY) {
-                // Произошёл шаг на новую клетку
-                // Применяем запланированное направление
-                if (nextDirX !== dirX || nextDirY !== dirY) {
-                    // Проверка, что новое направление не противоположное текущему
-                    if (nextDirX !== -dirX || nextDirY !== -dirY) {
-                        dirX = nextDirX;
-                        dirY = nextDirY;
-                    }
+                // Применяем запланированное направление, если оно безопасно
+                if ((nextDirX !== dirX || nextDirY !== dirY) && isSafeDirection(nextDirX, nextDirY)) {
+                    dirX = nextDirX;
+                    dirY = nextDirY;
                 }
 
-                // Запоминаем точную позицию, где голова оказалась при входе в новую клетку (центр клетки?)
-                // Лучше сохранять фактическую позицию с учётом избыточного смещения
-                // Корректируем headX, headY так, чтобы они не улетали далеко за границу клетки из-за большого dt
                 const cellCenterX = currentCellX * CELL + CELL / 2;
                 const cellCenterY = currentCellY * CELL + CELL / 2;
-                // Перемещаем голову ровно на оставшееся расстояние в новом направлении
                 const overshoot = Math.sqrt((headX - prevPath.x) ** 2 + (headY - prevPath.y) ** 2) - CELL;
                 if (overshoot > 0) {
                     headX = cellCenterX + dirX * overshoot;
@@ -640,18 +639,15 @@
                     headY = cellCenterY;
                 }
 
-                // Проверка столкновения с телом
                 if (checkCollision(headX, headY)) {
                     isSelf = true;
                     endGame();
                     return;
                 }
 
-                // Проверка поедания яблока
                 const foodCellX = food.x;
                 const foodCellY = food.y;
                 if (currentCellX === foodCellX && currentCellY === foodCellY) {
-                    // Съели яблоко
                     score++;
                     if (score > maxScore) maxScore = score;
                     scoreEl.textContent = score;
@@ -664,9 +660,7 @@
                     }
                 }
 
-                // Добавляем новую точку в путь (голова на новом месте)
                 snakePath.unshift({ x: headX, y: headY });
-                // Ограничиваем длину пути: максимум tailLength+2 точек, чтобы не копить бесконечно
                 if (snakePath.length > tailLength + 10) {
                     snakePath.length = tailLength + 10;
                 }
@@ -680,6 +674,7 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
+        // Обработка клавиш – с защитой от поворота в тело
         document.addEventListener('keydown', e => {
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -690,21 +685,36 @@
                 return;
             }
             if (!gameRunning) return;
+            let newDx = 0, newDy = 0;
             switch (e.key) {
-                case 'ArrowUp': if (dirY !== 1) { nextDirX = 0; nextDirY = -1; } e.preventDefault(); break;
-                case 'ArrowDown': if (dirY !== -1) { nextDirX = 0; nextDirY = 1; } e.preventDefault(); break;
-                case 'ArrowLeft': if (dirX !== 1) { nextDirX = -1; nextDirY = 0; } e.preventDefault(); break;
-                case 'ArrowRight': if (dirX !== -1) { nextDirX = 1; nextDirY = 0; } e.preventDefault(); break;
+                case 'ArrowUp': newDx = 0; newDy = -1; e.preventDefault(); break;
+                case 'ArrowDown': newDx = 0; newDy = 1; e.preventDefault(); break;
+                case 'ArrowLeft': newDx = -1; newDy = 0; e.preventDefault(); break;
+                case 'ArrowRight': newDx = 1; newDy = 0; e.preventDefault(); break;
+                default: return;
+            }
+            // Запрет поворота на 180°
+            if (newDx === -dirX && newDy === -dirY) return;
+            // Проверка безопасности поворота (не в тело)
+            if (isSafeDirection(newDx, newDy)) {
+                nextDirX = newDx;
+                nextDirY = newDy;
             }
         });
 
         document.querySelectorAll('.mobile-controls button').forEach(b => {
             b.addEventListener('click', () => {
                 if (!gameRunning) return;
-                if (b.classList.contains('up') && dirY !== 1) { nextDirX = 0; nextDirY = -1; }
-                if (b.classList.contains('down') && dirY !== -1) { nextDirX = 0; nextDirY = 1; }
-                if (b.classList.contains('left') && dirX !== 1) { nextDirX = -1; nextDirY = 0; }
-                if (b.classList.contains('right') && dirX !== -1) { nextDirX = 1; nextDirY = 0; }
+                let newDx = 0, newDy = 0;
+                if (b.classList.contains('up')) { newDx = 0; newDy = -1; }
+                else if (b.classList.contains('down')) { newDx = 0; newDy = 1; }
+                else if (b.classList.contains('left')) { newDx = -1; newDy = 0; }
+                else if (b.classList.contains('right')) { newDx = 1; newDy = 0; }
+                if (newDx === -dirX && newDy === -dirY) return;
+                if (isSafeDirection(newDx, newDy)) {
+                    nextDirX = newDx;
+                    nextDirY = newDy;
+                }
             });
         });
     </script>
