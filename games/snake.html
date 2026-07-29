@@ -27,7 +27,7 @@
             display: block;
             margin: 0 auto 1rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            background: #f5f5f5;
+            background: #f0f0f0;
         }
         .snake-controls {
             margin-bottom: 1rem;
@@ -278,11 +278,15 @@
         const GRID = 20,
             CELL = canvas.width / GRID; // 500/20 = 25px
         let snake, dir, food, score, awardedLevel, gameRunning, isSelf, isWall,
-            maxScore = 0, bestScore = 0, currentUid = null, particles = [];
+            maxScore = 0, bestScore = 0, currentUid = null;
         let lastStepTime = 0;
-        const STEP_INTERVAL = 130; // чуть быстрее классических 150 мс для большей динамики
+        const STEP_INTERVAL = 130;
         let animationFrameId = null;
         let applePulsePhase = 0;
+
+        // Вспышка при поедании (простая смена цвета фона яблока)
+        let flashCell = null;
+        let flashTimer = null;
 
         auth.onAuthStateChanged(user => {
             if (user) {
@@ -351,10 +355,11 @@
             isSelf = isWall = false;
             scoreEl.textContent = '0';
             msgEl.textContent = bestScore > 0 ? `Личный рекорд: ${bestScore} яблок` : '';
-            particles = [];
             lastStepTime = performance.now();
             const overlay = document.querySelector('.game-over-overlay');
             if (overlay) overlay.remove();
+            flashCell = null;
+            if (flashTimer) clearTimeout(flashTimer);
         }
 
         function randomFood() {
@@ -369,15 +374,9 @@
         }
 
         function drawBackground() {
-            const gradient = ctx.createRadialGradient(
-                canvas.width / 2, canvas.height / 2, CELL * 2,
-                canvas.width / 2, canvas.height / 2, canvas.width * 0.8
-            );
-            gradient.addColorStop(0, '#f8f8f8');
-            gradient.addColorStop(1, '#e0e0e0');
-            ctx.fillStyle = gradient;
+            ctx.fillStyle = '#f0f0f0';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#ddd';
+            ctx.strokeStyle = '#e0e0e0';
             ctx.lineWidth = 0.5;
             for (let i = 0; i <= GRID; i++) {
                 ctx.beginPath();
@@ -400,8 +399,6 @@
             ctx.font = `${CELL * 0.8}px serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(255, 0, 0, 0.4)';
-            ctx.shadowBlur = 8;
             ctx.fillText('🍎', 0, 0);
             ctx.restore();
         }
@@ -411,46 +408,29 @@
                 const seg = snake[i];
                 const x = seg.x * CELL;
                 const y = seg.y * CELL;
-                const r = CELL * 0.45;
-                const gradient = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
-                if (i === 0) {
-                    gradient.addColorStop(0, '#2ecc71');
-                    gradient.addColorStop(1, '#1abc9c');
-                } else {
-                    gradient.addColorStop(0, '#27ae60');
-                    gradient.addColorStop(1, '#2ecc71');
-                }
-                ctx.fillStyle = gradient;
-                ctx.shadowColor = 'rgba(0,0,0,0.2)';
-                ctx.shadowBlur = 4;
+                const r = CELL * 0.4;
+                ctx.fillStyle = i === 0 ? '#1abc9c' : '#2ecc71';
                 roundRect(x + 2, y + 2, CELL - 4, CELL - 4, r);
                 ctx.fill();
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
                 if (i === 0) {
                     const eyeX = x + CELL / 2 + dir.x * CELL / 4;
                     const eyeY = y + CELL / 2 + dir.y * CELL / 4;
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
-                    ctx.arc(eyeX, eyeY, CELL * 0.15, 0, Math.PI * 2);
+                    ctx.arc(eyeX, eyeY, CELL * 0.12, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = 'black';
                     ctx.beginPath();
-                    ctx.arc(eyeX + dir.x * 2, eyeY + dir.y * 2, CELL * 0.07, 0, Math.PI * 2);
+                    ctx.arc(eyeX + dir.x * 2, eyeY + dir.y * 2, CELL * 0.06, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
         }
 
-        function drawParticles() {
-            for (const p of particles) {
-                const progress = 1 - p.life;
-                const radius = CELL * 0.6 * (0.5 + progress * 0.8);
-                ctx.beginPath();
-                ctx.arc(p.x * CELL + CELL / 2, p.y * CELL + CELL / 2, radius, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 80, 80, ${p.life * 0.6})`;
-                ctx.fill();
-            }
+        function drawFlash() {
+            if (!flashCell) return;
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+            ctx.fillRect(flashCell.x * CELL, flashCell.y * CELL, CELL, CELL);
         }
 
         function roundRect(x, y, w, h, r) {
@@ -465,15 +445,6 @@
             ctx.lineTo(x, y + r);
             ctx.quadraticCurveTo(x, y, x + r, y);
             ctx.closePath();
-        }
-
-        function spawnParticle(x, y) {
-            particles.push({ x, y, life: 1.0 });
-        }
-
-        function updateParticles() {
-            for (const p of particles) p.life -= 0.05;
-            particles = particles.filter(p => p.life > 0);
         }
 
         async function award() {
@@ -555,11 +526,15 @@
                 score++;
                 if (score > maxScore) maxScore = score;
                 scoreEl.textContent = score;
-                spawnParticle(food.x, food.y);
+                // Вспышка на месте яблока
+                flashCell = { x: food.x, y: food.y };
+                if (flashTimer) clearTimeout(flashTimer);
+                flashTimer = setTimeout(() => { flashCell = null; }, 150);
                 food = randomFood();
                 if (score % 5 === 0) {
                     awardedLevel++;
-                    award();
+                    // Вынос асинхронного вызова из основного цикла
+                    setTimeout(() => award(), 0);
                 }
             } else {
                 snake.pop();
@@ -574,11 +549,10 @@
                 stepSnake();
                 lastStepTime = timestamp - (elapsed % STEP_INTERVAL);
             }
-            updateParticles();
             drawBackground();
             drawFood(timestamp);
             drawSnake();
-            drawParticles();
+            drawFlash();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
