@@ -13,7 +13,7 @@
         #timerDisplay { font-family: monospace; font-size: 1.2rem; background: #fff; padding: 0.2rem 0.8rem; border-radius: 6px; border: 1px solid #ccc; }
         #smileyBtn { font-size: 2rem; cursor: pointer; background: none; border: none; line-height: 1; padding: 0 0.5rem; transition: transform 0.2s; }
         #smileyBtn:active { transform: scale(1.3); }
-        canvas { border: 2px solid #ddd; border-radius: 8px; background: #fafafa; display: block; margin: 0 auto 1rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); touch-action: manipulation; }
+        canvas { border: 2px solid #ddd; border-radius: 8px; background: #fafafa; display: block; margin: 0 auto 1rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); touch-action: manipulation; image-rendering: crisp-edges; }
         .ms-controls { margin-bottom: 1rem; color: #666; font-size: 0.9rem; }
         .ms-message { font-weight: bold; min-height: 1.5rem; margin: 0.5rem 0; color: #2c3e50; }
         .ms-back { display: inline-block; margin-top: 0.5rem; color: var(--color-primary); text-decoration: none; }
@@ -28,6 +28,25 @@
         .leaderboard-ms table { width: 100%; border-collapse: collapse; font-size: 0.9rem; } .leaderboard-ms th, .leaderboard-ms td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #eee; } .leaderboard-ms th { background: #f5f5f5; font-weight: 600; } .leaderboard-ms .me { background: #e6f7ff; font-weight: 600; }
         @media (max-width: 600px) { .ms-controls { font-size: 0.8rem; } }
         .mobile-warning { display: none; padding: 2rem; text-align: center; color: #e67e22; font-weight: 600; font-size: 1.1rem; line-height: 1.6; }
+        /* Оверлей Game Over */
+        .game-over-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; border-radius: 8px;
+            animation: fadeIn 0.4s ease; z-index: 10;
+        }
+        .game-over-overlay .game-over-text { color: white; font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .game-over-overlay .game-over-reason { color: #ddd; font-size: 1rem; margin-bottom: 1rem; }
+        .game-over-overlay .game-over-score { color: #f1c40f; font-size: 1.2rem; margin-bottom: 1.5rem; }
+        .game-over-overlay .btn {
+            background: white; color: #333; font-weight: 600; padding: 0.6rem 2rem;
+            border-radius: 20px; cursor: pointer; border: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .canvas-wrapper { position: relative; display: inline-block; }
     </style>
 </head>
 <body>
@@ -37,6 +56,7 @@
             <p>Открывайте ячейки, избегая мин.<br>
             Левая кнопка мыши / тап — открыть.<br>
             Правая кнопка / долгое нажатие — флаг 🚩.<br>
+            <strong>Новое:</strong> клик по цифре с нужным числом флагов открывает соседей.<br>
             Откройте все безопасные клетки, чтобы победить.</p>
             <p><small>Поле 9×9, 10 мин</small></p>
             <button class="btn-play" id="btnPlay">Играть</button>
@@ -57,8 +77,10 @@
                 <button id="smileyBtn" title="Новая игра">😊</button>
                 <span>⏱️ <span id="timerDisplay">00.00</span></span>
             </div>
-            <canvas id="gameCanvas" width="360" height="360"></canvas>
-            <div class="ms-controls">ЛКМ/тап — открыть | ПКМ/удержание — флаг 🚩</div>
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <canvas id="gameCanvas" width="360" height="360"></canvas>
+            </div>
+            <div class="ms-controls">ЛКМ/тап — открыть | ПКМ/удержание — флаг 🚩 | Клик по цифре — автооткрытие</div>
             <p class="ms-message" id="message"></p>
         </div>
         <div class="leaderboard-ms" id="ms-leaderboard">
@@ -103,6 +125,36 @@
             let timerStart = null, timerInterval = null, elapsedMs = 0;
             let bestTime = Infinity, currentUid = null;
             let longPressTimer = null, LONG_PRESS_DURATION = 400;
+            let bgCanvas = null;
+
+            // Создание фоновой сетки
+            function createBackground() {
+                if (!bgCanvas) {
+                    bgCanvas = document.createElement('canvas');
+                    bgCanvas.width = canvas.width;
+                    bgCanvas.height = canvas.height;
+                }
+                const bgCtx = bgCanvas.getContext('2d');
+                const gradient = bgCtx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#fdfdfd');
+                gradient.addColorStop(1, '#f0f0f0');
+                bgCtx.fillStyle = gradient;
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+                bgCtx.strokeStyle = '#e0e0e0';
+                bgCtx.lineWidth = 0.5;
+                for (let i = 0; i <= COLS; i++) {
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(i * CELL_SIZE, 0);
+                    bgCtx.lineTo(i * CELL_SIZE, canvas.height);
+                    bgCtx.stroke();
+                }
+                for (let j = 0; j <= ROWS; j++) {
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(0, j * CELL_SIZE);
+                    bgCtx.lineTo(canvas.width, j * CELL_SIZE);
+                    bgCtx.stroke();
+                }
+            }
 
             class Cell { constructor(row, col) { this.row = row; this.col = col; this.mine = false; this.revealed = false; this.flagged = false; this.neighborMines = 0; } }
             function createEmptyBoard() { const newBoard = []; for (let r = 0; r < ROWS; r++) { const row = []; for (let c = 0; c < COLS; c++) { row.push(new Cell(r, c)); } newBoard.push(row); } return newBoard; }
@@ -111,6 +163,35 @@
             function startTimer() { stopTimer(); timerStart = Date.now(); elapsedMs = 0; timerDisplay.textContent = '00.00'; timerInterval = setInterval(() => { elapsedMs = Date.now() - timerStart; timerDisplay.textContent = formatTime(elapsedMs); }, 50); }
             function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
             function formatTime(ms) { const totalSec = ms / 1000; const sec = Math.floor(totalSec); const milliseconds = Math.floor((totalSec - sec) * 100); return `${String(sec).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`; }
+
+            // Функция chord'инга
+            function chordCell(row, col) {
+                const cell = board[row][col];
+                if (!cell.revealed || cell.neighborMines === 0) return;
+                let flags = 0;
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = row + dr, nc = col + dc;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc].flagged) flags++;
+                    }
+                }
+                if (flags === cell.neighborMines) {
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            const nr = row + dr, nc = col + dc;
+                            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                                const nCell = board[nr][nc];
+                                if (!nCell.revealed && !nCell.flagged) {
+                                    revealCell(nr, nc);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             function revealCell(row, col) { const cell = board[row][col]; if (!cell || cell.revealed || cell.flagged || !gameActive) return; cell.revealed = true; if (cell.mine) { gameActive = false; gameOver = true; gameWin = false; stopTimer(); revealAllMines(); drawBoard(); handleGameEnd(); return; } safeRevealed++; if (cell.neighborMines === 0) { for (let dr = -1; dr <= 1; dr++) { for (let dc = -1; dc <= 1; dc++) { if (dr === 0 && dc === 0) continue; const nr = row + dr, nc = col + dc; if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) { revealCell(nr, nc); } } } } if (safeRevealed === SAFE_CELLS && gameActive) { gameActive = false; gameWin = true; gameOver = true; stopTimer(); for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { if (board[r][c].mine && !board[r][c].flagged) { board[r][c].flagged = true; flagsPlaced++; } } } minesCountSpan.textContent = MINES_TOTAL - flagsPlaced; drawBoard(); handleGameEnd(); } }
             function revealAllMines() { for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { if (board[r][c].mine) { board[r][c].revealed = true; } } } }
             function toggleFlag(row, col) { if (!gameActive) return; const cell = board[row][col]; if (cell.revealed) return; cell.flagged = !cell.flagged; flagsPlaced += cell.flagged ? 1 : -1; minesCountSpan.textContent = MINES_TOTAL - flagsPlaced; drawBoard(); }
@@ -126,14 +207,31 @@
                     await syncLoss();
                 }
                 updateTop();
+                // Показываем оверлей Game Over
+                const wrapper = document.getElementById('canvas-wrapper');
+                if (wrapper) {
+                    const old = wrapper.querySelector('.game-over-overlay');
+                    if (old) old.remove();
+                    const overlay = document.createElement('div');
+                    overlay.className = 'game-over-overlay';
+                    overlay.innerHTML = `
+                        <div class="game-over-text">${gameWin ? 'Победа!' : 'Игра окончена'}</div>
+                        <div class="game-over-reason">${gameWin ? 'Вы обезвредили все мины!' : 'Вы подорвались на мине'}</div>
+                        <div class="game-over-score">Время: ${formatTime(elapsedMs)}</div>
+                        <button class="btn" id="restartFromOverlay">Играть снова</button>
+                    `;
+                    wrapper.appendChild(overlay);
+                    document.getElementById('restartFromOverlay').addEventListener('click', () => {
+                        overlay.remove();
+                        restartGame();
+                    });
+                }
             }
 
             async function syncWin() {
                 if (!auth.currentUser) return;
                 try {
-                    // Сбрасываем счётчик поражений для пасхалки "Метеоризм"
                     sessionStorage.removeItem('minesweeper_losses');
-                    
                     const result = await addPointsToCurrentUser(3, 'minesweeper');
                     if (result && result.success) {
                         const earned = result.points;
@@ -149,7 +247,6 @@
                 if (!auth.currentUser) return;
                 try {
                     await syncGameStats('minesweeper', { loss: true });
-                    // Проверяем пасхалку "Метеоризм"
                     if (typeof checkMeteorism === 'function') {
                         await checkMeteorism();
                     }
@@ -158,7 +255,84 @@
             }
 
             function restartGame() { stopTimer(); gameActive = false; gameOver = false; gameWin = false; minesPlanted = false; flagsPlaced = 0; safeRevealed = 0; elapsedMs = 0; board = createEmptyBoard(); minesCountSpan.textContent = MINES_TOTAL; timerDisplay.textContent = '00.00'; messageEl.textContent = bestTime !== Infinity ? `Личный рекорд: ${formatTime(bestTime * 1000)}` : ''; smileyBtn.textContent = '😊'; drawBoard(); }
-            function drawBoard() { ctx.clearRect(0, 0, canvas.width, canvas.height); for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { const cell = board[r][c]; const x = c * CELL_SIZE; const y = r * CELL_SIZE; if (cell.revealed) { ctx.fillStyle = '#e0e0e0'; } else { ctx.fillStyle = '#bdbdbd'; } ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2); if (!cell.revealed) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, y + 1, CELL_SIZE - 3, 2); ctx.fillRect(x + 1, y + 1, 2, CELL_SIZE - 3); ctx.fillStyle = '#7b7b7b'; ctx.fillRect(x + 1, y + CELL_SIZE - 3, CELL_SIZE - 2, 2); ctx.fillRect(x + CELL_SIZE - 3, y + 1, 2, CELL_SIZE - 2); } ctx.font = 'bold 20px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const centerX = x + CELL_SIZE / 2; const centerY = y + CELL_SIZE / 2; if (cell.revealed) { if (cell.mine) { ctx.fillStyle = '#000'; ctx.font = '22px serif'; ctx.fillText('💣', centerX, centerY); } else if (cell.neighborMines > 0) { const colors = ['', '#1a6fc4', '#2e7d32', '#d84315', '#6a1b9a', '#b8860b', '#c62828', '#444', '#333']; ctx.fillStyle = colors[cell.neighborMines] || '#000'; ctx.fillText(cell.neighborMines, centerX, centerY); } } else if (cell.flagged) { ctx.font = '20px serif'; ctx.fillText('🚩', centerX, centerY); } } } ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 0.5; for (let i = 0; i <= COLS; i++) { ctx.beginPath(); ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, canvas.height); ctx.stroke(); } for (let i = 0; i <= ROWS; i++) { ctx.beginPath(); ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(canvas.width, i * CELL_SIZE); ctx.stroke(); } }
+
+            // Отрисовка клеток с объёмом
+            function drawClosedCell(x, y) {
+                const gradient = ctx.createLinearGradient(x, y, x + CELL_SIZE, y + CELL_SIZE);
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(0.5, '#bdbdbd');
+                gradient.addColorStop(1, '#7b7b7b');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fillRect(x + 1, y + 1, CELL_SIZE - 3, 2);
+                ctx.fillRect(x + 1, y + 1, 2, CELL_SIZE - 3);
+                ctx.strokeStyle = '#9e9e9e';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x + 0.5, y + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+            }
+
+            function drawOpenedCell(x, y) {
+                ctx.fillStyle = '#e0e0e0';
+                ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.05)';
+                ctx.fillRect(x + 1, y + 1, CELL_SIZE - 3, 2);
+                ctx.fillRect(x + 1, y + 1, 2, CELL_SIZE - 3);
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(x + 0.5, y + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+            }
+
+            function drawBoard() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (bgCanvas) ctx.drawImage(bgCanvas, 0, 0);
+
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        const cell = board[r][c];
+                        const x = c * CELL_SIZE;
+                        const y = r * CELL_SIZE;
+                        const centerX = x + CELL_SIZE / 2;
+                        const centerY = y + CELL_SIZE / 2;
+
+                        if (cell.revealed) {
+                            drawOpenedCell(x, y);
+                            if (cell.mine) {
+                                ctx.font = '22px serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillStyle = '#000';
+                                ctx.fillText('💣', centerX, centerY);
+                            } else if (cell.neighborMines > 0) {
+                                const colors = ['', '#1a6fc4', '#2e7d32', '#d84315', '#6a1b9a', '#b8860b', '#c62828', '#444', '#333'];
+                                ctx.font = 'bold 20px "Segoe UI", sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillStyle = colors[cell.neighborMines] || '#000';
+                                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                                ctx.shadowBlur = 1;
+                                ctx.fillText(cell.neighborMines, centerX, centerY);
+                                ctx.shadowColor = 'transparent';
+                                ctx.shadowBlur = 0;
+                            }
+                        } else {
+                            drawClosedCell(x, y);
+                            if (cell.flagged) {
+                                ctx.font = '20px serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillStyle = '#d63031';
+                                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                                ctx.shadowBlur = 1;
+                                ctx.fillText('🚩', centerX, centerY);
+                                ctx.shadowColor = 'transparent';
+                                ctx.shadowBlur = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
             function getCellFromEvent(e) { const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height; const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; const canvasX = (clientX - rect.left) * scaleX; const canvasY = (clientY - rect.top) * scaleY; const col = Math.floor(canvasX / CELL_SIZE); const row = Math.floor(canvasY / CELL_SIZE); if (row >= 0 && row < ROWS && col >= 0 && col < COLS) { return { row, col }; } return null; }
 
             canvas.addEventListener('mousedown', (e) => {
@@ -166,15 +340,22 @@
                 if (gameOver) return;
                 const cell = getCellFromEvent(e);
                 if (!cell) return;
-                if (e.button === 0) {
+                if (e.button === 0) { // левая кнопка
+                    const targetCell = board[cell.row][cell.col];
                     if (!minesPlanted) {
                         plantMines(cell.row, cell.col);
                         revealCell(cell.row, cell.col);
                     } else {
-                        if (gameActive) revealCell(cell.row, cell.col);
+                        if (gameActive) {
+                            if (targetCell.revealed && targetCell.neighborMines > 0) {
+                                chordCell(cell.row, cell.col); // chord
+                            } else if (!targetCell.revealed) {
+                                revealCell(cell.row, cell.col);
+                            }
+                        }
                     }
                     drawBoard();
-                } else if (e.button === 2) {
+                } else if (e.button === 2) { // правая кнопка
                     if (gameActive) toggleFlag(cell.row, cell.col);
                 }
             });
@@ -193,6 +374,7 @@
             function updateTopVisibility() { const table = document.getElementById('top-table'); const warning = document.getElementById('auth-warning'); if (!auth.currentUser) { if (table) table.style.display = 'none'; if (warning) warning.style.display = 'block'; } else { if (table) table.style.display = ''; if (warning) warning.style.display = 'none'; } }
             async function updateTop() { const tbody = document.querySelector('#top-table tbody'); if (!tbody) return; if (!auth.currentUser) return; try { const snap = await db.collection('users').get(); const players = []; snap.forEach(doc => { const d = doc.data(); if (d.role === 'admin') return; const t = d.gameStats?.minesweeper?.bestTime; if (t && t > 0) players.push({ uid: doc.id, username: d.username || 'Аноним', time: t }); }); players.sort((a, b) => a.time - b.time); const top10 = players.slice(0, 10); tbody.innerHTML = top10.map((p, i) => { const me = (currentUid && p.uid === currentUid) ? ' class="me"' : ''; return `<tr${me}><td>${i + 1}</td><td>${p.username}</td><td>${formatTime(p.time * 1000)}</td></tr>`; }).join(''); if (!top10.length) tbody.innerHTML = '<tr><td colspan="3">Пока нет рекордов</td></tr>'; } catch (e) { console.error(e); } }
             board = createEmptyBoard();
+            createBackground();
             drawBoard();
             messageEl.textContent = bestTime !== Infinity ? `Личный рекорд: ${formatTime(bestTime * 1000)}` : '';
         }
