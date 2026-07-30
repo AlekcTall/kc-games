@@ -6,95 +6,230 @@
     <title>Морской бой – КЦ Игры</title>
     <link rel="stylesheet" href="../css/style.css">
     <style>
+        :root {
+            --water-base: #a0c4e8;
+            --water-dark: #7aa1c9;
+            --ship-color: #4a5568;
+            --ship-border: #2d3748;
+            --hit-color: #e53e3e;
+            --miss-color: #ffffff;
+            --sunk-color: #742a2a;
+        }
+
         .battleship-game {
-            max-width: 850px;
+            max-width: 900px;
             margin: 2rem auto;
             text-align: center;
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
             padding: 2rem;
-            border-radius: var(--border-radius);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(10px);
         }
+
+        .tabs {
+            display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem;
+            justify-content: center;
+        }
+        .tab {
+            background: none; border: none; padding: 0.6rem 1.2rem;
+            font-size: 1rem; cursor: pointer; border-radius: 8px 8px 0 0;
+            color: #64748b; font-weight: 600; transition: all 0.2s;
+        }
+        .tab.active { background: #3b82f6; color: white; }
+        .tab:hover:not(.active) { background: #f1f5f9; color: #334155; }
+
         .boards-container {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
             gap: 2rem;
-            margin: 1rem 0;
+            margin: 1.5rem 0;
         }
         .board-wrapper { text-align: center; }
+        .board-wrapper h4 { margin-bottom: 0.5rem; color: #334155; font-size: 1.1rem; }
+
+        /* Поле боя с эффектом воды */
         .board-grid {
             display: grid;
-            grid-template-columns: repeat(10, 30px);
-            grid-template-rows: repeat(10, 30px);
+            grid-template-columns: repeat(10, 32px);
+            grid-template-rows: repeat(10, 32px);
             gap: 1px;
-            background: #ccc;
-            border: 2px solid #333;
+            background: var(--water-dark);
+            border: 3px solid #5d8aa8;
+            border-radius: 8px;
             margin: 0.5rem auto;
             width: fit-content;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 0 20px rgba(0,0,0,0.1);
+            background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.1) 0px, rgba(255,255,255,0.1) 2px, transparent 2px, transparent 8px);
         }
+
         .cell {
-            width: 30px; height: 30px;
-            background: #fff;
+            width: 32px; height: 32px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.1s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .cell.ship { background: #7f8c8d; }
-        .cell.hit { background: #e74c3c; }
-        .cell.miss { background: #3498db; }
-        .cell.ship.hit { background: #c0392b; }
-        .cell.auto-miss { background: #a0c4e8; }
+        .cell:hover:not(.disabled) {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+            z-index: 2;
+        }
         .cell.disabled { cursor: default; }
-        .btn { margin: 0.3rem; }
+        .cell.disabled:hover { transform: none; background: rgba(255, 255, 255, 0.15); }
+
+        /* Отрисовка корабля (палуба) */
+        .cell.ship {
+            background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
+            border: 1px solid #1a202c;
+            box-shadow: inset 0 1px 3px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3);
+        }
+        /* Деталь палубы (полоска/заклёпки) */
+        .cell.ship::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 20%; right: 20%;
+            height: 2px;
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-50%);
+            border-radius: 1px;
+        }
+
+        /* Анимация попадания */
+        .cell.hit::after {
+            content: '✕';
+            color: var(--hit-color);
+            font-size: 26px;
+            font-weight: 900;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+            70% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        /* Анимация промаха */
+        .cell.miss::after, .cell.auto-miss::after {
+            content: '•';
+            color: var(--miss-color);
+            font-size: 28px;
+            font-weight: 900;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            animation: fadeDrop 0.5s ease-out;
+        }
+        .cell.auto-miss::after { font-size: 16px; opacity: 0.6; }
+        @keyframes fadeDrop {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Уничтоженный корабль */
+        .cell.sunk {
+            background: linear-gradient(180deg, #9b2c2c 0%, #742a2a 100%) !important;
+            border-color: #531c1c !important;
+            animation: burn 1.5s infinite alternate;
+        }
+        .cell.sunk::after {
+            content: '💥';
+            font-size: 20px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+        }
+        @keyframes burn {
+            0% { box-shadow: inset 0 0 5px rgba(255,100,0,0.5); }
+            100% { box-shadow: inset 0 0 15px rgba(255,50,0,0.8); }
+        }
+
+        /* Кнопки и UI */
+        .btn {
+            margin: 0.3rem; padding: 0.6rem 1.2rem;
+            border: none; border-radius: 8px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4); }
+        .btn:active { transform: translateY(1px); }
+        .btn-cancel { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3); }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
+
         .ship-selection {
             display: flex; gap: 0.5rem; align-items: center;
             justify-content: center; flex-wrap: wrap; margin: 1rem 0;
         }
         .ship-selection button {
-            padding: 0.4rem 0.8rem; border: 1px solid #ccc;
-            border-radius: 4px; background: #f0f0f0; cursor: pointer;
+            padding: 0.5rem 0.8rem; border: 2px solid #cbd5e1;
+            border-radius: 8px; background: white; cursor: pointer;
+            font-weight: 600; color: #475569; transition: all 0.2s;
         }
-        .ship-selection button.active { background: #3498db; color: white; }
-        .status-message { font-weight: bold; margin: 0.5rem 0; }
+        .ship-selection button.active { 
+            background: #3b82f6; color: white; border-color: #2563eb; 
+            transform: scale(1.05);
+        }
+
+        .status-message { 
+            font-weight: 700; margin: 1rem 0; font-size: 1.2rem; 
+            color: #1e293b; min-height: 1.5rem;
+        }
+        .timer { 
+            font-size: 1.1rem; font-weight: 700; margin: 0.5rem 0; 
+            color: #059669; background: #d1fae5; display: inline-block;
+            padding: 0.3rem 0.8rem; border-radius: 20px;
+        }
+        .timer.danger { color: #dc2626; background: #fee2e2; }
+
+        .enemy-stats {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.6rem 1rem;
+            margin: 0.8rem auto;
+            display: inline-block;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+
         .lobby-panel {
-            max-width: 550px; margin: 1rem auto; padding: 1.5rem;
-            background: #f9f9fb; border-radius: 12px;
+            max-width: 550px; margin: 1rem auto; padding: 2rem;
+            background: #f8fafc; border-radius: 16px;
+            border: 1px solid #e2e8f0;
         }
         .open-games-table, .rating-table {
             width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem;
         }
         .open-games-table th, .open-games-table td,
         .rating-table th, .rating-table td {
-            padding: 0.5rem; border-bottom: 1px solid #eee; text-align: left;
+            padding: 0.6rem 0.5rem; border-bottom: 1px solid #e2e8f0; text-align: left;
         }
-        .open-games-table th, .rating-table th { background: #f5f5f5; }
-        .tabs {
-            display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
-            border-bottom: 2px solid #eee; padding-bottom: 0.5rem;
-        }
-        .tab {
-            background: none; border: none; padding: 0.5rem 1rem;
-            font-size: 1rem; cursor: pointer; border-radius: 4px 4px 0 0;
-        }
-        .tab.active { background: var(--color-primary); color: white; }
+        .open-games-table th, .rating-table th { background: #f1f5f9; color: #475569; font-weight: 600; }
+        
         .back-link {
-            display: inline-block; margin-top: 1rem;
-            color: var(--color-primary); text-decoration: none;
+            display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 1.5rem;
+            color: #64748b; text-decoration: none; font-weight: 600; transition: color 0.2s;
         }
-        .timer { font-size: 1.2rem; font-weight: bold; margin: 0.5rem 0; }
-        .enemy-stats {
-            background: #f9fafb;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            margin: 0.5rem auto;
-            display: inline-block;
-            font-size: 0.9rem;
+        .back-link:hover { color: #3b82f6; }
+
+        @media (max-width: 750px) {
+            .board-grid {
+                grid-template-columns: repeat(10, 28px);
+                grid-template-rows: repeat(10, 28px);
+            }
+            .cell { width: 28px; height: 28px; }
+            .cell.hit::after { font-size: 22px; }
         }
     </style>
 </head>
 <body>
 <div class="battleship-game" id="game-container">
-    <h2>🚢 Морской бой</h2>
+    <h2 style="margin-bottom: 0.5rem; color: #1e293b;">🚢 Морской бой</h2>
     <div class="tabs">
         <button class="tab active" data-tab="game">Игра</button>
         <button class="tab" data-tab="rating-pvp">Рейтинг PvP</button>
@@ -148,7 +283,7 @@
 
         auth.onAuthStateChanged(async user => {
             if (!user) {
-                gameContainer.innerHTML = '<p>Войдите, чтобы играть. <a href="../login.html?redirect=games/battleship.html">Войти</a></p>';
+                gameContainer.innerHTML = '<div class="lobby-panel"><p>Войдите, чтобы играть.</p><a href="../login.html?redirect=games/battleship.html" class="btn">Войти</a></div>';
                 return;
             }
             currentUser = user;
@@ -172,7 +307,7 @@
 
         function showToast(msg, type = 'info') {
             if (typeof window.showToast === 'function') window.showToast(msg, type);
-            else console.log(msg);
+            else console.log(`[${type.toUpperCase()}] ${msg}`);
         }
 
         // ========== ЛОББИ ==========
@@ -186,15 +321,15 @@
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
                     <h3>Морской бой</h3>
-                    <p>Сыграйте с коллегой или компьютером!</p>
-                    <button class="btn" id="create-pvp-btn">Играть с другом</button>
-                    <button class="btn" id="play-ai-btn">Играть с компьютером</button>
-                    <div style="margin-top:1rem;">
-                        <input type="text" id="join-game-id" placeholder="ID игры" style="padding:0.5rem; width:200px;">
+                    <p style="color:#64748b; margin-bottom:1.5rem;">Сыграйте с коллегой или компьютером!</p>
+                    <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+                        <button class="btn" id="create-pvp-btn">👥 Играть с другом</button>
+                        <button class="btn" id="play-ai-btn">🤖 Играть с компьютером</button>
+                   8px; width:100%; max-width:200px; border:1px solid #cbd5e1; border-radius:8px;">
                         <button class="btn" id="join-game-btn">Присоединиться</button>
                     </div>
-                    <h4 style="margin-top:1.5rem;">Открытые игры</h4>
-                    <div id="open-games-list"><p>Загрузка...</p></div>
+                    <h4 style="margin-top:1.5rem; color:#475569;">Открытые игры</h4>
+                    <div id="open-games-list"><p style="color:#94a3b8;">Загрузка...</p></div>
                 </div>
             `;
 
@@ -210,13 +345,13 @@
                 .onSnapshot(snapshot => {
                     const list = document.getElementById('open-games-list');
                     if (!list) return;
-                    if (snapshot.empty) { list.innerHTML = '<p>Нет открытых игр.</p>'; return; }
-                    let html = '<table class="open-games-table"><thead><tr><th>Создатель</th><th>Создана</th><th></th></tr></thead><tbody>';
+                    if (snapshot.empty) { list.innerHTML = '<p style="color:#94a3b8;">Нет открытых игр.</p>'; return; }
+                    let html = '<table class="open-games-table"><thead><tr><th>Создатель</th><th>Время</th><th></th></tr></thead><tbody>';
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         const creator = data.players[Object.keys(data.players)[0]]?.username || 'Игрок';
-                        const time = data.createdAt ? new Date(data.createdAt.seconds*1000).toLocaleTimeString('ru-RU') : '';
-                        html += `<tr><td>${creator}</td><td>${time}</td><td><button class="btn btn-small join-open-btn" data-id="${doc.id}">Войти</button></td></tr>`;
+                        const time = data.createdAt ? new Date(data.createdAt.seconds*1000).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : '';
+                        html += `<tr><td>${creator}</td><td>${time}</td><td><button class="btn join-open-btn" style="padding:0.3rem 0.8rem; font-size:0.85rem;" data-id="${doc.id}">Войти</button></td></tr>`;
                     });
                     html += '</tbody></table>';
                     list.innerHTML = html;
@@ -226,7 +361,7 @@
 
         // ========== РЕЙТИНГИ ==========
         async function showRating(mode) {
-            gameContainer.innerHTML = '<p>Загрузка рейтинга...</p>';
+            gameContainer.innerHTML = '<p style="padding:2rem; color:#64748b;">Загрузка рейтинга...</p>';
             try {
                 const snap = await db.collection('users').get();
                 const players = [];
@@ -238,14 +373,14 @@
                     if (wins > 0) players.push({ username: d.username || 'Аноним', wins });
                 });
                 players.sort((a,b) => b.wins - a.wins);
-                let html = `<h3>${mode === 'pvp' ? '🏆 Лучшие адмиралы (PvP)' : '🤖 Лучшие адмиралы (PvE)'}</h3>`;
+                let html = `<h3 style="margin-top:1rem; color:#334155;">${mode === 'pvp' ? '🏆 Лучшие адмиралы (PvP)' : '🤖 Лучшие адмиралы (PvE)'}</h3>`;
                 if (players.length) {
                     html += '<table class="rating-table"><thead><tr><th>#</th><th>Игрок</th><th>Побед</th></tr></thead><tbody>';
-                    players.forEach((p,i) => html += `<tr><td>${i+1}</td><td>${p.username}</td><td>${p.wins}</td></tr>`);
+                    players.slice(0, 15).forEach((p,i) => html += `<tr><td>${i+1}</td><td>${p.username}</td><td><strong>${p.wins}</strong></td></tr>`);
                     html += '</tbody></table>';
-                } else html += '<p>Пока нет победителей.</p>';
+                } else html += '<p style="color:#94a3b8; margin-top:1rem;">Пока нет победителей.</p>';
                 gameContainer.innerHTML = html;
-            } catch (e) { gameContainer.innerHTML = '<p>Ошибка загрузки рейтинга.</p>'; }
+            } catch (e) { gameContainer.innerHTML = '<p style="color:#ef4444; padding:2rem;">Ошибка загрузки рейтинга.</p>'; }
         }
 
         // ========== АВТО-ВОССТАНОВЛЕНИЕ ==========
@@ -441,10 +576,10 @@
         function renderWaitingScreen() {
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
-                    <h3>Ожидание соперника...</h3>
-                    <p>ID игры: <strong>${gameId}</strong></p>
-                    <p>Поделитесь этим ID с коллегой, чтобы он присоединился.</p>
-                    <button class="btn" id="cancel-game-btn">Отменить игру</button>
+                    <h3>⏳ Ожидание соперника...</h3>
+                    <p style="font-size:1.1rem; margin:1rem 0;">ID игры: <strong style="color:#3b82f6; font-size:1.3rem; letter-spacing:1px;">${gameId}</strong></p>
+                    <p style="color:#64748b;">Поделитесь этим ID с коллегой, чтобы он присоединился.</p>
+                    <button class="btn btn-cancel" id="cancel-game-btn" style="margin-top:1rem;">Отменить игру</button>
                 </div>
             `;
             document.getElementById('cancel-game-btn').addEventListener('click', cancelGame);
@@ -475,8 +610,8 @@
             if (el) {
                 const mins = Math.floor(setupSecondsLeft / 60);
                 const secs = setupSecondsLeft % 60;
-                el.textContent = `Осталось: ${mins}:${secs.toString().padStart(2,'0')}`;
-                if (setupSecondsLeft < 30) el.style.color = 'red';
+                el.textContent = `⏱️ Осталось: ${mins}:${secs.toString().padStart(2,'0')}`;
+                if (setupSecondsLeft < 30) el.classList.add('danger');
             }
         }
 
@@ -545,14 +680,14 @@
             const isReady = myData?.ready;
 
             if (isReady) {
-                gameContainer.innerHTML = `<h3>Расстановка завершена</h3><p>Ожидание соперника...</p>${renderMyBoard(true)}`;
+                gameContainer.innerHTML = `<h3>✅ Расстановка завершена</h3><p style="color:#64748b;">Ожидание соперника...</p>${renderMyBoard(true)}`;
                 return;
             }
 
             if (remainingShips.length === 0) {
-                gameContainer.innerHTML = `<h3>Расстановка завершена</h3>${renderMyBoard(false)}
-                <div style="margin-top:0.5rem;">
-                    <button class="btn" id="ready-btn">Готов</button>
+                gameContainer.innerHTML = `<h3>✅ Все корабли расставлены</h3>${renderMyBoard(false)}
+                <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center;">
+                    <button class="btn" id="ready-btn">Готов к бою!</button>
                     <button class="btn btn-cancel" id="undo-last-btn">↩ Отменить последний</button>
                 </div>`;
                 document.getElementById('ready-btn').addEventListener('click', readyUp);
@@ -560,24 +695,24 @@
                 return;
             }
 
-            let shipHtml = '<div class="ship-selection"><span>Выберите корабль:</span>';
+            let shipHtml = '<div class="ship-selection"><span style="color:#475569; font-weight:600;">Выберите корабль:</span>';
             remainingShips.forEach((size, idx) => {
-                shipHtml += `<button class="ship-btn ${idx === selectedShipIndex ? 'active' : ''}" data-index="${idx}">${'█'.repeat(size)} (${size})</button>`;
+                shipHtml += `<button class="ship-btn ${idx === selectedShipIndex ? 'active' : ''}" data-index="${idx}">${'■'.repeat(size)} (${size})</button>`;
             });
             shipHtml += '</div>';
 
             let html = `
-                <h3>Расставьте корабли</h3>
+                <h3>🚢 Расставьте корабли</h3>
                 <div class="timer" id="setup-timer"></div>
                 ${shipHtml}
-                <div>
-                    <button class="btn orientation-btn ${orientation === 'horizontal' ? 'active' : ''}" data-orientation="horizontal">Горизонтально</button>
-                    <button class="btn orientation-btn ${orientation === 'vertical' ? 'active' : ''}" data-orientation="vertical">Вертикально</button>
+                <div style="margin:0.5rem 0;">
+                    <button class="btn orientation-btn ${orientation === 'horizontal' ? 'active' : ''}" data-orientation="horizontal" style="background:#64748b;">↔ Горизонтально</button>
+                    <button class="btn orientation-btn ${orientation === 'vertical' ? 'active' : ''}" data-orientation="vertical" style="background:#64748b;">↕ Вертикально</button>
                 </div>
                 <div class="board-wrapper"><h4>Ваше поле</h4>${renderMyBoard(false)}</div>
-                <div style="margin-top:0.5rem;">
+                <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center;">
                     <button class="btn" id="ready-btn" disabled>Готов</button>
-                    <button class="btn btn-cancel" id="undo-last-btn" ${myShips.length === 0 ? 'disabled' : ''}>↩ Отменить последний</button>
+                    <button class="btn btn-cancel" id="undo-last-btn" ${myShips.length === 0 ? 'disabled' : ''}>↩ Отменить</button>
                 </div>
             `;
             gameContainer.innerHTML = html;
@@ -657,6 +792,19 @@
             return { aliveShips: aliveShips.length, aliveCells };
         }
 
+        // Помощник для определения, является ли клетка частью потопленного корабля
+        function getSunkShipCells(ships, shots) {
+            const sunkCells = new Set();
+            const hitShots = shots.filter(s => s.hit);
+            for (const ship of ships) {
+                const isSunk = ship.every(cell => hitShots.some(s => s.row === cell.row && s.col === cell.col));
+                if (isSunk) {
+                    ship.forEach(cell => sunkCells.add(`${cell.row},${cell.col}`));
+                }
+            }
+            return sunkCells;
+        }
+
         function restoreAutoMisses() {
             const opponentUid = getOpponentUid();
             const ships = parseShips(gameData.players[opponentUid].shipsData);
@@ -701,9 +849,12 @@
 
             gameContainer.innerHTML = `
                 <div class="boards-container">
-                    <div class="board-wrapper"><h4>Ваше поле</h4>${renderMyBoardForBattle(opponentShots)}</div>
                     <div class="board-wrapper">
-                        <h4>Поле соперника</h4>
+                        <h4>🛡️ Ваше поле</h4>
+                        ${renderMyBoardForBattle(opponentShots)}
+                    </div>
+                    <div class="board-wrapper">
+                        <h4>🎯 Поле соперника</h4>
                         ${renderEnemyBoardForBattle(myTurn)}
                         <div class="enemy-stats">
                             🚢 Кораблей: <strong>${info.aliveShips}</strong> | 
@@ -711,8 +862,8 @@
                         </div>
                     </div>
                 </div>
-                <p class="status-message">${myTurn ? 'Ваш ход!' : 'Ход соперника...'}</p>
-                <button class="btn btn-cancel" id="surrender-btn">Сдаться</button>
+                <p class="status-message">${myTurn ? '🟢 Ваш ход!' : '🔴 Ход соперника...'}</p>
+                <button class="btn btn-cancel" id="surrender-btn">🏳️ Сдаться</button>
             `;
 
             if (myTurn) {
@@ -739,22 +890,32 @@
         }
 
         function renderEnemyBoardForBattle(myTurn) {
+            const opponentUid = getOpponentUid();
+            const oppShips = parseShips(gameData.players[opponentUid].shipsData);
+            const myShots = gameData.shots[currentUser.uid] || [];
+            const sunkCells = getSunkShipCells(oppShips, myShots);
+
             let grid = '';
-            for (let r = 0; r < GRID_SIZE; r++)
+            for (let r = 0; r < GRID_SIZE; r++) {
                 for (let c = 0; c < GRID_SIZE; c++) {
                     let cls = '';
-                    if (enemyBoard[r][c] === 2) cls = 'hit';
+                    const isSunk = sunkCells.has(`${r},${c}`);
+                    
+                    if (isSunk) cls = 'sunk';
+                    else if (enemyBoard[r][c] === 2) cls = 'hit';
                     else if (enemyBoard[r][c] === -1) cls = 'miss';
                     else if (enemyBoard[r][c] === -2) cls = 'auto-miss';
+                    
                     const disabled = !myTurn || enemyBoard[r][c] !== 0 ? 'disabled' : '';
                     grid += `<div class="cell ${cls} ${disabled}" data-row="${r}" data-col="${c}"></div>`;
                 }
+            }
             return `<div class="board-grid" id="enemy-board">${grid}</div>`;
         }
 
         async function makeShot(row, col) {
             if (gameData.turn !== currentUser.uid) return;
-            if (enemyBoard[row][col] !== 0) { showToast('Уже стреляли', 'info'); return; }
+            if (enemyBoard[row][col] !== 0) { showToast('Сюда уже стреляли', 'info'); return; }
 
             const opponentUid = getOpponentUid();
             const oppBoard = parseBoard(gameData.boards[opponentUid]);
@@ -769,9 +930,9 @@
                 ship.every(cell => myShots.some(s => s.row === cell.row && s.col === cell.col && s.hit))
             );
 
-            let toastMsg = hit ? 'Ранил!' : 'Мимо!';
+            let toastMsg = hit ? '🎯 Ранен!' : '💧 Мимо!';
             if (sunkShip) {
-                toastMsg = 'Убил!';
+                toastMsg = '🔥 Убит!';
                 addAutoMissesForShip(sunkShip);
                 if (sunkShip.length === 4) {
                     await db.collection('users').doc(currentUser.uid).update({
@@ -899,7 +1060,7 @@
                 if (typeof addPointsToCurrentUser === 'function') await addPointsToCurrentUser(10, 'battleship');
                 const balance = (userData.lokoin_balance || 0) + 3;
                 await userRef.update({ lokoin_balance: balance });
-                showToast('Победа! +10 баллов, +3 локоина', 'success');
+                showToast('🎉 Победа! +10 баллов, +3 локоина', 'success');
             }
 
             if (typeof checkAndAwardAchievements === 'function') await checkAndAwardAchievements();
@@ -915,9 +1076,11 @@
         function renderFinishedScreen() {
             const winner = gameData.winner === currentUser.uid ? 'Вы' : (gameData.players[gameData.winner]?.username || 'Соперник');
             gameContainer.innerHTML = `
-                <h3>${gameData.winner === currentUser.uid ? '🎉 Победа!' : '😞 Поражение'}</h3>
-                <p>Победитель: <strong>${winner}</strong></p>
-                <button class="btn" id="new-game-btn">Новая игра</button>
+                <div class="lobby-panel" style="animation: popIn 0.5s ease;">
+                    <h3 style="font-size:2rem; margin-bottom:1rem;">${gameData.winner === currentUser.uid ? '🎉 Победа!' : '😞 Поражение'}</h3>
+                    <p style="font-size:1.2rem; margin-bottom:1.5rem;">Победитель: <strong style="color:#3b82f6;">${winner}</strong></p>
+                    <button class="btn" id="new-game-btn" style="font-size:1.1rem; padding:0.8rem 2rem;">🔄 Новая игра</button>
+                </div>
             `;
             document.getElementById('new-game-btn').addEventListener('click', () => {
                 if (unsubscribeGame) { unsubscribeGame(); unsubscribeGame = null; }
@@ -953,27 +1116,22 @@
             await handleGameEnd(opponentUid);
         }
 
-        // Обработчик закрытия вкладки с попыткой сохранить статистику
         window.addEventListener('beforeunload', () => {
             if (unsubscribeGame) unsubscribeGame();
             if (unsubscribeOpenGames) unsubscribeOpenGames();
             clearSetupTimer();
-            // Если игра активна и не завершена, пытаемся сохранить поражение
             if (gameId && gameData && gameData.status === 'active' && auth.currentUser) {
                 const opponentUid = getOpponentUid();
-                // Помечаем игру как завершённую из-за выхода
                 db.collection('battles').doc(gameId).update({
                     status: 'finished',
                     winner: opponentUid,
                     abandoned: true,
                     abandonedBy: auth.currentUser.uid
                 }).catch(() => {});
-                // Записываем поражение в статистику (без очков)
                 const mode = isAI ? 'pve' : 'pvp';
                 db.collection('users').doc(auth.currentUser.uid).update({
                     [`battleshipStats.${mode}Losses`]: firebase.firestore.FieldValue.increment(1)
                 }).catch(() => {});
-                // Сбрасываем стрик побед
                 db.collection('users').doc(auth.currentUser.uid).update({
                     'battleshipStats.currentWinStreak': 0
                 }).catch(() => {});
