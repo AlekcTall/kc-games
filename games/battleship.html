@@ -11,9 +11,9 @@
             --water-dark: #7aa1c9;
             --ship-color: #4a5568;
             --ship-border: #2d3748;
-            --hit-color: #e53e3e;
+            --hit-color: #ef4444;
             --miss-color: #ffffff;
-            --sunk-color: #742a2a;
+            --sunk-color: #7f1d1d;
         }
 
         .battleship-game {
@@ -69,20 +69,24 @@
             width: 32px; height: 32px;
             background: rgba(255, 255, 255, 0.15);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
+            cursor: default;
+            transition: background 0.15s, transform 0.1s;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .cell:hover:not(.disabled) {
-            background: rgba(255, 255, 255, 0.3);
+
+        /* КУРСОР-ПРИЦЕЛ И ПОДСВЕТКА ДЛЯ ПОЛЯ ПРОТИВНИКА */
+        #enemy-board .cell:not(.disabled) {
+            cursor: crosshair;
+        }
+        #enemy-board .cell:not(.disabled):hover {
+            background: rgba(239, 68, 68, 0.25) !important;
             transform: scale(1.05);
             z-index: 2;
+            border-color: rgba(239, 68, 68, 0.5);
         }
-        .cell.disabled { cursor: default; }
-        .cell.disabled:hover { transform: none; background: rgba(255, 255, 255, 0.15); }
 
         /* Отрисовка корабля (палуба) */
         .cell.ship {
@@ -90,7 +94,6 @@
             border: 1px solid #1a202c;
             box-shadow: inset 0 1px 3px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3);
         }
-        /* Деталь палубы (полоска/заклёпки) */
         .cell.ship::before {
             content: '';
             position: absolute;
@@ -101,51 +104,58 @@
             border-radius: 1px;
         }
 
-        /* Анимация попадания */
+        /* КРУПНЫЕ И ЧЕТКИЕ МАРКЕРЫ */
         .cell.hit::after {
-            content: '✕';
+            content: '✖';
             color: var(--hit-color);
-            font-size: 26px;
+            font-size: 32px; /* Крупный размер */
             font-weight: 900;
+            line-height: 32px; /* Идеальное центрирование по высоте клетки */
             text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+
+        .cell.miss::after, .cell.auto-miss::after {
+            content: '●';
+            color: var(--miss-color);
+            font-size: 26px;
+            line-height: 32px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            animation: fadeDrop 0.4s ease-out;
+        }
+        .cell.auto-miss::after {
+            font-size: 18px;
+            opacity: 0.6;
+        }
+
         @keyframes popIn {
             0% { transform: scale(0) rotate(-45deg); opacity: 0; }
             70% { transform: scale(1.2) rotate(10deg); }
             100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
-
-        /* Анимация промаха */
-        .cell.miss::after, .cell.auto-miss::after {
-            content: '•';
-            color: var(--miss-color);
-            font-size: 28px;
-            font-weight: 900;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            animation: fadeDrop 0.5s ease-out;
-        }
-        .cell.auto-miss::after { font-size: 16px; opacity: 0.6; }
         @keyframes fadeDrop {
             0% { transform: scale(0); opacity: 0; }
-            50% { transform: scale(1.5); opacity: 0.8; }
+            50% { transform: scale(1.4); opacity: 0.8; }
             100% { transform: scale(1); opacity: 1; }
         }
 
-        /* Уничтоженный корабль */
+        /* УНИЧТОЖЕННЫЙ КОРАБЛЬ (очевидный и яркий) */
         .cell.sunk {
-            background: linear-gradient(180deg, #9b2c2c 0%, #742a2a 100%) !important;
-            border-color: #531c1c !important;
+            background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%) !important;
+            border: 2px solid #450a0a !important;
             animation: burn 1.5s infinite alternate;
+            z-index: 1;
         }
         .cell.sunk::after {
-            content: '💥';
-            font-size: 20px;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+            content: '✖';
+            font-size: 26px;
+            color: #fca5a5;
+            line-height: 32px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
         }
         @keyframes burn {
-            0% { box-shadow: inset 0 0 5px rgba(255,100,0,0.5); }
-            100% { box-shadow: inset 0 0 15px rgba(255,50,0,0.8); }
+            0% { box-shadow: inset 0 0 5px rgba(255,100,0,0.6); }
+            100% { box-shadow: inset 0 0 15px rgba(255,50,0,0.9); }
         }
 
         /* Кнопки и UI */
@@ -217,13 +227,18 @@
         }
         .back-link:hover { color: #3b82f6; }
 
+        /* Адаптивность для мобильных */
         @media (max-width: 750px) {
             .board-grid {
                 grid-template-columns: repeat(10, 28px);
                 grid-template-rows: repeat(10, 28px);
             }
             .cell { width: 28px; height: 28px; }
-            .cell.hit::after { font-size: 22px; }
+            .cell.hit::after { font-size: 26px; line-height: 28px; }
+            .cell.miss::after, .cell.auto-miss::after { line-height: 28px; }
+            .cell.miss::after { font-size: 22px; }
+            .cell.auto-miss::after { font-size: 14px; }
+            .cell.sunk::after { font-size: 22px; line-height: 28px; }
         }
     </style>
 </head>
@@ -318,6 +333,7 @@
             clearSetupTimer();
             gameEndProcessed = false;
 
+            // ИСПРАВЛЕН СЛОМАННЫЙ INPUT
             gameContainer.innerHTML = `
                 <div class="lobby-panel">
                     <h3>Морской бой</h3>
@@ -325,7 +341,9 @@
                     <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
                         <button class="btn" id="create-pvp-btn">👥 Играть с другом</button>
                         <button class="btn" id="play-ai-btn">🤖 Играть с компьютером</button>
-                   8px; width:100%; max-width:200px; border:1px solid #cbd5e1; border-radius:8px;">
+                    </div>
+                    <div style="margin-top:1.5rem; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+                        <input type="text" id="join-game-id" placeholder="ID игры" style="padding:0.6rem; width:100%; max-width:200px; border:1px solid #cbd5e1; border-radius:8px; outline:none; font-size:0.95rem;">
                         <button class="btn" id="join-game-btn">Присоединиться</button>
                     </div>
                     <h4 style="margin-top:1.5rem; color:#475569;">Открытые игры</h4>
@@ -792,7 +810,6 @@
             return { aliveShips: aliveShips.length, aliveCells };
         }
 
-        // Помощник для определения, является ли клетка частью потопленного корабля
         function getSunkShipCells(ships, shots) {
             const sunkCells = new Set();
             const hitShots = shots.filter(s => s.hit);
