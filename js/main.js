@@ -134,12 +134,45 @@ function updateAuthUI(firebaseUser) {
   }
 }
 
-// Проверка режима обслуживания
+// Проверка режима обслуживания с кешированием на 10 минут
 async function checkMaintenanceMode() {
   try {
+    const CACHE_KEY = 'krugames_maintenance_cache';
+    const CACHE_TTL = 10 * 60 * 1000; // 10 минут
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < CACHE_TTL) {
+        if (!parsed.data.enabled) return false;
+        const currentUser = getCurrentUser();
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        if (!isAdmin) {
+          document.body.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:#1a1a2e; color:#fff; font-family:'Segoe UI',sans-serif; text-align:center;">
+              <div style="max-width:500px; padding:2rem;">
+                <div style="font-size:3rem; margin-bottom:1rem;">🔧</div>
+                <h2 style="margin-bottom:1rem;">Техническое обслуживание</h2>
+                <p style="font-size:1.1rem; margin-bottom:1.5rem; opacity:0.8;">${parsed.data.message || 'Сайт на техническом обслуживании. Попробуйте зайти позже.'}</p>
+                <a href="login.html" style="color:#4a9eff;">Войти как администратор</a>
+              </div>
+            </div>
+          `;
+          return true;
+        } else {
+          const banner = document.createElement('div');
+          banner.id = 'maintenance-banner';
+          banner.style.cssText = 'background:#f39c12; color:#000; text-align:center; padding:0.5rem; font-weight:600; position:sticky; top:0; z-index:9999;';
+          banner.textContent = '⚠️ Включён режим обслуживания. Обычные пользователи не видят сайт.';
+          document.body.prepend(banner);
+        }
+        return false;
+      }
+    }
+
     const doc = await db.collection('settings').doc('maintenance').get();
-    if (!doc.exists) return false;
-    const data = doc.data();
+    const data = doc.exists ? doc.data() : { enabled: false };
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data }));
+
     if (!data.enabled) return false;
 
     const currentUser = getCurrentUser();
@@ -171,12 +204,34 @@ async function checkMaintenanceMode() {
   }
 }
 
-// Проверка версии кеша
+// Проверка версии кеша с кешированием на 10 минут
 async function checkCacheVersion() {
   try {
+    const CACHE_KEY = 'krugames_cache_version_check';
+    const CACHE_TTL = 10 * 60 * 1000; // 10 минут
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < CACHE_TTL) {
+        // Используем закешированное значение и не делаем запрос
+        const localVersion = localStorage.getItem('krugames_cache_version');
+        if (!localVersion || String(parsed.version) !== String(localVersion)) {
+          // очищаем кеши
+          const sessionKeys = Object.keys(sessionStorage).filter(k => k.startsWith('krugames_'));
+          sessionKeys.forEach(k => sessionStorage.removeItem(k));
+          const localKeys = Object.keys(localStorage).filter(k => k.startsWith('krugames_') && k !== 'krugames_cache_version');
+          localKeys.forEach(k => localStorage.removeItem(k));
+          localStorage.setItem('krugames_cache_version', parsed.version);
+        }
+        return;
+      }
+    }
+
     const doc = await db.collection('settings').doc('cacheVersion').get();
     if (!doc.exists) return;
     const serverVersion = doc.data().version;
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), version: serverVersion }));
+
     const localVersion = localStorage.getItem('krugames_cache_version');
     if (!localVersion || String(serverVersion) !== String(localVersion)) {
       const sessionKeys = Object.keys(sessionStorage).filter(k => k.startsWith('krugames_'));
@@ -192,8 +247,6 @@ async function checkCacheVersion() {
 
 /**
  * Возвращает массив активных эффектов с информацией для отображения
- * @param {Object} user - объект пользователя (из getCurrentUser())
- * @returns {Array<{id: string, name: string, remainingMs: number, remainingText: string}>}
  */
 function getActiveEffectsInfo(user) {
   if (!user || !user.activeEffects) return [];
@@ -286,19 +339,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.remove('dark-theme');
       }
 
-      if (window._pingInterval) {
-        clearInterval(window._pingInterval);
-        window._pingInterval = null;
-      }
-
+      // Интервал пинга больше не используется — экономим чтения
       if (user && typeof updateLastActive === 'function') {
         updateLastActive(user.uid);
-
-        window._pingInterval = setInterval(() => {
-          if (auth.currentUser && typeof updateLastActive === 'function') {
-            updateLastActive(auth.currentUser.uid);
-          }
-        }, 30000);
       }
     });
   } else {
