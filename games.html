@@ -41,6 +41,7 @@
       const filtersContainer = document.getElementById('games-filters-container');
       const CACHE_KEY = 'krugames_games_cache';
       const SEARCH_KEY = 'krugames_games_search';
+      const CACHE_TTL = 10 * 60 * 1000; // 10 минут
 
       let allGames = [];
       let searchInput;
@@ -99,14 +100,24 @@
         });
       }
 
-      // Загрузка игр из Firestore
+      // Загрузка игр из Firestore с кешированием
       async function loadGames() {
-        const cached = sessionStorage.getItem(CACHE_KEY);
-        if (cached) {
+        const cachedData = sessionStorage.getItem(CACHE_KEY);
+        if (cachedData) {
           try {
-            allGames = JSON.parse(cached);
-            renderGames();
-          } catch (e) { /* игнорируем */ }
+            const parsed = JSON.parse(cachedData);
+            if (Date.now() - parsed.timestamp < CACHE_TTL) {
+              allGames = parsed.games;
+              renderGames();
+            } else {
+              // Кеш устарел – удаляем и показываем скелетоны
+              sessionStorage.removeItem(CACHE_KEY);
+              renderSkeletons();
+            }
+          } catch (e) {
+            sessionStorage.removeItem(CACHE_KEY);
+            renderSkeletons();
+          }
         } else {
           renderSkeletons();
         }
@@ -115,7 +126,7 @@
           const snap = await db.collection('games').get();
           allGames = [];
           snap.forEach(doc => allGames.push({ id: doc.id, ...doc.data() }));
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify(allGames));
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), games: allGames }));
           renderGames();
         } catch (e) {
           console.error('Ошибка загрузки игр:', e);
